@@ -1,0 +1,8 @@
+branch: issue-4-inbound-connector-spi
+project-sha: 4e3743eb28a6721b9882d689efdf6231680ca9b0
+date: 2026-05-28
+issue: 4
+issue-repo: casehubio/connectors
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes:
