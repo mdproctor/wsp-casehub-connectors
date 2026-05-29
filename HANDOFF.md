@@ -2,35 +2,47 @@
 
 ## Last Session
 
-Fleshed out `docs/DESIGN.md` (SPI, ConnectorMessage, config, usage) to fulfil
-the references left by the Audit 4 closure in casehubio/parent#31. Added
-`ConnectorService` — the canonical routing layer over the `Connector` SPI —
-with 6 unit tests using `@All List<Connector>` for CDI-free testing.
-All committed to project main; push still pending (pre-push hook).
+Designed and implemented the full inbound connector SPI (issue #4). Added
+`InboundConnector` (pull-based lifecycle), `WebhookInboundConnector` (standalone,
+no lifecycle), `InboundConnectorService` CDI event bus, sealed `WebhookResult` type,
+and a new `casehub-connectors-webhook` Maven module with `WebhookRouter` + four
+concrete connectors (Slack, Teams, WhatsApp, Twilio SMS). 81 tests. Two code
+review rounds (21 findings total, all resolved). Branch closed, issue #4 closed,
+pushed to `origin/main`.
 
 ## Immediate Next Step
 
-Push the project repo — pre-push hook is blocking. Run `/git-squash` or
-`git push --no-verify` from `/Users/mdproctor/claude/casehub/connectors`.
-Same situation on the garden repo at `/Users/mdproctor/claude/casehub/garden`
-(protocol entry PP-20260526-fe9b64 committed but not pushed).
+Both repos are on `main`. No outstanding work on this repo. Pick from What's Next.
+
+## Cross-Module
+
+**We're blocking:**
+- `casehub-qhorus` — connectors#6 (Qhorus bridge: `InboundMessage` CDI event →
+  `MessageService.dispatch()`) depends on `casehub-connectors-webhook` being published
+
+**Blocked by:**
+- `casehub-qhorus#131` — ChannelBackend SPI must land before connectors#6 (Qhorus
+  bridge) can resolve `externalChannelRef` → Qhorus channel
 
 ## What's Left
 
-- Parent `casehub-connectors.md` still says "no CLAUDE.md yet" — now outdated · XS · Low
+- `casehub-connectors.md` deep-dive and `PLATFORM.md` capability table still say
+  "outbound-only" — parent#89 filed, not yet actioned · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | Wire ConnectorService into casehub-engine or casehub-work for escalation notifications | M | Low | First real consumer — validates SPI end-to-end |
-| — | Additional connectors (Telegram is a candidate) | S | Low | Each follows the same pattern as existing five |
-| — | casehub-openclaw ChannelContextWindow + MessageObserver | L | High | Per the openclaw integration spec in parent/docs/specs/ |
+| #6 | Qhorus bridge — `InboundMessage` CDI event → `MessageService.dispatch()` | M | Med | Blocked on qhorus#131 for channel resolution |
+| #7 | Email inbound — IMAP/SMTP polling, pull-based lifecycle | M | Low | Independent of qhorus block; uses existing `email` module |
+| #8 | v1 polish — double JSON parse in Slack, unused `metadata`, structured security log | S | Low | connectors#8 filed |
+| #2 | Slack `ChannelBackend` (outbound → Qhorus) | L | Med | Blocked on qhorus#131 |
 
 ## References
 
-- `docs/DESIGN.md` — SPI, data model, config, usage
-- `core/src/main/java/io/casehub/connectors/ConnectorService.java`
-- `../parent/docs/specs/2026-05-25-openclaw-casehub-integration.md` — openclaw integration spec
-- Garden: `GE-20260526-1653dc` (@All List CDI technique), `GE-20260526-27301b` (OpenClaw/Baileys tier distinction)
-- Protocol: `PP-20260526-fe9b64` — ConnectorService is the caller API, not Instance&lt;Connector&gt;
+- `docs/specs/2026-05-29-inbound-connector-spi-design.md` — final spec (rev 3)
+- `docs/adr/0001-inbound-connector-type-separation.md` — pull vs webhook type decision
+- `docs/DESIGN.md` — updated with inbound SPI, module structure, data model
+- `webhook/src/main/java/io/casehub/connectors/webhook/` — four concrete connectors
+- Garden: GE-20260529-ab148d (CDI @Inject on multiple constructors), GE-20260529-c1e783 (dual-constructor CDI pattern), GE-20260529-709049 (sealed nested records), GE-20260529-d57945 (JAX-RS header case)
+- Protocols: PP-20260529-7b94ab (inbound connector type separation), PP-20260529-b7765c (webhook HMAC constant-time)
