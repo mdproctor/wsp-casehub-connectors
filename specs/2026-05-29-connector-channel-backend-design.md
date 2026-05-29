@@ -381,6 +381,10 @@ post(channelRef, message):
 This is a small static method, not a SPI. A SPI is overkill until a use case for custom titles
 exists.
 
+// TODO(v2): email threading — proper reply subjects should carry the original In-Reply-To
+// Message-ID header, not just the channel name. Implement when per-connector normaliser
+// lands (v2): the normaliser will have access to original message headers stored in metadata.
+
 ### `open()` / `close()`
 
 `open()` is a no-op. Registration lifecycle is driven by `ChannelInitialisedEvent`.
@@ -517,6 +521,7 @@ void observe(@ObservesAsync InboundMessage msg) {
 - `onChannelInitialised_skips_whenNoBinding` — no binding row → no registration, no cache entry
 - `onChannelInitialised_isIdempotent` — second event for same channel: deregister+register, cache entry overwritten (not duplicated)
 - `onChannelInitialised_capturesStaleBinding` — binding updated externally → cache holds old value until next restart (documents expected stale behaviour; prevents accidental "fix")
+- `@Disabled("v2: cache not invalidated on binding update — enable when ChannelInitialisedEvent fires on update") cacheRefreshesAfterBindingUpdate` — assert that after `outboundDestination` changes on a bound channel, the next `post()` uses the new value without a restart; disabled until v2 fix lands; serves as regression harness
 - `onInboundMessage_routesToReceiveHumanMessage_whenChannelFound`
 - `onInboundMessage_logsWarn_andIncrementsCounter_whenNoChannelFound` — no exception thrown; assert counter incremented
 - `post_sendsViaConnectorService_fromCache`
