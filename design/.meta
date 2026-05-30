@@ -1,0 +1,8 @@
+branch: issue-9-imap-idle-and-attachments
+project-sha: 43b55a9979d3c2657c164b218ee42b8a928ff9b1
+date: 2026-05-30
+issue: 9
+issue-repo: casehubio/connectors
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes:
