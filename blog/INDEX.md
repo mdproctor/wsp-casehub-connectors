@@ -3,3 +3,5 @@
 | File | Date | Title |
 |------|------|-------|
 | [2026-05-29-mdp01-email-arrives-imap-inbound.md](2026-05-29-mdp01-email-arrives-imap-inbound.md) | 2026-05-29 | Email inbound connector: IMAP polling, four spec review rounds, 108 tests, Greenmail API surprises, v1 webhook polish |
+| [2026-05-30-mdp02-inbound-message-bridge.md](2026-05-30-mdp02-inbound-message-bridge.md) | 2026-05-30 | Inbound message bridge: fireAsync, ConnectorChannelBackend, qhorus PR |
+| [2026-05-31-mdp03-imap-idle-and-attachments.md](2026-05-31-mdp03-imap-idle-and-attachments.md) | 2026-05-31 | IMAP IDLE replaces polling, attachment support, Jakarta Activation DCH gotcha |
