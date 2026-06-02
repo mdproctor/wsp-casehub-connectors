@@ -1,0 +1,8 @@
+branch: issue-12-imap-idle-timing
+project-sha: 701be765f34e52b07d2a2b450235a0d3eaec8533
+date: 2026-06-02
+issue: 12
+issue-repo: casehubio/connectors
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes:
