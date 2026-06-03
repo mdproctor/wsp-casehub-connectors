@@ -2,11 +2,11 @@
 
 ## Last Session
 
-Planning session. Filed connectors#13 (migrate DESIGN.md → ARC42STORIES.MD) and
-parent#132 (extend arc42stories spec with Application/Foundation/Extension tier
-taxonomy). Branch hygiene: 5 branches stamped closed, main pushed to origin (had
-been 2 commits behind since the IMAP work), zombie worktree process killed and
-removed. Full build passed clean — all 17 email-inbound tests, no IDLE flakiness.
+connectors#12 fixed and shipped. Hybrid approach: five content/parsing tests converted to
+`deliverDirect()` + start-after (deterministic Path A); remaining SMTP-after-start tests
+use Awaitility `atMost(5s)` with `@Timeout(10)` headroom. All 17 tests deterministic.
+Squashed to 2 commits on casehubio/connectors main. Filed connectors#14 (Minor finding:
+convert `singlePlainTextMessage_deliveredWithCorrectFields` to `deliverDirect()`).
 
 ## Immediate Next Step
 
@@ -20,7 +20,7 @@ has the section-by-section scope. devtown ARC42STORIES.MD is the structural refe
 
 ## What's Left
 
-- connectors#12 — IDLE test flakiness — build ran clean this session; may be self-resolved or intermittent · XS · Low
+- connectors#14 — convert `singlePlainTextMessage_deliveredWithCorrectFields` to `deliverDirect()` · XS · Low
 - parent#108 — casehub-qhorus.md deep-dive needs connector-backend module · XS · Low
 - parent#109 — casehub-connectors.md fireAsync contract note · XS · Low
 - parent#132 — arc42stories spec: add Application/Foundation/Extension tier taxonomy · M · Med
@@ -35,5 +35,6 @@ has the section-by-section scope. devtown ARC42STORIES.MD is the structural refe
 
 ## References
 
-- Blog: `blog/2026-06-01-mdp04-arc42stories-three-tiers.md`
-- Issues filed this session: connectors#13, parent#132
+- Blog: `blog/2026-06-02-mdp05-fixing-idle-timing-properly.md`
+- Issues filed this session: connectors#14
+- Issues closed: connectors#12
