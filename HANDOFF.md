@@ -21,9 +21,6 @@ has the section-by-section scope. devtown ARC42STORIES.MD is the structural refe
 ## What's Left
 
 - connectors#14 — convert `singlePlainTextMessage_deliveredWithCorrectFields` to `deliverDirect()` · XS · Low
-- parent#108 — casehub-qhorus.md deep-dive needs connector-backend module · XS · Low
-- parent#109 — casehub-connectors.md fireAsync contract note · XS · Low
-- parent#132 — arc42stories spec: add Application/Foundation/Extension tier taxonomy · M · Med
 
 ## What's Next
 
