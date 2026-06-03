@@ -1,0 +1,8 @@
+branch: issue-1-agent-mesh-conformance
+project-sha: e0e56bd34af62474d5df2817c1a77202ff28a3fc
+date: 2026-06-03
+issue: 1
+issue-repo: casehubio/connectors
+flyway-next-v: none
+design-repo: project
+design-section-hashes: b8abb050:## Purpose|26952f39:## Design Principles|b639b9af:## Module Structure|093084c1:## SPI|06e65aa9:## Inbound SPI|14e7da5c:## Data Model|37f210b4:## Configuration|63bfd61a:## Usage|
