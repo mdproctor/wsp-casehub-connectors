@@ -1,0 +1,9 @@
+branch: issue-13-arc42stories
+project-sha: 0dc8a7b
+date: 2026-06-04
+issue: 13
+issue-repo: casehubio/connectors
+covers: 13
+flyway-next-v: none
+design-repo: workspace
+design-section-hashes:
