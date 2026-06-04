@@ -2,44 +2,42 @@
 
 ## Last Session
 
-connectors#1 shipped. Expanded scope from XS doc task to full MCP tool surface:
-`casehub-connectors-mcp` submodule with five `@Tool` beans (`send_slack`, `send_teams`,
-`send_sms`, `send_whatsapp`, `send_email`), `ConnectorMeshBridge` SPI in `core` (no-op
-default, Qhorus bridge deferred to qhorus#249), WhatsApp template + language support.
-16 → 7 commits squashed and pushed to casehubio/connectors main.
+ARC42STORIES.MD fully reconstituted from DESIGN.md, ADRs 0001–0003, blog
+mdp01–mdp06, design/JOURNAL.md, and closed issues #1–#12. All 🔲 sections
+filled: §3 C4Context, §4 layer taxonomy + chapter sequencing, §5 C4Container,
+§6 four runtime scenarios, §8 three inline anti-patterns, §9 C1/C2/C3 with
+C4Component diagrams + §9.4 layer×chapter matrix, §10–§12, §13 expanded
+glossary. Closes #13. Project main (8 unpushed commits from last session's
+MCP work) pushed during epic hygiene.
 
 ## Immediate Next Step
 
-Run `work-start` for connectors#14 — convert `singlePlainTextMessage_deliveredWithCorrectFields`
-to `deliverDirect()`. XS · Low, quick win before starting #13.
+Run `work-end` for branch `issue-13-arc42stories` — squash the workspace
+commits and merge to workspace main. Then start connectors#14 (convert
+`singlePlainTextMessage_deliveredWithCorrectFields` to `deliverDirect()`).
 
 ## Cross-Module
 
 **We're blocking** (Qhorus needs this before bridge can land):
-- `qhorus` — qhorus#249: `ConnectorMeshBridge` impl in `connector-backend`. SPI is in `core`,
-  no-op default ships. Bridge posts `EVENT` to observe channel when case context active. · S · Med
+- `qhorus` — qhorus#249: `ConnectorMeshBridge` impl in `connector-backend`. SPI ships in `core`, no-op default present. · S · Med
 
 **Peer docs outstanding:**
-- parent#168 — sync `casehub-connectors.md` deep-dive + PLATFORM.md for `mcp` module and
-  `ConnectorMeshBridge` SPI. Filed this session. · XS · Low
+- parent#168 — sync `casehub-connectors.md` deep-dive + PLATFORM.md for `mcp` module and `ConnectorMeshBridge` SPI. · XS · Low
 
 ## What's Left
 
-- connectors#14 — convert `singlePlainTextMessage_deliveredWithCorrectFields` to `deliverDirect()` · XS · Low
+- `issue-13-arc42stories` branch — needs `work-end` (squash + merge to main) · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| connectors#14 | Convert test to deliverDirect() | XS | Low | Start here |
-| connectors#13 | Migrate DESIGN.md → ARC42STORIES.MD (foundation tier) | M | Low | devtown ARC42STORIES.MD is structural reference |
+| connectors#14 | Convert `singlePlainTextMessage` test to `deliverDirect()` | XS | Low | Quick win before next feature |
 | connectors#2 | Slack ChannelBackend (outbound → Qhorus) | L | Med | No longer blocked |
 
 ## References
 
-- Blog: `blog/2026-06-04-mdp06-opening-connectors-to-llm-ecosystem.md`
-- Issues filed: connectors#14, qhorus#249, parent#168
-- Issues closed: connectors#1
-- Garden entries: GE-20260604-81a6a6 (@Unremovable cross-module), GE-20260604-917790 (single-pass sanitizer), GE-20260604-2f0889 (@Alternative @All collision)
-- Protocol: PP-20260604-c0a86d (MCP tool exception catch-all)
-- ADR: docs/adr/0003-connector-mesh-bridge-spi-in-core.md
+- ARC42STORIES.MD: workspace root
+- Blog: `blog/2026-06-04-mdp07-what-design-md-doesnt-know.md`
+- ADRs: `docs/adr/0001` – `0003`
+- Issues closed: connectors#13
