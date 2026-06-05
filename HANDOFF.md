@@ -18,8 +18,7 @@ to `deliverDirect()`. XS · Low. Quick win.
 **We're blocking:**
 - `qhorus` — qhorus#249: `ConnectorMeshBridge` impl in `connector-backend`. SPI + no-op default ship in `core`. · S · Med
 
-**Peer docs outstanding:**
-- parent#168 — sync `casehub-connectors.md` deep-dive + PLATFORM.md for `mcp` module and `ConnectorMeshBridge` SPI. · XS · Low
+*Updated: parent#168 closed — removed from peer docs backlog.*
 
 ## What's Next
 
