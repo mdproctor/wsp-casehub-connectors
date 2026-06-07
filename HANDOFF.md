@@ -2,33 +2,42 @@
 
 ## Last Session
 
-Completed work-end for `issue-13-arc42stories`: fixed missing blog entry on branch
-(it had been committed to workspace main during session-wrap but not the branch),
-ran the full work-end close (cherry-pick promotion, blog published to mdproctor.github.io,
-EPIC-CLOSED.md stamped). Garden entry GE-20260605-1f6896 submitted for the cherry-pick
-conflict gotcha.
+Closed connectors#14 (XS — convert `singlePlainTextMessage` to `deliverDirect()`).
+Then closed connectors#2 (connectors-side of Slack ChannelBackend): `SlackBotClient` in new
+`casehub-connectors-slack-bot` module, `InboundConnectorIds.SLACK_INBOUND` constant,
+`slack-ts`/`slack-thread-ts` metadata fields in `SlackInboundConnector`. Two protocols
+captured: `shared-http-client`, `inbound-connector-id-constants`. Design spec promoted
+to `docs/specs/`, blog entry mdp08 published.
 
 ## Immediate Next Step
 
-Run `work-start` for connectors#14 — convert `singlePlainTextMessage_deliveredWithCorrectFields`
-to `deliverDirect()`. XS · Low. Quick win.
+File the qhorus issue for `casehub-qhorus-slack-channel` module (SlackChannelBackend).
+It was deferred at work-end and hasn't been filed yet. Then run `work-start` for that issue.
+
+Scope: `SlackBotBinding`, `SlackBotBindingStore`, `SlackThreadCache`, `SlackInboundNormaliser`,
+`SlackChannelBackend`, `SlackBindingResource`, Flyway migration, `ConnectorChannelBackend`
+WARN→DEBUG change, Flyway location config. Depends on `casehub-connectors-slack-bot` (published).
 
 ## Cross-Module
 
 **We're blocking:**
-- `qhorus` — qhorus#249: `ConnectorMeshBridge` impl in `connector-backend`. SPI + no-op default ship in `core`. · S · Med
+- `qhorus` — qhorus#249: `ConnectorMeshBridge` impl in `connector-backend`. Still open. · S · Med
+- `qhorus` — SlackChannelBackend (issue not yet filed — file first). Depends on `connectors-slack-bot` now in GitHub Packages. · L · Med
 
-*Updated: parent#168 closed — removed from peer docs backlog.*
+## What's Left
+
+- parent#191 — sync `casehub-connectors.md` deep-dive for `slack-bot` module · XS · Low
+- connectors#15 — minor polish: WireMock version in parent pom, missing Retry-After test, apiBaseUrl comment · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| connectors#14 | Convert `singlePlainTextMessage` test to `deliverDirect()` | XS | Low | Start here |
-| connectors#2 | Slack ChannelBackend (outbound → Qhorus) | L | Med | No longer blocked |
+| (new) | casehub-qhorus-slack-channel module — SlackChannelBackend | L | Med | File qhorus issue first |
 
 ## References
 
-- ARC42STORIES.MD: workspace root
-- Blog: `blog/2026-06-04-mdp07-what-design-md-doesnt-know.md` (published)
-- Garden: GE-20260605-1f6896 (work-end cherry-pick conflict gotcha)
+- Spec: `docs/specs/2026-06-06-slack-channel-backend-design.md`
+- Blog: `blog/2026-06-07-mdp08-slack-bot-client.md` (published)
+- ARC42STORIES.MD: workspace root (updated: connectors#14 closed, parent#168 replaced with parent#191)
+- Protocols: `docs/protocols/connectors/` (2 new: shared-http-client, inbound-connector-id-constants)
