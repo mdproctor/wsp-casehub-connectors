@@ -543,6 +543,12 @@ Three decisions captured in ADRs. Only decisions not derivable from reading the 
 
 See `docs/adr/` for full decision records with options considered and consequences.
 
+**Implementation decisions — connectors#2 (2026-06-07):**
+
+- **`casehub-connectors-slack-bot` as a separate submodule, not in `core/`.** `core` is a dependency of every downstream repo; adding a bot-specific HTTP client there pollutes all consumers with a capability most never use. `email-inbound` is the precedent for this split.
+- **Shared `HttpHelper.CLIENT` for bot HTTP calls.** Creating a second `HttpClient` instance produces two independent connection pools with divergent timeout configuration. All outbound HTTP in `casehub-connectors-*` goes through the shared singleton.
+- **`Json.createObjectBuilder()` for JSON payload construction.** Manual `StringBuilder` building is fragile under charset edge cases and diverges from the pattern used across the rest of the codebase. The Jakarta JSON API is already on the classpath.
+
 ---
 
 ## §11 Quality Requirements

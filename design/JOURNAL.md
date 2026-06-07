@@ -1,26 +1,11 @@
-# Design Journal — issue-4-inbound-connector-spi
+# Design Journal — issue-2-slack-channel-backend
 
-### 2026-05-29 · §Module Structure
+### 2026-06-07 · §10
 
-Added `casehub-connectors-webhook` as a third Maven module. It depends on `core` and `quarkus-rest` — the REST dependency is the reason for the split, mirroring the same rationale that made `email` a separate module (quarkus-mailer). Deployments that only need outbound delivery pull in `core` only; the webhook transport is opt-in by classpath presence.
+Three architectural decisions captured in this commit:
 
-### 2026-05-29 · §SPI
+**casehub-connectors-slack-bot as a separate submodule, not an extension of core.** The Slack Bot API client (`SlackBotClient`) lives in its own Maven module rather than in `casehub-connectors-core`. The `core/` module is a dependency of every downstream repo; adding a bot-specific HTTP client there would pollute the classpath of all consumers with a capability most of them don't use. The `email-inbound/` module is the precedent — heavier, purpose-specific inbound infrastructure lives in its own module and activates by classpath presence. Future growth of the bot client (Block Kit, reactions, file uploads) belongs in this module, not in `core/`.
 
-Inbound transport uses two distinct types rather than a unified SPI:
+**Shared HttpHelper.CLIENT for bot HTTP calls.** `SlackBotClient` uses `HttpHelper.CLIENT` (the shared `java.net.http.HttpClient` instance defined in `connectors-core`) rather than creating its own. Creating a second singleton would produce two independent connection pools, two connect-timeout configurations, and inconsistent behaviour across connector types. The shared client already has a 5 s connect timeout and is designed for reuse across all connectors.
 
-- `InboundConnector` — for pull-based connectors (e.g. IMAP). Has `start(InboundMessageSink)/stop()` lifecycle managed by `InboundConnectorService` at Quarkus startup/shutdown.
-- `WebhookInboundConnector` — for push-based (webhook) connectors. No lifecycle methods; the JAX-RS endpoint IS the lifecycle. Does not implement `InboundConnector` — the two are CDI-discovered from separate `@All List<>` injection points.
-
-The unified-SPI approach was considered and rejected: it would have required `final` no-op `start()/stop()` methods on every webhook connector, making the interface contract misleading and `InboundConnectorService.onStart()` call lifecycle methods that have no effect.
-
-### 2026-05-29 · §Data Model
-
-Three new types in `core`:
-
-- `InboundMessage` record — transport metadata only (`connectorId`, `externalSenderId`, `externalChannelRef`, `content`, `receivedAt`, `metadata`). No domain semantics — the connector does not interpret the message. Text-only in v1; media messages yield `content` = media URL or empty string.
-- `WebhookRequest` record — normalised HTTP request for connector `handle()`. Header keys lower-cased at the JAX-RS boundary so connectors use simple `Map.get("x-slack-signature")`. Includes `requestUrl` (required for Twilio HMAC-SHA1 which signs the full URL).
-- `WebhookResult` sealed interface — `Delivered`, `Challenged`, `Ignored`, `Unauthorized`. Exhaustive pattern match in the router prevents missing a case. `Unauthorized` maps to HTTP 200 for POST (suppress retry storms) and HTTP 403 for GET (admin console setup needs a visible failure signal).
-
-### 2026-05-29 · §Design Principles
-
-Inbound transport is decoupled from processing via synchronous CDI `Event<InboundMessage>`. Connectors deliver a message and return immediately — they have no knowledge of what happens next. Observers (the Qhorus bridge in connectors#6, WorkItem routing in work#234) own their dispatch strategy and must not block the CDI fire for longer than Slack's 3-second retry deadline. The `InboundConnectorService.receive()` method is the single CDI event bus for all inbound transports, regardless of whether the message arrived via pull polling or webhook.
+**Jakarta JSON builder for payload construction.** `SlackBotClient.buildPayload()` uses `Json.createObjectBuilder()` from the Jakarta JSON API (already on the classpath via `core/`) rather than `StringBuilder` with `HttpHelper.jsonQuote()`. Manual string building is fragile under charset edge cases and diverges from the pattern used in the rest of the codebase (MCP tools, SlackInboundConnector). The builder approach is consistent, safe, and removes the `HttpHelper` import from `SlackBotClient` entirely — the bot client has no reason to depend on webhook utility code.
