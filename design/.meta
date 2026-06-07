@@ -1,0 +1,9 @@
+branch: issue-15-slack-bot-polish
+project-sha: 33f16e2898a6a238ddd4da9421fab9ff958ac736
+date: 2026-06-07
+issue: 15
+issue-repo: casehubio/connectors
+covers: 15
+flyway-next-v: none
+design-repo: project
+design-section-hashes:
