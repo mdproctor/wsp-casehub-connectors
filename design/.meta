@@ -1,0 +1,9 @@
+branch: issue-16-mcp-slack-bot-tools
+project-sha: a669720ca6ac7a7ae753b39bbc99dcf90a6a4c07
+date: 2026-06-07
+issue: 16
+issue-repo: casehubio/connectors
+covers: 16
+flyway-next-v: none
+design-repo: project
+design-section-hashes: b8abb050:## Purpose|26952f39:## Design Principles|b639b9af:## Module Structure|093084c1:## SPI|06e65aa9:## Inbound SPI|14e7da5c:## Data Model|37f210b4:## Configuration|63bfd61a:## Usage|
