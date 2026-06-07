@@ -570,9 +570,8 @@ See `docs/adr/` for full decision records with options considered and consequenc
 |---|---|---|---|
 | `ConnectorMeshBridge` is a no-op until qhorus#249 lands | Pending integration | Medium | MCP tool deliveries are unobserved in Qhorus channels. No functional breakage — observability is best-effort. Will self-resolve when `qhorus/connector-backend` ships. |
 | Email inbound at-least-once — SEEN flag race on JVM kill | Delivery guarantee | Low | SEEN flag written in `finally`; a JVM kill mid-flag causes redelivery on next start. Documented. Observers must be idempotent. Acceptable for a foundation library. |
-| connectors#14 — `singlePlainTextMessage` test still on SMTP path | Test debt | Low | One email-inbound test uses SMTP where `deliverDirect()` is more appropriate. Not wrong; slightly racy. XS fix. |
 | Pre-provisioned channels only in qhorus bridge v1 | Feature gap | Low | `ConnectorChannelBackend` in qhorus discards inbound messages with no pre-provisioned channel. Auto-creation on first contact requires ACL and rate-limit governance decisions. |
-| parent#168 — `casehub-connectors.md` and PLATFORM.md need sync | Docs debt | Low | Platform docs not yet updated for `mcp` module and `ConnectorMeshBridge` SPI. Filed; not blocking. |
+| parent#191 — `casehub-connectors.md` deep-dive needs `slack-bot` module row | Docs debt | Low | Module Structure table missing `casehub-connectors-slack-bot`. Filed; not blocking. |
 
 ---
 
