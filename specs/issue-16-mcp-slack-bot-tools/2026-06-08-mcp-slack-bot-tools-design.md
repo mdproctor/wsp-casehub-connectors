@@ -101,19 +101,12 @@ silently diverges from connected bridge receivers.
 public List<DiscoveredTarget> listChannels(String token) {
     // GET /api/conversations.list?types=public_channel,private_channel&limit=200
     // Parsed with Json.createReader() — consistent with parseResponse() above it.
-    // Returns empty list if token is blank, HTTP call fails, or Slack returns ok=false.
+    // Returns empty list if HTTP call fails or Slack returns ok=false.
 }
 ```
 
 Parsing uses `Json.createReader()` / `JsonObject.getJsonArray("channels")` — exactly the
-same pattern as `parseResponse()`. No JSONB, no Jackson. Internal parsing types:
-
-```java
-private record ListChannelsResult(boolean ok, List<ChannelSummary> channels, String error) {}
-private record ChannelSummary(String id, String name) {}
-```
-
-These are manually populated from the `JsonObject`:
+same pattern as `parseResponse()`. No JSONB, no Jackson. Maps directly to `DiscoveredTarget`:
 
 ```java
 // Inside listChannels():
@@ -126,7 +119,7 @@ try (var reader = Json.createReader(new StringReader(json))) {
             .map(ch -> new DiscoveredTarget(
                     ch.getString("id"),
                     "#" + ch.getString("name")))
-            .collect(Collectors.toList());
+            .toList();
 } catch (Exception e) {
     LOG.warning("SlackBotClient: listChannels parse error — " + e.getMessage());
     return List.of();
@@ -148,14 +141,15 @@ token config property for discovery.
 @ApplicationScoped
 public class SlackBotDiscovery implements ConnectorDiscovery {
 
-    @ConfigProperty(name = "casehub.connectors.slack-bot.token", defaultValue = "")
-    String botToken;
-
     private final SlackBotClient slackBotClient;
+    private final String botToken;
 
     @Inject
-    SlackBotDiscovery(SlackBotClient slackBotClient) {
+    SlackBotDiscovery(SlackBotClient slackBotClient,
+                      @ConfigProperty(name = "casehub.connectors.slack-bot.token",
+                                      defaultValue = "") String botToken) {
         this.slackBotClient = slackBotClient;
+        this.botToken = botToken;
     }
 
     @Override
@@ -163,14 +157,14 @@ public class SlackBotDiscovery implements ConnectorDiscovery {
 
     @Override
     public List<DiscoveredTarget> discover() {
-        if (botToken == null || botToken.isBlank()) return List.of();
+        if (botToken.isBlank()) return List.of();
         return slackBotClient.listChannels(botToken);
     }
 }
 ```
 
-Blank-token fast-fail: returns empty list without an HTTP round-trip. This is consistent with
-the pattern established in `SlackChannelBackend.post()`.
+`botToken` is a constructor parameter — immutable after construction, no field injection.
+Blank-token fast-fail: returns empty list without an HTTP round-trip.
 
 `SlackBotDiscovery` is separate from `SlackBotClient` because `botToken` is MCP-deployment-
 specific configuration that is noise in a shared HTTP client bean also used by Qhorus (which
@@ -187,16 +181,17 @@ threading concept; forcing bot posting through it would discard the `ts`.
 @ApplicationScoped
 public class SlackBotMcpTool {
 
-    @ConfigProperty(name = "casehub.connectors.slack-bot.token", defaultValue = "")
-    String botToken;
-
     private final SlackBotClient slackBotClient;
     private final ConnectorMeshBridge meshBridge;
+    private final String botToken;
 
     @Inject
-    SlackBotMcpTool(SlackBotClient slackBotClient, ConnectorMeshBridge meshBridge) {
+    SlackBotMcpTool(SlackBotClient slackBotClient, ConnectorMeshBridge meshBridge,
+                    @ConfigProperty(name = "casehub.connectors.slack-bot.token",
+                                    defaultValue = "") String botToken) {
         this.slackBotClient = slackBotClient;
         this.meshBridge = meshBridge;
+        this.botToken = botToken;
     }
 
     @Tool(name = "send_slack_bot",
@@ -376,20 +371,22 @@ All in package `io.casehub.connectors.slack.bot`. WireMock stubs `GET /api/conve
 
 ### `SlackBotDiscoveryTest`
 
-Unit tests in `io.casehub.connectors.slack.bot`. Uses `WireMock` for HTTP via `SlackBotClient`
-with `apiBaseUrl` set directly.
+Unit tests in `io.casehub.connectors.slack.bot`. Constructs via
+`new SlackBotDiscovery(client, "xoxb-test")`. Uses WireMock for HTTP with `apiBaseUrl`
+set directly on `SlackBotClient`.
 
-- `discover_delegatesToClient_withConfiguredToken` — `botToken` = test value; stubs
-  `conversations.list`; verifies `SlackBotClient.listChannels()` called with that token.
-- `discover_blankToken_returnsEmptyListWithoutHttpCall` — `botToken = ""`; verifies
-  `slackBotClient.listChannels()` is NOT called.
+- `discover_delegatesToClient_withConfiguredToken` — stubs `conversations.list`; verifies
+  `DiscoveredTarget` list is returned with the correct values.
+- `discover_blankToken_returnsEmptyListWithoutHttpCall` — constructs with `""` token;
+  verifies `listChannels()` is NOT called (no HTTP stub needed).
 - `connectorId_returnsSlackBotId` — verifies `connectorId()` returns `SlackBotClient.ID`.
 
 ### `SlackBotMcpToolTest`
 
 In package `io.casehub.connectors.slack.bot` (in `mcp` module test sources) to access
-`apiBaseUrl` and `botToken` package-private fields on `SlackBotClient` and `SlackBotMcpTool`.
-Uses WireMock and `RecordingBridge`.
+`SlackBotClient.apiBaseUrl` package-private field. `botToken` is passed directly to the
+constructor: `new SlackBotMcpTool(client, bridge, "xoxb-test")`. Uses WireMock and
+`RecordingBridge`.
 
 - `sendSlackBot_success_returnsPostedWithTs`
 - `sendSlackBot_blankToken_returnsFailedWithoutHttpCall` — no WireMock stub needed; asserts
@@ -463,7 +460,8 @@ The following sections of `ARC42STORIES.MD` will be updated at branch close (via
   and `InboundConnectorService(@All List<InboundConnector>)`.
 - `DiscoveredTarget` as top-level record — conventional SPI placement for external
   implementors.
-- `botToken` config property owned by callers (`SlackBotMcpTool`, `SlackBotDiscovery`),
-  not by the shared `SlackBotClient` HTTP client.
+- `botToken` injected via `@ConfigProperty` constructor parameter on both `SlackBotMcpTool`
+  and `SlackBotDiscovery` — immutable after construction, no field injection, tests pass the
+  token directly to `new`. Not on `SlackBotClient` (shared HTTP client used by Qhorus too).
 - `ConnectorMeshBridge.notifyDelivered()` Javadoc updated to include channel IDs as valid
   destination type.
