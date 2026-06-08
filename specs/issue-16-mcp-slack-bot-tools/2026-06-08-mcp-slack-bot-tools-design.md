@@ -99,32 +99,47 @@ silently diverges from connected bridge receivers.
 
 ```java
 public List<DiscoveredTarget> listChannels(String token) {
-    // GET /api/conversations.list?types=public_channel,private_channel&limit=200
-    // Parsed with Json.createReader() — consistent with parseResponse() above it.
-    // Returns empty list if HTTP call fails or Slack returns ok=false.
+    final HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(apiBaseUrl + "/api/conversations.list"
+                    + "?types=public_channel,private_channel&limit=200"))
+            .header("Authorization", "Bearer " + token)
+            .timeout(REQUEST_TIMEOUT)
+            .GET()
+            .build();
+    try {
+        final HttpResponse<String> response =
+                HttpHelper.CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        return parseChannels(response.body());
+    } catch (final InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return List.of();
+    } catch (final Exception e) {
+        LOG.warning("SlackBotClient: listChannels HTTP error — " + e.getMessage());
+        return List.of();
+    }
+}
+
+private List<DiscoveredTarget> parseChannels(String body) {
+    if (body == null || body.isBlank()) return List.of();
+    try (var reader = Json.createReader(new StringReader(body))) {
+        final JsonObject obj = reader.readObject();
+        if (!obj.getBoolean("ok", false)) return List.of();
+        return obj.getJsonArray("channels").stream()
+                .map(v -> v.asJsonObject())
+                .map(ch -> new DiscoveredTarget(
+                        ch.getString("id"),
+                        "#" + ch.getString("name")))
+                .toList();
+    } catch (Exception e) {
+        LOG.warning("SlackBotClient: listChannels parse error — " + e.getMessage());
+        return List.of();
+    }
 }
 ```
 
-Parsing uses `Json.createReader()` / `JsonObject.getJsonArray("channels")` — exactly the
-same pattern as `parseResponse()`. No JSONB, no Jackson. Maps directly to `DiscoveredTarget`:
-
-```java
-// Inside listChannels():
-final String json = response.body();
-try (var reader = Json.createReader(new StringReader(json))) {
-    final JsonObject obj = reader.readObject();
-    if (!obj.getBoolean("ok", false)) return List.of();
-    return obj.getJsonArray("channels").stream()
-            .map(v -> v.asJsonObject())
-            .map(ch -> new DiscoveredTarget(
-                    ch.getString("id"),
-                    "#" + ch.getString("name")))
-            .toList();
-} catch (Exception e) {
-    LOG.warning("SlackBotClient: listChannels parse error — " + e.getMessage());
-    return List.of();
-}
-```
+`GET` request. Same `REQUEST_TIMEOUT` and `HttpHelper.CLIENT` as `postMessage()`. No
+`Content-Type` header (GET has no body). Parsing mirrors `parseResponse()` — `Json.createReader()`,
+no JSONB, no Jackson. Maps directly to `DiscoveredTarget` — no intermediate record types.
 
 `listChannels()` calls `HttpHelper.CLIENT.send()` (blocking). `@Blocking` lives on the MCP
 tool method, not here.
@@ -212,7 +227,7 @@ public class SlackBotMcpTool {
                      required = false)
             String threadTs) {
         try {
-            if (botToken == null || botToken.isBlank()) {
+            if (botToken.isBlank()) {
                 return "Failed: casehub.connectors.slack-bot.token is not configured";
             }
             PostResult result = slackBotClient.postMessage(botToken, channel, text, threadTs);
@@ -358,6 +373,19 @@ All five existing tools call `HttpHelper.CLIENT.send()` through `ConnectorServic
 
 ## Testing
 
+### `McpToolTestSupport` — make public
+
+`McpToolTestSupport` is currently `package-private final class` in `io.casehub.connectors.mcp`.
+`SlackBotMcpToolTest` lives in `io.casehub.connectors.slack.bot` and cannot access a
+package-private class from a different package.
+
+**Fix:** change `McpToolTestSupport` to `public final class` and all inner classes to
+`public static final class`. This is the right long-term choice — `McpToolTestSupport` is a
+shared test utility that any test mixing `mcp` module infrastructure with tests in other
+packages will need. `SlackBotMcpToolTest` is the first but not the last such case.
+
+This is an in-scope change for this branch.
+
 ### `SlackBotClientTest` additions
 
 All in package `io.casehub.connectors.slack.bot`. WireMock stubs `GET /api/conversations.list`.
@@ -378,7 +406,10 @@ set directly on `SlackBotClient`.
 - `discover_delegatesToClient_withConfiguredToken` — stubs `conversations.list`; verifies
   `DiscoveredTarget` list is returned with the correct values.
 - `discover_blankToken_returnsEmptyListWithoutHttpCall` — constructs with `""` token;
-  verifies `listChannels()` is NOT called (no HTTP stub needed).
+  asserts `List.of()` returned AND
+  `wireMock.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()))` — required because
+  without this assertion a removed guard still passes (WireMock unmatched request → error
+  caught → `List.of()` returned via error path).
 - `connectorId_returnsSlackBotId` — verifies `connectorId()` returns `SlackBotClient.ID`.
 
 ### `SlackBotMcpToolTest`
@@ -386,11 +417,14 @@ set directly on `SlackBotClient`.
 In package `io.casehub.connectors.slack.bot` (in `mcp` module test sources) to access
 `SlackBotClient.apiBaseUrl` package-private field. `botToken` is passed directly to the
 constructor: `new SlackBotMcpTool(client, bridge, "xoxb-test")`. Uses WireMock and
-`RecordingBridge`.
+`McpToolTestSupport.RecordingBridge` (now public — see above).
 
 - `sendSlackBot_success_returnsPostedWithTs`
-- `sendSlackBot_blankToken_returnsFailedWithoutHttpCall` — no WireMock stub needed; asserts
-  the return string and that the bridge was NOT called.
+- `sendSlackBot_blankToken_returnsFailedWithoutHttpCall` — no WireMock stub; asserts
+  the return string, bridge NOT called, AND
+  `wireMock.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()))` — the last assertion
+  is required to prove the guard actually prevented the HTTP call, not just that the error
+  path happened to return the correct value.
 - `sendSlackBot_slackReturnsNotOk_returnsFailedNoBridgeCall`
 - `sendSlackBot_networkError_returnsFailedString`
 - `sendSlackBot_withThreadTs_passesThreadTsToClient`
