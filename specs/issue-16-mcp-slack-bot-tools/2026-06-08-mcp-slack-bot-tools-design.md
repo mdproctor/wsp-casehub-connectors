@@ -373,16 +373,38 @@ All five existing tools call `HttpHelper.CLIENT.send()` through `ConnectorServic
 
 ## Testing
 
-### `McpToolTestSupport` — make public
+### `McpToolTestSupport` — make fully public
 
 `McpToolTestSupport` is currently `package-private final class` in `io.casehub.connectors.mcp`.
 `SlackBotMcpToolTest` lives in `io.casehub.connectors.slack.bot` and cannot access a
 package-private class from a different package.
 
-**Fix:** change `McpToolTestSupport` to `public final class` and all inner classes to
-`public static final class`. This is the right long-term choice — `McpToolTestSupport` is a
-shared test utility that any test mixing `mcp` module infrastructure with tests in other
-packages will need. `SlackBotMcpToolTest` is the first but not the last such case.
+Making the type declarations public is necessary but not sufficient. The fields that tests
+assert against and `reset()` are package-private members — they remain inaccessible from
+another package even after the enclosing type is made public:
+
+| Member | Current visibility | After type-only fix |
+|---|---|---|
+| `RecordingBridge.lastConnectorId` | package-private field | ❌ still inaccessible |
+| `RecordingBridge.lastDestination` | package-private field | ❌ still inaccessible |
+| `RecordingBridge.lastContent` | package-private field | ❌ still inaccessible |
+| `RecordingBridge.reset()` | package-private method | ❌ still inaccessible |
+| `RecordingBridge.notifyDelivered()` | public (interface impl) | ✅ accessible |
+| `RecordingConnector.lastMessage` | package-private field | ❌ still inaccessible |
+| `RecordingConnector.reset()` | package-private method | ❌ still inaccessible |
+
+**Complete fix:**
+
+- `McpToolTestSupport` → `public final class`
+- `RecordingBridge` → `public static final class`; `lastConnectorId`, `lastDestination`,
+  `lastContent` → `public` fields; `reset()` → `public` method
+- `RecordingConnector` → `public static final class`; `lastMessage` → `public` field;
+  `reset()` → `public` method; constructor `RecordingConnector(String id)` → `public`
+- `serviceWith()` is accessible once the enclosing class is public (static method, no
+  additional change needed)
+
+`RecordingConnector` members are included for consistency — future cross-package tests will
+need them too.
 
 This is an in-scope change for this branch.
 
