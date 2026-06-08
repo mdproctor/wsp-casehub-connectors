@@ -66,14 +66,15 @@ package is conventional and importable independently.
  * </ul>
  */
 public interface ConnectorDiscovery {
-    String connectorId();
+    String id();
     List<DiscoveredTarget> discover();
 }
 ```
 
 Completely separate from the `Connector` SPI — a connector may implement one, both, or
-neither. `connectorId()` links results to their source connector for `list_channels` output
-formatting.
+neither. `id()` links results to their source connector for `list_channels` output
+formatting. Named `id()` (not `connectorId()`) — consistent with `Connector.id()` and
+`InboundConnector.id()` platform convention.
 
 No pagination contract in the SPI — each implementation decides internally (see Known
 Limitations).
@@ -91,7 +92,7 @@ HTTP client that Qhorus also uses.
 public static final String ID = "slack-bot";
 ```
 
-Mirrors `SlackConnector.ID`, `TeamsConnector.ID`. Used by `SlackBotDiscovery.connectorId()`
+Mirrors `SlackConnector.ID`, `TeamsConnector.ID`. Used by `SlackBotDiscovery.id()`
 and `SlackBotMcpTool`'s bridge call. A renamed constant compiles; a renamed string literal
 silently diverges from connected bridge receivers.
 
@@ -168,7 +169,7 @@ public class SlackBotDiscovery implements ConnectorDiscovery {
     }
 
     @Override
-    public String connectorId() { return SlackBotClient.ID; }
+    public String id() { return SlackBotClient.ID; }
 
     @Override
     public List<DiscoveredTarget> discover() {
@@ -284,11 +285,11 @@ public class ChannelDiscoveryMcpTool {
                 targets = d.discover();
             } catch (Exception e) {
                 LOG.warnf("ConnectorDiscovery[%s] threw: %s",
-                        d.connectorId(), e.getMessage());
+                        d.id(), e.getMessage());
                 continue;
             }
             if (targets.isEmpty()) continue;
-            sb.append(d.connectorId()).append(":\n");
+            sb.append(d.id()).append(":\n");
             for (DiscoveredTarget t : targets) {
                 sb.append("  ").append(t.displayName())
                   .append(" (").append(t.id()).append(")\n");
@@ -432,7 +433,7 @@ set directly on `SlackBotClient`.
   `wireMock.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()))` — required because
   without this assertion a removed guard still passes (WireMock unmatched request → error
   caught → `List.of()` returned via error path).
-- `connectorId_returnsSlackBotId` — verifies `connectorId()` returns `SlackBotClient.ID`.
+- `id_returnsSlackBotId` — verifies `id()` returns `SlackBotClient.ID`.
 
 ### `SlackBotMcpToolTest`
 
