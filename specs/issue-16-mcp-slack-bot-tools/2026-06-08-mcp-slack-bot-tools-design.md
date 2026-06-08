@@ -400,8 +400,8 @@ another package even after the enclosing type is made public:
   `lastContent` → `public` fields; `reset()` → `public` method
 - `RecordingConnector` → `public static final class`; `lastMessage` → `public` field;
   `reset()` → `public` method; constructor `RecordingConnector(String id)` → `public`
-- `serviceWith()` is accessible once the enclosing class is public (static method, no
-  additional change needed)
+- `serviceWith()` — not needed from external packages in current tests (`SlackBotMcpTool`
+  bypasses `ConnectorService` entirely); no change required
 
 `RecordingConnector` members are included for consistency — future cross-package tests will
 need them too.
