@@ -2,7 +2,7 @@
 
 **Issue:** connectors#16  
 **Branch:** issue-16-mcp-slack-bot-tools  
-**Date:** 2026-06-08
+**Date:** 2026-06-08 (revised after code review)
 
 ---
 
@@ -23,91 +23,181 @@ API. The MCP surface has not been updated to reflect this.
 1. Expose `send_slack_bot` — bot-token-based Slack posting that returns the message `ts` for
    thread replies.
 2. Expose `list_channels` — generic channel discovery across all connectors that support it.
-3. Introduce `ConnectorDiscovery` as a reusable SPI so Discord, Telegram, and the planned
-   Quarkus demo chat service can register discoverable targets without a new MCP tool each time.
+3. Introduce `ConnectorDiscovery` and `DiscoveredTarget` as reusable SPIs so Discord,
+   Telegram, and the planned Quarkus demo chat service can register discoverable targets
+   without a new MCP tool each time.
 4. Fix the latent `@Blocking` omission on all existing MCP tools.
 
 ---
 
 ## Design
 
+### `DiscoveredTarget` — `casehub-connectors-core`
+
+Top-level record in `io.casehub.connectors`:
+
+```java
+public record DiscoveredTarget(String id, String displayName) {}
+```
+
+Not nested inside `ConnectorDiscovery`. A nested record inside an interface is valid Java but
+unconventional for a public SPI — external implementors write
+`ConnectorDiscovery.DiscoveredTarget` at every call site. A top-level record in the same
+package is conventional and importable independently.
+
+- `id` — what the agent passes to `send_slack_bot` (e.g. `C123ABC`)
+- `displayName` — human-readable label (e.g. `#general`)
+
 ### `ConnectorDiscovery` SPI — `casehub-connectors-core`
 
 ```java
+/**
+ * Optional SPI for connectors whose delivery targets are discoverable at runtime.
+ *
+ * <p>Implementations are {@code @ApplicationScoped} CDI beans discovered automatically.
+ * The {@code list_channels} MCP tool aggregates all registered implementations.
+ *
+ * <h2>Contract for implementations</h2>
+ * <ul>
+ * <li>Must not throw — exceptions propagate to the MCP tool caller and silence all
+ *     other discoveries. Catch internally and return an empty list on failure.</li>
+ * <li>Must return quickly — no long-running blocking calls without virtual-thread
+ *     offloading.</li>
+ * </ul>
+ */
 public interface ConnectorDiscovery {
     String connectorId();
     List<DiscoveredTarget> discover();
-
-    record DiscoveredTarget(String id, String displayName) {}
 }
 ```
 
-- `@ApplicationScoped` CDI beans, discovered automatically alongside `Connector` beans.
-- Completely separate from the `Connector` SPI — a connector may implement one, both, or neither.
-- `connectorId()` links results to their source connector for `list_channels` output formatting.
-- `DiscoveredTarget.id` is what the agent passes to `send_slack_bot`; `displayName` is the
-  human-readable label (e.g. `#general`).
-- No pagination contract in the SPI — each implementation decides internally.
+Completely separate from the `Connector` SPI — a connector may implement one, both, or
+neither. `connectorId()` links results to their source connector for `list_channels` output
+formatting.
+
+No pagination contract in the SPI — each implementation decides internally (see Known
+Limitations).
 
 ### `SlackBotClient` changes — `casehub-connectors-slack-bot`
 
-**Implements `ConnectorDiscovery`:**
+**`SlackBotClient` remains a pure HTTP client** — token always passed at call time, consistent
+with `postMessage(String token, ...)`. The `casehub-connectors-slack-bot.token` config property
+belongs to callers that need it (`SlackBotMcpTool`, `SlackBotDiscovery`), not to the shared
+HTTP client that Qhorus also uses.
+
+**New constant:**
 
 ```java
-@ApplicationScoped
-public class SlackBotClient implements ConnectorDiscovery {
+public static final String ID = "slack-bot";
+```
 
-    @ConfigProperty(name = "casehub.connectors.slack-bot.token", defaultValue = "")
-    String botToken;   // package-private, like apiBaseUrl
+Mirrors `SlackConnector.ID`, `TeamsConnector.ID`. Used by `SlackBotDiscovery.connectorId()`
+and `SlackBotMcpTool`'s bridge call. A renamed constant compiles; a renamed string literal
+silently diverges from connected bridge receivers.
 
-    @Override
-    public String connectorId() { return "slack-bot"; }
+**New `listChannels` method** — calls `GET /api/conversations.list`:
 
-    @Override
-    public List<DiscoveredTarget> discover() {
-        // GET /api/conversations.list?types=public_channel,private_channel&limit=200
-        // Returns DiscoveredTarget(id, "#" + name) for each channel
-        // Returns empty list if botToken is blank or Slack returns ok=false
-    }
+```java
+public List<DiscoveredTarget> listChannels(String token) {
+    // GET /api/conversations.list?types=public_channel,private_channel&limit=200
+    // Parsed with Json.createReader() — consistent with parseResponse() above it.
+    // Returns empty list if token is blank, HTTP call fails, or Slack returns ok=false.
 }
 ```
 
-**Configured-token `postMessage` overload:**
-
-```java
-public PostResult postMessage(String channelId, String text, String threadTs) {
-    return postMessage(botToken, channelId, text, threadTs);
-}
-```
-
-The existing `postMessage(String token, String channelId, String text, String threadTs)`
-remains unchanged — `casehub-qhorus-slack-channel` passes its own token.
-
-**Internal parsing types** (private nested records):
+Parsing uses `Json.createReader()` / `JsonObject.getJsonArray("channels")` — exactly the
+same pattern as `parseResponse()`. No JSONB, no Jackson. Internal parsing types:
 
 ```java
 private record ListChannelsResult(boolean ok, List<ChannelSummary> channels, String error) {}
 private record ChannelSummary(String id, String name) {}
 ```
 
-`discover()` calls `HttpHelper.CLIENT.send()` (blocking). The `@Blocking` annotation lives on
-the MCP tool method, not on `SlackBotClient` methods.
+These are manually populated from the `JsonObject`:
+
+```java
+// Inside listChannels():
+final String json = response.body();
+try (var reader = Json.createReader(new StringReader(json))) {
+    final JsonObject obj = reader.readObject();
+    if (!obj.getBoolean("ok", false)) return List.of();
+    return obj.getJsonArray("channels").stream()
+            .map(v -> v.asJsonObject())
+            .map(ch -> new DiscoveredTarget(
+                    ch.getString("id"),
+                    "#" + ch.getString("name")))
+            .collect(Collectors.toList());
+} catch (Exception e) {
+    LOG.warning("SlackBotClient: listChannels parse error — " + e.getMessage());
+    return List.of();
+}
+```
+
+`listChannels()` calls `HttpHelper.CLIENT.send()` (blocking). `@Blocking` lives on the MCP
+tool method, not here.
+
+**No `botToken` field. No 3-param `postMessage` overload.** The existing
+`postMessage(String token, String channelId, String text, String threadTs)` is unchanged.
+
+### `SlackBotDiscovery` — `casehub-connectors-slack-bot`
+
+New `@ApplicationScoped` bean. Owns the `ConnectorDiscovery` implementation and the MCP
+token config property for discovery.
+
+```java
+@ApplicationScoped
+public class SlackBotDiscovery implements ConnectorDiscovery {
+
+    @ConfigProperty(name = "casehub.connectors.slack-bot.token", defaultValue = "")
+    String botToken;
+
+    private final SlackBotClient slackBotClient;
+
+    @Inject
+    SlackBotDiscovery(SlackBotClient slackBotClient) {
+        this.slackBotClient = slackBotClient;
+    }
+
+    @Override
+    public String connectorId() { return SlackBotClient.ID; }
+
+    @Override
+    public List<DiscoveredTarget> discover() {
+        if (botToken == null || botToken.isBlank()) return List.of();
+        return slackBotClient.listChannels(botToken);
+    }
+}
+```
+
+Blank-token fast-fail: returns empty list without an HTTP round-trip. This is consistent with
+the pattern established in `SlackChannelBackend.post()`.
+
+`SlackBotDiscovery` is separate from `SlackBotClient` because `botToken` is MCP-deployment-
+specific configuration that is noise in a shared HTTP client bean also used by Qhorus (which
+injects its own token from `casehub.qhorus.slack.bot.token` and passes it at call time).
+Keeping these concerns separate preserves `SlackBotClient` as a pure HTTP client.
 
 ### `SlackBotMcpTool` — `casehub-connectors-mcp`
 
-Injects `SlackBotClient` directly — does not route through `ConnectorService`. The `Connector`
-SPI is void (no return value) and has no threading concept; forcing bot posting through it
-would discard the `ts`.
+Injects `SlackBotClient` directly and the bot token via `@ConfigProperty`. Does not route
+through `ConnectorService` — the `Connector` SPI is void (no return value) and has no
+threading concept; forcing bot posting through it would discard the `ts`.
 
 ```java
 @ApplicationScoped
 public class SlackBotMcpTool {
 
+    @ConfigProperty(name = "casehub.connectors.slack-bot.token", defaultValue = "")
+    String botToken;
+
     private final SlackBotClient slackBotClient;
     private final ConnectorMeshBridge meshBridge;
 
     @Inject
-    SlackBotMcpTool(SlackBotClient slackBotClient, ConnectorMeshBridge meshBridge) { ... }
+    SlackBotMcpTool(SlackBotClient slackBotClient, ConnectorMeshBridge meshBridge) {
+        this.slackBotClient = slackBotClient;
+        this.meshBridge = meshBridge;
+    }
 
     @Tool(name = "send_slack_bot",
           description = "Posts a message to a Slack channel using a configured bot token. "
@@ -117,8 +207,8 @@ public class SlackBotMcpTool {
                       + "'Failed: <reason>' on error.")
     @Blocking
     public String sendSlackBot(
-            @ToolArg(description = "Channel ID (e.g. C123ABC) or name (e.g. #general). "
-                                 + "Use list_channels to discover available channels.")
+            @ToolArg(description = "Slack channel ID (e.g. C123ABC). "
+                                 + "Use list_channels to discover available IDs.")
             String channel,
             @ToolArg(description = "Message text.")
             String text,
@@ -127,11 +217,14 @@ public class SlackBotMcpTool {
                      required = false)
             String threadTs) {
         try {
-            PostResult result = slackBotClient.postMessage(channel, text, threadTs);
+            if (botToken == null || botToken.isBlank()) {
+                return "Failed: casehub.connectors.slack-bot.token is not configured";
+            }
+            PostResult result = slackBotClient.postMessage(botToken, channel, text, threadTs);
             if (!result.ok()) {
                 return "Failed: " + result.error();
             }
-            meshBridge.notifyDelivered("slack-bot", channel,
+            meshBridge.notifyDelivered(SlackBotClient.ID, channel,
                     McpContentSanitizer.sanitize(text));
             return "Posted to " + channel + " (ts=" + result.ts() + ")";
         } catch (Exception e) {
@@ -143,8 +236,17 @@ public class SlackBotMcpTool {
 }
 ```
 
-**Bridge called only on `result.ok()`** — `SlackBotClient` catches HTTP errors internally
-and returns `PostResult(ok=false)`. An ok=false result is not a delivered message.
+**Blank-token guard:** fast-fails before any HTTP call. Slack would return `invalid_auth` if
+called with a blank token — the guard makes the misconfiguration diagnosis immediate.
+
+**Bridge called only on `result.ok()`** — `ok=false` from Slack is not a delivered message.
+
+**`SlackBotClient.ID`** used in the bridge call — not a raw string literal.
+
+**Channel IDs only** — the `@ToolArg` description does not offer channel names. `list_channels`
+returns IDs; agents should use those. Channel names work in some Slack API paths but are
+deprecated in others and require an extra resolution step that `SlackBotClient` does not
+perform.
 
 ### `ChannelDiscoveryMcpTool` — `casehub-connectors-mcp`
 
@@ -152,27 +254,29 @@ and returns `PostResult(ok=false)`. An ok=false result is not a delivered messag
 @ApplicationScoped
 public class ChannelDiscoveryMcpTool {
 
-    private final Iterable<ConnectorDiscovery> discoveries;
+    private final List<ConnectorDiscovery> discoveries;
 
     @Inject
-    ChannelDiscoveryMcpTool(@Any Instance<ConnectorDiscovery> discoveries) {
-        this.discoveries = discoveries;
-    }
-
-    // Package-private — test constructor
-    ChannelDiscoveryMcpTool(Iterable<ConnectorDiscovery> discoveries) {
+    ChannelDiscoveryMcpTool(@All List<ConnectorDiscovery> discoveries) {
         this.discoveries = discoveries;
     }
 
     @Tool(name = "list_channels",
           description = "Lists discoverable channels across all configured connectors "
-                      + "(e.g. Slack Bot). Use the returned IDs when calling send_slack_bot. "
+                      + "(e.g. Slack Bot). Returns channel IDs to use with send_slack_bot. "
                       + "Only connectors with a token configured appear in the output.")
     @Blocking
     public String listChannels() {
         StringBuilder sb = new StringBuilder();
         for (ConnectorDiscovery d : discoveries) {
-            List<DiscoveredTarget> targets = d.discover();
+            List<DiscoveredTarget> targets;
+            try {
+                targets = d.discover();
+            } catch (Exception e) {
+                LOG.warnf("ConnectorDiscovery[%s] threw: %s",
+                        d.connectorId(), e.getMessage());
+                continue;
+            }
             if (targets.isEmpty()) continue;
             sb.append(d.connectorId()).append(":\n");
             for (DiscoveredTarget t : targets) {
@@ -185,16 +289,34 @@ public class ChannelDiscoveryMcpTool {
 }
 ```
 
+**`@All List<ConnectorDiscovery>`** — the Quarkus ARC idiom for collecting SPI beans,
+consistent with `ConnectorService(@All List<Connector>)` and
+`InboundConnectorService(@All List<InboundConnector>)`. Field type is `List<ConnectorDiscovery>`.
+
+**Single constructor.** `@Inject` and `@All` are CDI annotations — they do not prevent
+direct `new` construction in tests. Tests call
+`new ChannelDiscoveryMcpTool(List.of(new StubDiscovery(...)))` directly.
+
+**Per-discovery try/catch** — a buggy or network-impaired `ConnectorDiscovery` must not silence
+all others. Each discovery call is wrapped individually. The SPI Javadoc says "must not throw"
+as the primary contract; this is belt-and-suspenders.
+
 No bridge call — discovery is a read operation.
 
-`Iterable<ConnectorDiscovery>` as the field type accepts both `Instance<ConnectorDiscovery>`
-(CDI) and `List<ConnectorDiscovery>` (test constructor) — both implement `Iterable`.
+### `ConnectorMeshBridge` Javadoc update — `casehub-connectors-core`
+
+The `destination` parameter on `notifyDelivered()` currently says:
+> `webhook URL, E.164 number, or email address`
+
+`send_slack_bot` passes a Slack channel ID (e.g. `C123ABC`). Update to:
+> `delivery target: webhook URL, E.164 number, email address, or channel ID`
+
+This update is in scope for this branch.
 
 ### `send_slack` (webhook) — unchanged
 
 The existing `send_slack` tool remains as-is. It serves a different use case: no bot setup
-required, caller supplies the webhook URL per call. The two tools are complementary, not
-competing.
+required, caller supplies the webhook URL per call. The two tools are complementary.
 
 ### `@Blocking` on existing MCP tools
 
@@ -224,16 +346,17 @@ All five existing tools call `HttpHelper.CLIENT.send()` through `ConnectorServic
 
 | Property | Default | Description |
 |---|---|---|
-| `casehub.connectors.slack-bot.token` | `""` | Bot token (`xoxb-…`). Blank → `discover()` returns empty list; `postMessage` via configured-token overload sends with blank token (Slack returns `invalid_auth`). |
+| `casehub.connectors.slack-bot.token` | `""` | Bot token (`xoxb-…`). Injected independently by `SlackBotMcpTool` and `SlackBotDiscovery`. Blank → fast-fail in `sendSlackBot`; empty list in `discover()`. |
 
 ### Return format
 
 | Scenario | Return |
 |---|---|
-| `send_slack_bot` success | `"Posted to #general (ts=1638535627.000200)"` |
+| `send_slack_bot` success | `"Posted to C123ABC (ts=1638535627.000200)"` |
+| `send_slack_bot` blank token | `"Failed: casehub.connectors.slack-bot.token is not configured"` |
 | `send_slack_bot` Slack error | `"Failed: channel_not_found"` |
 | `send_slack_bot` HTTP/network error | `"Failed: <exception message>"` |
-| `list_channels` with results | Multi-line formatted string (see above) |
+| `list_channels` with results | Multi-line formatted string (see ChannelDiscoveryMcpTool above) |
 | `list_channels` nothing discovered | `"No channels discovered."` |
 
 ---
@@ -242,41 +365,65 @@ All five existing tools call `HttpHelper.CLIENT.send()` through `ConnectorServic
 
 ### `SlackBotClientTest` additions
 
-- `discover_returnsChannelList` — WireMock stubs `GET /api/conversations.list`, verifies
-  `DiscoveredTarget` list with correct id and `#`-prefixed displayName.
-- `discover_blankToken_returnsEmptyList` — sets `botToken = ""`, verifies empty list returned
-  without HTTP call.
-- `discover_slackReturnsNotOk_returnsEmptyList` — WireMock returns `{"ok":false}`.
-- `postMessage_configuredToken_usesStoredToken` — verifies the 3-param overload delegates to
-  the 4-param overload with `botToken`.
+All in package `io.casehub.connectors.slack.bot`. WireMock stubs `GET /api/conversations.list`.
+
+- `listChannels_returnsDiscoveredTargets` — stubs Slack response with two channels; verifies
+  `DiscoveredTarget` list with correct `id` and `#`-prefixed `displayName`.
+- `listChannels_sendsAuthorizationHeader` — verifies `Authorization: Bearer test-token` header
+  is present in the request. Mirrors `postMessage_sendsAuthorizationHeader`.
+- `listChannels_slackReturnsNotOk_returnsEmptyList` — stubs `{"ok":false}`; verifies
+  empty list returned.
+
+### `SlackBotDiscoveryTest`
+
+Unit tests in `io.casehub.connectors.slack.bot`. Uses `WireMock` for HTTP via `SlackBotClient`
+with `apiBaseUrl` set directly.
+
+- `discover_delegatesToClient_withConfiguredToken` — `botToken` = test value; stubs
+  `conversations.list`; verifies `SlackBotClient.listChannels()` called with that token.
+- `discover_blankToken_returnsEmptyListWithoutHttpCall` — `botToken = ""`; verifies
+  `slackBotClient.listChannels()` is NOT called.
+- `connectorId_returnsSlackBotId` — verifies `connectorId()` returns `SlackBotClient.ID`.
 
 ### `SlackBotMcpToolTest`
 
-Lives in package `io.casehub.connectors.slack.bot` (in `mcp` module test sources) to access
-`apiBaseUrl` and `botToken` package-private fields. Uses WireMock and `RecordingBridge`.
+In package `io.casehub.connectors.slack.bot` (in `mcp` module test sources) to access
+`apiBaseUrl` and `botToken` package-private fields on `SlackBotClient` and `SlackBotMcpTool`.
+Uses WireMock and `RecordingBridge`.
 
-- `sendSlackBot_success_returnsPostedWithTs` — stubs Slack to return `ok=true`, verifies
-  return includes `ts`.
-- `sendSlackBot_slackReturnsNotOk_returnsFailedNoBridgeCall` — stubs `ok=false`; bridge must
-  not be called.
+- `sendSlackBot_success_returnsPostedWithTs`
+- `sendSlackBot_blankToken_returnsFailedWithoutHttpCall` — no WireMock stub needed; asserts
+  the return string and that the bridge was NOT called.
+- `sendSlackBot_slackReturnsNotOk_returnsFailedNoBridgeCall`
 - `sendSlackBot_networkError_returnsFailedString`
 - `sendSlackBot_withThreadTs_passesThreadTsToClient`
 - `sendSlackBot_longText_contentTruncatedTo500InBridge`
-- `sendSlackBot_success_bridgeCalledWithConnectorIdChannelAndSanitizedText`
+- `sendSlackBot_success_bridgeCalledWithSlackBotIdChannelAndSanitizedText` — verifies
+  `SlackBotClient.ID`, not a raw string literal, is passed to the bridge.
 
 ### `ChannelDiscoveryMcpToolTest`
 
-Uses package-private test constructor with `List.of(stub)`. `StubDiscovery` inner class
-implementing `ConnectorDiscovery`.
+Tests use the single `@Inject` constructor directly: `new ChannelDiscoveryMcpTool(list)`.
+`StubDiscovery` — inner class implementing `ConnectorDiscovery`.
 
 - `listChannels_singleConnector_formatsOutput`
 - `listChannels_multipleConnectors_formatsAll`
 - `listChannels_emptyDiscover_skipsConnector`
 - `listChannels_noConnectors_returnsNoneDiscovered`
+- `listChannels_discoveryThrows_logsWarnAndContinues` — one discovery throws; verifies
+  the other's results still appear in output.
 
 ### Existing MCP tool tests
 
 No logic changes — verify `@Blocking` addition compiles cleanly (tests continue to pass).
+
+---
+
+## Known Limitations
+
+- `SlackBotClient.listChannels()` requests the first page only (`limit=200`). Large Slack
+  workspaces (Enterprise Grid) may have more than 200 channels — those beyond the first page
+  are silently absent from `list_channels` output. Pagination is deferred to a follow-up issue.
 
 ---
 
@@ -287,12 +434,36 @@ No logic changes — verify `@Blocking` addition compiles cleanly (tests continu
 
 ---
 
+## ARC42STORIES.MD Impact
+
+The following sections of `ARC42STORIES.MD` will be updated at branch close (via journal merge):
+
+- **§5 Building Block View** — add `SlackBotDiscovery`, `SlackBotMcpTool`,
+  `ChannelDiscoveryMcpTool`, `DiscoveredTarget`, `ConnectorDiscovery` SPI to module diagram;
+  update L3 Agent Bridge container
+- **§9.2 Chapter Index** — add new chapter or extend C3 to cover bot MCP tools
+- **§9.4 Layer × Chapter Matrix** — update L1 (ConnectorDiscovery SPI in core) and L3
+  (new MCP tools in mcp)
+- **§10 Architectural Decisions** — add `SlackBotDiscovery` separation rationale and
+  `DiscoveredTarget` top-level placement decision
+- **§12 Risks** — remove parent#191 entry (closed); add pagination known limitation
+
+---
+
 ## Platform Coherence
 
-- `send_slack_bot` calls `meshBridge.notifyDelivered()` on `ok=true` → observe channel
-  receives delivery event consistent with existing tools.
+- `send_slack_bot` calls `meshBridge.notifyDelivered(SlackBotClient.ID, ...)` on `ok=true`
+  using the ID constant, not a raw string.
 - `ConnectorDiscovery` SPI has no external SDK types in its signature.
-- `discover()` uses `HttpHelper.CLIENT` (shared-http-client protocol).
+- `listChannels()` uses `HttpHelper.CLIENT` (shared-http-client protocol).
 - All `@Tool` methods that call blocking HTTP annotated `@Blocking` (GE-20260604-96d82a).
 - No same-name `@Tool` overloads on any class (GE-20260430-b015f5).
 - `@ToolArg(required = false)` for optional `threadTs` (GE-20260414-fa6489).
+- `@All List<ConnectorDiscovery>` — consistent with `ConnectorService(@All List<Connector>)`
+  and `InboundConnectorService(@All List<InboundConnector>)`.
+- `DiscoveredTarget` as top-level record — conventional SPI placement for external
+  implementors.
+- `botToken` config property owned by callers (`SlackBotMcpTool`, `SlackBotDiscovery`),
+  not by the shared `SlackBotClient` HTTP client.
+- `ConnectorMeshBridge.notifyDelivered()` Javadoc updated to include channel IDs as valid
+  destination type.
