@@ -2,42 +2,42 @@
 
 ## Last Session
 
-Closed connectors#14 (XS — convert `singlePlainTextMessage` to `deliverDirect()`).
-Then closed connectors#2 (connectors-side of Slack ChannelBackend): `SlackBotClient` in new
-`casehub-connectors-slack-bot` module, `InboundConnectorIds.SLACK_INBOUND` constant,
-`slack-ts`/`slack-thread-ts` metadata fields in `SlackInboundConnector`. Two protocols
-captured: `shared-http-client`, `inbound-connector-id-constants`. Design spec promoted
-to `docs/specs/`, blog entry mdp08 published.
+Closed connectors#16 (MCP tools for SlackBot): `ConnectorDiscovery` SPI + `DiscoveredTarget`
+record in `core`; `SlackBotClient.ID` + `listChannels()` in `slack-bot`; `SlackBotDiscovery`
+CDI bean; `SlackBotMcpTool` (`send_slack_bot`) + `ChannelDiscoveryMcpTool` (`list_channels`)
+in `mcp`; `@Blocking` fixed on all 7 `@Tool` methods. 190 tests, 0 failures. 5 review rounds
+on the spec. 3 new protocols captured. 2 garden entries submitted. Blog: mdp09.
 
 ## Immediate Next Step
 
-File the qhorus issue for `casehub-qhorus-slack-channel` module (SlackChannelBackend).
-It was deferred at work-end and hasn't been filed yet. Then run `work-start` for that issue.
-
-Scope: `SlackBotBinding`, `SlackBotBindingStore`, `SlackThreadCache`, `SlackInboundNormaliser`,
-`SlackChannelBackend`, `SlackBindingResource`, Flyway migration, `ConnectorChannelBackend`
-WARN→DEBUG change, Flyway location config. Depends on `casehub-connectors-slack-bot` (published).
+File the qhorus issue for the `casehub-qhorus-slack-channel` module
+(SlackChannelBackend) — qhorus#261 was filed but is the primary tracker;
+confirm it has the full scope, then run `work-start` for qhorus#261.
 
 ## Cross-Module
 
 **We're blocking:**
+- `qhorus` — qhorus#261: `casehub-qhorus-slack-channel` module (SlackChannelBackend).
+  Depends on `casehub-connectors-slack-bot` (now in GitHub Packages). · L · Med
 - `qhorus` — qhorus#249: `ConnectorMeshBridge` impl in `connector-backend`. Still open. · S · Med
-- `qhorus` — SlackChannelBackend (issue not yet filed — file first). Depends on `connectors-slack-bot` now in GitHub Packages. · L · Med
 
 ## What's Left
 
-- parent#191 — sync `casehub-connectors.md` deep-dive for `slack-bot` module · XS · Low
-- connectors#15 — minor polish: WireMock version in parent pom, missing Retry-After test, apiBaseUrl comment · XS · Low
+- parent#197 — sync PLATFORM.md capability table for `ConnectorDiscovery` + new tools · XS · Low
+- parent#198 — sync casehub-connectors.md deep-dive for slack-bot module + tools · XS · Low
+- connectors#17 — log warning when conversations.list is truncated at limit=200 · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| (new) | casehub-qhorus-slack-channel module — SlackChannelBackend | L | Med | File qhorus issue first |
+| qhorus#261 | casehub-qhorus-slack-channel — SlackChannelBackend | L | Med | Unblock qhorus#249 |
+| (new) | MCP tools for SlackBot — `list_slack_channels` with pagination | XS | Low | connectors#17 prerequisite |
+| (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
 
 ## References
 
-- Spec: `docs/specs/2026-06-06-slack-channel-backend-design.md`
-- Blog: `blog/2026-06-07-mdp08-slack-bot-client.md` (published)
-- ARC42STORIES.MD: workspace root (updated: connectors#14 closed, parent#168 replaced with parent#191)
-- Protocols: `docs/protocols/connectors/` (2 new: shared-http-client, inbound-connector-id-constants)
+- Blog: `blog/2026-06-09-mdp09-tools-for-the-bot.md` (published)
+- Spec: `docs/specs/2026-06-08-mcp-slack-bot-tools-design.md`
+- Protocols: `docs/protocols/connectors/` (3 new: spi-id-method-naming, mcp-tool-blocking-annotation, credential-config-ownership)
+- ARC42STORIES.MD: workspace root (no stale entries; §9.2 C3 and §10 will need updating when next epic closes)
