@@ -23,8 +23,6 @@ confirm it has the full scope, then run `work-start` for qhorus#261.
 
 ## What's Left
 
-- parent#197 — sync PLATFORM.md capability table for `ConnectorDiscovery` + new tools · XS · Low
-- parent#198 — sync casehub-connectors.md deep-dive for slack-bot module + tools · XS · Low
 - connectors#17 — log warning when conversations.list is truncated at limit=200 · XS · Low
 
 ## What's Next
