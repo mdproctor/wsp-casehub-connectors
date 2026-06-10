@@ -549,6 +549,12 @@ See `docs/adr/` for full decision records with options considered and consequenc
 - **Shared `HttpHelper.CLIENT` for bot HTTP calls.** Creating a second `HttpClient` instance produces two independent connection pools with divergent timeout configuration. All outbound HTTP in `casehub-connectors-*` goes through the shared singleton.
 - **`Json.createObjectBuilder()` for JSON payload construction.** Manual `StringBuilder` building is fragile under charset edge cases and diverges from the pattern used across the rest of the codebase. The Jakarta JSON API is already on the classpath.
 
+**Implementation decisions — connectors#18 (2026-06-10):**
+
+- **`MAX_PAGES = 50` as a bounded pagination policy.** `SlackBotClient.listChannels()` now follows cursor pagination rather than returning only the first 200 channels. The cap bounds memory use and protects against cursor-cycle bugs in the Slack API; when hit, a WARNING is logged and the accumulated channels are returned.
+- **Fail-soft partial-result contract for paginating HTTP methods.** On any mid-loop failure (API error, interrupt, cap hit), the accumulated results are returned with a WARNING rather than empty list — a caller cannot distinguish an empty workspace from a failed third page.
+- **HTTP 429 retry during pagination is explicitly deferred.** Rate-limiting surfaces as `ok:false / error:ratelimited` through the existing WARNING path. Full Retry-After handling is a known gap; `listChannels()` is called on-demand rather than in a hot path.
+
 ---
 
 ## §11 Quality Requirements
