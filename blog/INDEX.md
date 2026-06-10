@@ -12,3 +12,4 @@
 | [2026-06-07-mdp08-slack-bot-client.md](2026-06-07-mdp08-slack-bot-client.md) | 2026-06-07 | Slack Bot client — module split rationale, metadata enrichment for thread support, shared HttpClient protocol |
 | [2026-06-09-mdp09-tools-for-the-bot.md](2026-06-09-mdp09-tools-for-the-bot.md) | 2026-06-09 | MCP tools for SlackBot — ConnectorDiscovery SPI, send_slack_bot, list_channels, @Blocking fix |
 | [2026-06-09-mdp10-logging-the-limit.md](2026-06-09-mdp10-logging-the-limit.md) | 2026-06-09 | Truncation warning for listChannels — JUL Handler log capture, three-case test coverage |
+| [2026-06-10-mdp11-cursor-loop-design-decisions.md](2026-06-10-mdp11-cursor-loop-design-decisions.md) | 2026-06-10 | Cursor pagination — PageResult four-field record, fail-soft partial return, Jakarta JSON containsKey trap |
