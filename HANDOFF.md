@@ -1,5 +1,7 @@
 # Handoff — connectors
 
+*Updated: #21 closed — removed from backlog.*
+
 ## Last Session
 
 Closed connectors#21 (L): `ARC42STORIES.MD` created — 938 lines, 5 chapters, 5
@@ -23,7 +25,6 @@ for qhorus#261 in the qhorus repo.
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | qhorus#261 | casehub-qhorus-slack-channel — SlackChannelBackend | L | Med | Unblocks qhorus#249 (now closed — re-check) |
-| connectors#21 | Retire docs/DESIGN.md | XS | Low | ARC42STORIES.MD is now primary; DESIGN.md kept as source ref |
 | (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
 
 ## References
