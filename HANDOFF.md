@@ -2,29 +2,32 @@
 
 ## Last Session
 
-Closed connectors#18 (S): `SlackBotClient.listChannels()` now follows cursor pagination
-until exhausted (MAX_PAGES=50, fail-soft partial return + WARNING on mid-loop failure).
-`parseChannels()` replaced by `parsePage()` returning `PageResult(ok, channels, nextCursor, error)`.
-21 tests in SlackBotClientTest. New protocol: paginating-client-fail-soft. Blog: mdp11.
+Closed connectors#21 (L): `ARC42STORIES.MD` created — 938 lines, 5 chapters, 5
+layers. Migrated from DESIGN.md, 3 ADRs, 8 design specs, and mdp01–mdp11 diary
+entries. qhorus#249 stale reference caught and corrected at write time.
+`java-update-design` now routes to `ARC42STORIES.MD §10`. Blog: mdp12.
 
 ## Immediate Next Step
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+Confirm qhorus#261 has full scope for `SlackChannelBackend`, then run `work-start`
+for qhorus#261 in the qhorus repo.
 
 ## Cross-Module
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+**We're blocking:**
+- `qhorus` — qhorus#261: `casehub-qhorus-slack-channel` module (SlackChannelBackend).
+  Depends on `casehub-connectors-slack-bot` (in GitHub Packages). · L · Med
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| qhorus#261 | casehub-qhorus-slack-channel — SlackChannelBackend | L | Med | Unblock qhorus#249 |
+| qhorus#261 | casehub-qhorus-slack-channel — SlackChannelBackend | L | Med | Unblocks qhorus#249 (now closed — re-check) |
+| connectors#21 | Retire docs/DESIGN.md | XS | Low | ARC42STORIES.MD is now primary; DESIGN.md kept as source ref |
 | (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
 
 ## References
 
-- Blog: `blog/2026-06-10-mdp11-cursor-loop-design-decisions.md` (published)
-- Spec: `docs/superpowers/specs/2026-06-09-slack-listchannels-pagination-design.md`
-- Protocols: `docs/protocols/connectors/` (4 total; paginating-client-fail-soft added)
-- Garden: `GE-20260610-9f38b0` (Jakarta JSON getJsonObject null — jvm/)
+- Blog: `blog/2026-06-17-mdp12-the-library-gets-its-memory.md` (published)
+- ARC42STORIES.MD: `ARC42STORIES.MD` (project root — primary design doc)
+- Protocols: `docs/protocols/connectors/` (6 total)
