@@ -1,22 +1,22 @@
 # Handoff — connectors
 
-*Updated: #21 closed — removed from backlog. qhorus#261 closed — removed from backlog.*
-
 ## Last Session
 
-Closed connectors#21 (L): `ARC42STORIES.MD` created — 938 lines, 5 chapters, 5
-layers. Migrated from DESIGN.md, 3 ADRs, 8 design specs, and mdp01–mdp11 diary
-entries. qhorus#249 stale reference caught and corrected at write time.
-`java-update-design` now routes to `ARC42STORIES.MD §10`. Blog: mdp12.
+Housekeeping session. Resumed from handover, discovered qhorus#261 (`SlackChannelBackend`)
+was CLOSED in a separate session — removed from backlog. Attempted work-end: no active
+epic branch, nothing to close. Epic hygiene: 14 workspace branches all have
+`EPIC-CLOSED.md`; branches issue-4, 6, 7, 9, 12 are past their scheduled deletion dates.
+ARC42STORIES.MD stale scan: clean.
 
 ## Immediate Next Step
 
-qhorus#261 (`SlackChannelBackend`) is CLOSED. Check what issues remain open across
-connectors and qhorus to determine the next piece of work. Run `gh issue list --repo casehubio/connectors` and `gh issue list --repo casehubio/qhorus`.
+Check open issues across connectors and qhorus to pick the next piece of work:
+`gh issue list --repo casehubio/connectors && gh issue list --repo casehubio/qhorus`
 
-## Cross-Module
+## What's Left
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+- Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past their 14-day hold · XS · Low
+- Commit or discard `specs/2026-06-17-slack-channel-backend-design.md` (untracked in workspace) · XS · Low
 
 ## What's Next
 
@@ -24,12 +24,6 @@ connectors and qhorus to determine the next piece of work. Run `gh issue list --
 |---|-------------|-------|------------|-------|
 | (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
 
-## Cleaned up
-
-- `qhorus#261 — feat(slack-channel): implement casehub-qhorus-slack-channel module (SlackChannelBackend)` — closed, removed from backlog
-
 ## References
 
-- Blog: `blog/2026-06-17-mdp12-the-library-gets-its-memory.md` (published)
-- ARC42STORIES.MD: `ARC42STORIES.MD` (project root — primary design doc)
-- Protocols: `docs/protocols/connectors/` (6 total)
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
