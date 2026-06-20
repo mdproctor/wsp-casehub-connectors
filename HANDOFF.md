@@ -1,6 +1,6 @@
 # Handoff — connectors
 
-*Updated: #21 closed — removed from backlog.*
+*Updated: #21 closed — removed from backlog. qhorus#261 closed — removed from backlog.*
 
 ## Last Session
 
@@ -11,21 +11,22 @@ entries. qhorus#249 stale reference caught and corrected at write time.
 
 ## Immediate Next Step
 
-Confirm qhorus#261 has full scope for `SlackChannelBackend`, then run `work-start`
-for qhorus#261 in the qhorus repo.
+qhorus#261 (`SlackChannelBackend`) is CLOSED. Check what issues remain open across
+connectors and qhorus to determine the next piece of work. Run `gh issue list --repo casehubio/connectors` and `gh issue list --repo casehubio/qhorus`.
 
 ## Cross-Module
 
-**We're blocking:**
-- `qhorus` — qhorus#261: `casehub-qhorus-slack-channel` module (SlackChannelBackend).
-  Depends on `casehub-connectors-slack-bot` (in GitHub Packages). · L · Med
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| qhorus#261 | casehub-qhorus-slack-channel — SlackChannelBackend | L | Med | Unblocks qhorus#249 (now closed — re-check) |
 | (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
+
+## Cleaned up
+
+- `qhorus#261 — feat(slack-channel): implement casehub-qhorus-slack-channel module (SlackChannelBackend)` — closed, removed from backlog
 
 ## References
 
