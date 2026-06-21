@@ -396,7 +396,7 @@ corrupts extensions, why fireAsync needs `.exceptionally()`, why exceptions thro
 - [ ] All InboundMessage test call sites updated to canonical constructor
 - [ ] `EmailInboundAccount` has nullable `tenancyId` field
 - [ ] `DefaultEmailInboundAccountProvider` reads `casehub.connectors.email-inbound.tenancy-id` config; normalises empty to null
-- [ ] All 7 EmailInboundAccount construction sites (1 production, 1 test constructor, 5 test calls) updated
+- [ ] All 8 EmailInboundAccount construction sites (1 production, 1 test constructor, 6 test calls) updated
 - [ ] `casehub-connectors-cloud-events` submodule exists in parent pom
 - [ ] `ConnectorCloudEventAdapter` observes `@ObservesAsync InboundMessage` and fires `Event<CloudEvent>.fireAsync()`
 - [ ] CloudEvent `type` = `io.casehub.connectors.inbound.<connectorType>`
