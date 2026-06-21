@@ -36,7 +36,7 @@ request-scoped and inactive in `@ObservesAsync` observers.
 
 ## Repo 1 — casehub-connectors (branch: issue-20-cloudEvent-adapter)
 
-### 1a. InboundMessage — two new fields
+### 1a. InboundMessage — two new fields + compact constructor validation
 
 ```java
 public record InboundMessage(
@@ -48,8 +48,20 @@ public record InboundMessage(
     List<Attachment> attachments,
     Instant receivedAt,
     Map<String, String> metadata,
-    String tenancyId)         // NEW — nullable; omitted from CloudEvent extension if null
+    String tenancyId) {       // NEW — nullable; omitted from CloudEvent extension if null
+
+    public InboundMessage {
+        Objects.requireNonNull(connectorType, "connectorType");
+        attachments = List.copyOf(attachments);
+    }
+}
 ```
+
+`connectorType` is always required — every connector has a type. A null value produces
+`io.casehub.connectors.inbound.null` as the CloudEvent type, silently corrupting routing rules.
+`Objects.requireNonNull` moves this invariant from convention to enforced at construction.
+
+`tenancyId` remains explicitly nullable — single-tenant deployments pass null and that is correct.
 
 Existing convenience constructors are removed — callers must use the canonical constructor.
 The compiler enforces that every call site supplies both new fields.
@@ -76,11 +88,24 @@ rather than a constant in `InboundConnectorIds`. Since we're adding the parallel
 class, add `TEAMS_INBOUND = "teams-inbound"` to `InboundConnectorIds` and update
 `TeamsInboundConnector` to reference the constant. Enforces the `inbound-connector-id-constants` protocol.
 
-### 1d. tenancyId at production sites
+### 1d. WebhookRequest — tenancyId accessor
 
-**Webhook connectors** (Slack, Teams, Twilio SMS, WhatsApp): read from
-`request.header("x-tenancy-id")`. `WebhookRequest` already carries lower-cased headers; no new
-dependency required.
+`WebhookRequest` gains a `tenancyId()` accessor that centralises the `x-tenancy-id` header
+convention in one place:
+
+```java
+public String tenancyId() {
+    return header("x-tenancy-id");
+}
+```
+
+Four webhook connectors call `request.tenancyId()` instead of each independently calling
+`request.header("x-tenancy-id")`. If the header name changes, one line to update.
+
+### 1e. tenancyId at production sites
+
+**Webhook connectors** (Slack, Teams, Twilio SMS, WhatsApp): call `request.tenancyId()` via
+the new `WebhookRequest` accessor.
 
 **Note on `x-tenancy-id` origin:** External platforms (Slack, Twilio, Meta, Teams) do not set this
 header. It is injected by infrastructure (reverse proxy / API gateway) in multi-tenant deployments.
@@ -90,17 +115,44 @@ omitted. This is correct — single-tenant deployments have no tenant routing re
 **Email inbound** (`EmailInboundConnector`): `EmailInboundAccount` gains a `tenancyId` String
 field (nullable). `toInboundMessage()` reads it directly.
 
-### 1e. Production construction site migrations
+### 1f. InboundMessage production construction site migrations
 
 | File | connectorType | tenancyId source |
 |---|---|---|
-| `SlackInboundConnector.java:168` | `InboundConnectorTypes.SLACK` | `request.header("x-tenancy-id")` |
-| `TeamsInboundConnector.java:108` | `InboundConnectorTypes.TEAMS` | `request.header("x-tenancy-id")` |
-| `TwilioSmsInboundConnector.java:96` | `InboundConnectorTypes.SMS` | `request.header("x-tenancy-id")` |
-| `WhatsAppInboundConnector.java:156` | `InboundConnectorTypes.WHATSAPP` | `request.header("x-tenancy-id")` |
+| `SlackInboundConnector.java:168` | `InboundConnectorTypes.SLACK` | `request.tenancyId()` |
+| `TeamsInboundConnector.java:108` | `InboundConnectorTypes.TEAMS` | `request.tenancyId()` |
+| `TwilioSmsInboundConnector.java:96` | `InboundConnectorTypes.SMS` | `request.tenancyId()` |
+| `WhatsAppInboundConnector.java:156` | `InboundConnectorTypes.WHATSAPP` | `request.tenancyId()` |
 | `EmailInboundConnector.java:208,218` | `InboundConnectorTypes.EMAIL` | `account.tenancyId()` |
 
-### 1f. New submodule — casehub-connectors-cloud-events
+### 1g. EmailInboundAccount construction site migrations
+
+Adding `tenancyId` (nullable String) to `EmailInboundAccount` breaks all construction sites:
+
+**Record change:**
+```java
+public record EmailInboundAccount(
+    String id, String host, int port, boolean tls,
+    String username, String password, String folder,
+    int reconnectDelaySeconds,
+    String tenancyId)       // NEW — nullable
+```
+
+**MP Config property:** `casehub.connectors.email-inbound.tenancy-id`, `defaultValue = ""`.
+Empty string is normalised to null by `DefaultEmailInboundAccountProvider.accounts()` before
+constructing the record. Follows the existing convention where blank config = feature inactive.
+
+**Migration sites:**
+
+| File | Sites | Notes |
+|---|---|---|
+| `DefaultEmailInboundAccountProvider.accounts()` line 60 | 1 | Reads new MP Config field; normalises empty to null |
+| `DefaultEmailInboundAccountProvider` test constructor line 43 | 1 | Gains `tenancyId` parameter |
+| `EmailInboundConnectorTest.testAccount()` line 62 | 1 | Test helper |
+| `EmailInboundConnectorTest` line 249 | 1 | Connection failure test |
+| `DefaultEmailInboundAccountProviderTest` lines 13, 20, 28, 48 | 4 | All test constructor calls |
+
+### 1h. New submodule — casehub-connectors-cloud-events
 
 **Why a submodule, not in core:** `casehub-connectors-core` carries zero external deps beyond CDI
 and `java.net.http`. Adding `casehub-platform-api` (which carries `cloudevents-core`) would
@@ -118,6 +170,8 @@ IoT and Qhorus.
 ```java
 @ApplicationScoped
 public class ConnectorCloudEventAdapter {
+
+    private static final Logger LOG = Logger.getLogger(ConnectorCloudEventAdapter.class);
 
     private final Event<CloudEvent> cloudEventBus;
     private final ObjectMapper objectMapper;
@@ -161,7 +215,7 @@ public class ConnectorCloudEventAdapter {
 }
 ```
 
-### 1g. Parent pom.xml
+### 1i. Parent pom.xml
 
 Add `<module>cloud-events</module>` to `casehub-connectors-parent`.
 
@@ -169,7 +223,18 @@ Add `<module>cloud-events</module>` to `casehub-connectors-parent`.
 
 ## Repo 2 — casehub-iot (main, new issue)
 
-Four fixes to `IoTCloudEventAdapter`:
+Four fixes to `IoTCloudEventAdapter`.
+
+**Prerequisite — add Logger.** `IoTCloudEventAdapter` currently has no logging infrastructure.
+Fixes 3 and 4 require it:
+
+```java
+import org.jboss.logging.Logger;
+// ...
+private static final Logger LOG = Logger.getLogger(IoTCloudEventAdapter.class);
+```
+
+Matches `QhorusCloudEventAdapter`'s logging choice (`org.jboss.logging.Logger`).
 
 **Fix 1 — Inject ObjectMapper (bug)**
 
@@ -243,6 +308,7 @@ cloudEvents.fireAsync(ce)
 
 **Summary:** Two bugs (static ObjectMapper, unhandled fireAsync), one silent failure path
 (thrown exception from async observer), one pattern conformance fix (null tenancyId guard).
+Logger must be added as a prerequisite — class currently has no logging.
 
 ---
 
@@ -304,7 +370,7 @@ corrupts extensions, why fireAsync needs `.exceptionally()`, why exceptions thro
 
 | Repo | Title | Scope |
 |---|---|---|
-| casehubio/iot | fix: IoTCloudEventAdapter — inject ObjectMapper, null-safe tenancyId, handle serialisation + fireAsync | 4 fixes to one class |
+| casehubio/iot | fix: IoTCloudEventAdapter — inject ObjectMapper, null-safe tenancyId, handle serialisation + fireAsync | 4 fixes + Logger addition to one class |
 | casehubio/qhorus | fix: QhorusCloudEventAdapter fireAsync + InboundMessage constructor migration | 1 adapter fix + ~14 test site migrations |
 
 ---
@@ -312,7 +378,7 @@ corrupts extensions, why fireAsync needs `.exceptionally()`, why exceptions thro
 ## What This Does Not Change
 
 - `InboundConnectorService` event dispatch — unchanged
-- `WebhookRouter` — unchanged (tenancyId flows through `WebhookRequest` headers, read by each connector)
+- `WebhookRouter` — unchanged (tenancyId flows through `WebhookRequest` accessor)
 - All existing `@ObservesAsync InboundMessage` observers — unaffected; they do not receive CloudEvents
 - IoT's CloudEvent `type` format (`io.casehub.iot.state_change.<deviceClass>`) — unchanged; altering it would break existing RAS observers
 - Qhorus's CloudEvent field mapping — unchanged beyond fireAsync
@@ -322,11 +388,15 @@ corrupts extensions, why fireAsync needs `.exceptionally()`, why exceptions thro
 ## Acceptance Criteria
 
 ### connectors#20
-- [ ] `InboundMessage` has `connectorType` and `tenancyId` fields; convenience constructors removed
+- [ ] `InboundMessage` has `connectorType` (non-null, enforced by compact constructor) and `tenancyId` (nullable) fields; convenience constructors removed
 - [ ] `InboundConnectorTypes` constants class exists with SLACK, EMAIL, SMS, WHATSAPP, TEAMS
 - [ ] `InboundConnectorIds` gains `TEAMS_INBOUND`; `TeamsInboundConnector` references it
-- [ ] All 5 production construction sites supply both new fields
-- [ ] All test call sites constructing `InboundMessage` updated to canonical constructor
+- [ ] `WebhookRequest.tenancyId()` accessor centralises `x-tenancy-id` header convention
+- [ ] All 5 InboundMessage production construction sites supply both new fields via `request.tenancyId()` or `account.tenancyId()`
+- [ ] All InboundMessage test call sites updated to canonical constructor
+- [ ] `EmailInboundAccount` has nullable `tenancyId` field
+- [ ] `DefaultEmailInboundAccountProvider` reads `casehub.connectors.email-inbound.tenancy-id` config; normalises empty to null
+- [ ] All 7 EmailInboundAccount construction sites (1 production, 1 test constructor, 5 test calls) updated
 - [ ] `casehub-connectors-cloud-events` submodule exists in parent pom
 - [ ] `ConnectorCloudEventAdapter` observes `@ObservesAsync InboundMessage` and fires `Event<CloudEvent>.fireAsync()`
 - [ ] CloudEvent `type` = `io.casehub.connectors.inbound.<connectorType>`
@@ -334,9 +404,9 @@ corrupts extensions, why fireAsync needs `.exceptionally()`, why exceptions thro
 - [ ] Serialisation error: log at WARN, fire with empty data
 - [ ] `fireAsync` failure: log at WARN via `.exceptionally()`
 - [ ] Unit test: fire `InboundMessage` → assert `CloudEvent` with correct `type`, `source`, `tenancyid`
-- [ ] `EmailInboundAccount` has nullable `tenancyId` field
 
 ### iot fix
+- [ ] `IoTCloudEventAdapter` gains `org.jboss.logging.Logger` (prerequisite for fixes 3+4)
 - [ ] `IoTCloudEventAdapter` injects `ObjectMapper` (bug fix)
 - [ ] `tenancyid` extension omitted when `tenancyId()` is null (pattern conformance)
 - [ ] Serialisation error: catch at WARN, empty data (silent failure path fix)
@@ -344,7 +414,7 @@ corrupts extensions, why fireAsync needs `.exceptionally()`, why exceptions thro
 
 ### qhorus fix
 - [ ] `QhorusCloudEventAdapter` handles `fireAsync` CompletionStage failure (bug fix)
-- [ ] ~14 test construction sites migrated to 9-arg canonical `InboundMessage` constructor
+- [ ] ~14 test construction sites migrated to canonical `InboundMessage` constructor
 - [ ] `ConfiguredAutoChannelPolicyTest:113` uses `InboundConnectorIds.SLACK_INBOUND` (protocol violation fix)
 
 ### cross-cutting
