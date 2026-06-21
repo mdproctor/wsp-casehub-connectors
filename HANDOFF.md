@@ -2,21 +2,19 @@
 
 ## Last Session
 
-Housekeeping session. Resumed from handover, discovered qhorus#261 (`SlackChannelBackend`)
-was CLOSED in a separate session — removed from backlog. Attempted work-end: no active
-epic branch, nothing to close. Epic hygiene: 14 workspace branches all have
-`EPIC-CLOSED.md`; branches issue-4, 6, 7, 9, 12 are past their scheduled deletion dates.
-ARC42STORIES.MD stale scan: clean.
+CloudEvent adapter consistency work across three repos. Implemented connectors#20
+(ConnectorCloudEventAdapter in new cloud-events submodule), fixed iot#26
+(IoTCloudEventAdapter — 4 fixes), fixed qhorus#293 (fireAsync + 14 test migrations).
+InboundMessage gained connectorType + tenancyId fields. Canonical 6-rule adapter
+pattern captured in garden (GE-20260621-629712). All three issues closed.
 
 ## Immediate Next Step
 
-Check open issues across connectors and qhorus to pick the next piece of work:
-`gh issue list --repo casehubio/connectors && gh issue list --repo casehubio/qhorus`
+Check open issues: `gh issue list --repo casehubio/connectors`
 
 ## What's Left
 
-- Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past their 14-day hold · XS · Low
-- Commit or discard `specs/2026-06-17-slack-channel-backend-design.md` (untracked in workspace) · XS · Low
+- Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
 
 ## What's Next
 
@@ -26,4 +24,10 @@ Check open issues across connectors and qhorus to pick the next piece of work:
 
 ## References
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+| What | Path |
+|------|------|
+| Spec | `docs/specs/2026-06-21-cloudevent-adapter-consistency-design.md` |
+| Garden entry | `GE-20260621-629712` — canonical CloudEvent adapter pattern |
+| Blog | `blog/2026-06-21-mdp13-three-adapters-one-pattern.md` |
+| IoT commit | `iot@a1c130e` — Closes iot#26 |
+| Qhorus commit | `qhorus@4e9869b` — Closes qhorus#293 |
