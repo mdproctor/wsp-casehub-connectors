@@ -2,15 +2,12 @@
 
 ## Last Session
 
-CloudEvent adapter consistency work across three repos. Implemented connectors#20
-(ConnectorCloudEventAdapter in new cloud-events submodule), fixed iot#26
-(IoTCloudEventAdapter — 4 fixes), fixed qhorus#293 (fireAsync + 14 test migrations).
-InboundMessage gained connectorType + tenancyId fields. Canonical 6-rule adapter
-pattern captured in garden (GE-20260621-629712). All three issues closed.
+Closed #19 — rewrote ConnectorMeshBridge javadoc (STATUS not EVENT, configured
+delivery channel not case session). Trivial 6-line fix, no code changes.
 
 ## Immediate Next Step
 
-Check open issues: `gh issue list --repo casehubio/connectors`
+No open issues. Check `gh issue list --repo casehubio/connectors` or pick from ideas.
 
 ## What's Left
 
@@ -24,10 +21,4 @@ Check open issues: `gh issue list --repo casehubio/connectors`
 
 ## References
 
-| What | Path |
-|------|------|
-| Spec | `docs/specs/2026-06-21-cloudevent-adapter-consistency-design.md` |
-| Garden entry | `GE-20260621-629712` — canonical CloudEvent adapter pattern |
-| Blog | `blog/2026-06-21-mdp13-three-adapters-one-pattern.md` |
-| IoT commit | `iot@a1c130e` — Closes iot#26 |
-| Qhorus commit | `qhorus@4e9869b` — Closes qhorus#293 |
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
