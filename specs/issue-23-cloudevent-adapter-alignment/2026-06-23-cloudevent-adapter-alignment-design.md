@@ -100,16 +100,20 @@ changes needed — the adapter produces identical CloudEvents.
 The move changes core's dependency profile and eliminates a module. Several
 sections need updating:
 
-**§1 Top Quality Goals** — "Zero-dep core" row: update mechanism from
-"java.net.http.HttpClient only; no framework dep in core or slack-bot" to
-reflect that core now includes `cloudevents-core` (CNCF standard) and
-`jackson-databind`. The quality goal is still valid (lightweight, no casehubio
-deps, no JPA, no heavy frameworks) but the description must be accurate.
+**§1 Top Quality Goals** — rewrite "Zero-dep core" row. The name was already
+inaccurate (core depends on `quarkus-arc`). The real invariant is: no casehubio
+dependencies. Rename to "Lightweight foundation". Mechanism: "CDI + external
+standards only (CloudEvents SDK, Jackson); no casehubio dependencies in `core`
+or `slack-bot`".
 
-**§2 Constraints** — "core and slack-bot modules: zero non-JDK runtime
-dependencies" row: update to reflect `cloudevents-core` and `jackson-databind`.
-Also update header "Depends on: Quarkus BOM + JDK only (core module: JDK
-only)" — core now depends on `cloudevents-core` and `jackson-databind`.
+**§2 Constraints** — rewrite "core and slack-bot modules: zero non-JDK runtime
+dependencies" row. Same problem — already wrong before this change. Rewrite to:
+"no casehubio runtime dependencies; external libraries only (Quarkus CDI,
+CloudEvents SDK, Jackson)". This is testable: grep core's dependency tree for
+`io.casehub` and verify it returns nothing. Also rewrite header line 8 from
+"Depends on: Quarkus BOM + JDK only (core module: JDK only)" to "Depends on:
+Quarkus BOM + external standards (core: CDI, cloudevents-core,
+jackson-databind; zero casehubio deps)".
 
 **§4 Layer Taxonomy** — L6 row: update description from
 "`ConnectorCloudEventAdapter`, `InboundConnectorTypes` — optional submodule" to
@@ -121,8 +125,11 @@ only)" — core now depends on `cloudevents-core` and `jackson-databind`.
 `jackson-databind`". Remove the sentence explaining why `cloud-events` is
 separate.
 
-**§7 Deployment View** — remove `cloud-events` row. The adapter is now part of
-core; consumers get it automatically. No separate inclusion decision needed.
+**§7 Deployment View** — remove `cloud-events` row. The adapter now activates
+by CDI discovery in core; it is a no-op when no `CloudEvent` observer is
+present (`fireAsync()` completes with no delivery). Consumers no longer make a
+separate inclusion decision — every consumer of core gets the adapter
+automatically.
 
 **§13 Glossary** — update `ConnectorCloudEventAdapter` entry: rename to
 `ConnectorsCloudEventAdapter`, change "CDI adapter in `cloud-events` module" to
@@ -130,8 +137,13 @@ core; consumers get it automatically. No separate inclusion decision needed.
 
 ### Platform doc updates (casehub-parent)
 
-- `docs/repos/casehub-connectors.md` — remove `cloud-events` row from module
-  table; note `cloudevents-core` external dep in "Depends On"
+- `docs/repos/casehub-connectors.md` — no `cloud-events` row exists in the
+  module table (never added when the module was created in e0aa545). Update
+  core row description to mention `ConnectorsCloudEventAdapter`. Update
+  "Depends On" section — currently reads "Nothing in the casehubio ecosystem.
+  Pure Java (java.net.http.HttpClient)"; must note `cloudevents-core` and
+  `jackson-databind` as external deps while preserving the zero-casehubio
+  statement.
 - `docs/PLATFORM.md` build order — `casehub-connectors` comment is still
   accurate (no casehubio deps); no change needed
 - GE-20260621-629712 reference implementation list — update class name from
