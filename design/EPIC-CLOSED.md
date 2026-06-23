@@ -1,4 +1,5 @@
-# Branch Closed — issue-16-mcp-slack-bot-tools
-**Date:** 2026-06-09
-**Issue:** #16
-**Covers:** 16
+# Branch Closed: issue-23-cloudevent-adapter-alignment
+
+**Date:** 2026-06-23
+**Issues:** 23
+**Status:** merged to main
