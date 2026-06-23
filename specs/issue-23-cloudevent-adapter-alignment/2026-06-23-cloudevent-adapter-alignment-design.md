@@ -34,8 +34,8 @@ with no tradeoffs.
 ### Module structure
 
 - Add `io.cloudevents:cloudevents-core` as a compile dependency to
-  `casehub-connectors-core`. This is managed by the `casehub-parent` BOM (same
-  version IoT and Qhorus use).
+  `casehub-connectors-core`. Version managed by `casehub-parent` BOM
+  (`<cloudevents.version>4.0.1</cloudevents.version>`).
 - Add `com.fasterxml.jackson.core:jackson-databind` as a compile dependency to
   core. Required for `ObjectMapper` serialisation (canonical pattern rule 1,
   GE-20260621-629712). Core currently has no Jackson — outbound connectors
@@ -46,6 +46,9 @@ with no tradeoffs.
   it automatically.
 - Delete `cloud-events/` submodule entirely — source, `pom.xml`, and `<module>`
   entry in the parent `pom.xml`.
+- Update core `pom.xml` `<description>` — currently reads "No dependencies
+  beyond CDI and java.net.http"; must reflect `cloudevents-core` and
+  `jackson-databind`.
 
 Core gains two external library dependencies. Zero casehubio dependencies
 preserved.
@@ -92,12 +95,45 @@ changes needed — the adapter produces identical CloudEvents.
 | `data` | `InboundMessage` serialised as JSON bytes |
 | `tenancyid` ext | From `InboundMessage.tenancyId()`, omitted when null |
 
-### Platform doc updates
+### ARC42STORIES.MD updates
 
-- `casehub-parent/docs/repos/casehub-connectors.md` — remove `cloud-events`
-  row from module table; note `cloudevents-core` external dep in "Depends On"
-- `casehub-parent/docs/PLATFORM.md` build order — `casehub-connectors` comment
-  is still accurate (no casehubio deps); no change needed
+The move changes core's dependency profile and eliminates a module. Several
+sections need updating:
+
+**§1 Top Quality Goals** — "Zero-dep core" row: update mechanism from
+"java.net.http.HttpClient only; no framework dep in core or slack-bot" to
+reflect that core now includes `cloudevents-core` (CNCF standard) and
+`jackson-databind`. The quality goal is still valid (lightweight, no casehubio
+deps, no JPA, no heavy frameworks) but the description must be accurate.
+
+**§2 Constraints** — "core and slack-bot modules: zero non-JDK runtime
+dependencies" row: update to reflect `cloudevents-core` and `jackson-databind`.
+Also update header "Depends on: Quarkus BOM + JDK only (core module: JDK
+only)" — core now depends on `cloudevents-core` and `jackson-databind`.
+
+**§4 Layer Taxonomy** — L6 row: update description from
+"`ConnectorCloudEventAdapter`, `InboundConnectorTypes` — optional submodule" to
+"`ConnectorsCloudEventAdapter`, `InboundConnectorTypes` — in core; observes
+`InboundMessage`, fires `CloudEvent`".
+
+**§5 Module Structure** — remove `cloud-events` row from the module table. Update
+`core` row's "Depends on" from "JDK only" to "JDK, `cloudevents-core`,
+`jackson-databind`". Remove the sentence explaining why `cloud-events` is
+separate.
+
+**§7 Deployment View** — remove `cloud-events` row. The adapter is now part of
+core; consumers get it automatically. No separate inclusion decision needed.
+
+**§13 Glossary** — update `ConnectorCloudEventAdapter` entry: rename to
+`ConnectorsCloudEventAdapter`, change "CDI adapter in `cloud-events` module" to
+"CDI adapter in `core`".
+
+### Platform doc updates (casehub-parent)
+
+- `docs/repos/casehub-connectors.md` — remove `cloud-events` row from module
+  table; note `cloudevents-core` external dep in "Depends On"
+- `docs/PLATFORM.md` build order — `casehub-connectors` comment is still
+  accurate (no casehubio deps); no change needed
 - GE-20260621-629712 reference implementation list — update class name from
   `ConnectorCloudEventAdapter` to `ConnectorsCloudEventAdapter`
 
@@ -122,3 +158,5 @@ with a capturing `Event<CloudEvent>` mock, no CDI container. Covers:
 - All existing `InboundMessage` observers — unaffected
 - Outbound `Connector` SPI — unaffected
 - Every other module in the repo — unaffected
+- Zero casehubio dependencies — preserved (cloudevents-core and jackson-databind
+  are external libraries)
