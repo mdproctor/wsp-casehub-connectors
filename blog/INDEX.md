@@ -14,3 +14,4 @@
 | [2026-06-09-mdp10-logging-the-limit.md](2026-06-09-mdp10-logging-the-limit.md) | 2026-06-09 | Truncation warning for listChannels — JUL Handler log capture, three-case test coverage |
 | [2026-06-10-mdp11-cursor-loop-design-decisions.md](2026-06-10-mdp11-cursor-loop-design-decisions.md) | 2026-06-10 | Cursor pagination — PageResult four-field record, fail-soft partial return, Jakarta JSON containsKey trap |
 | [2026-06-17-mdp12-the-library-gets-its-memory.md](2026-06-17-mdp12-the-library-gets-its-memory.md) | 2026-06-17 | ARC42STORIES.MD created from DESIGN.md, 3 ADRs, 8 specs, 11 diary entries — five chapters, five layers, stale reference catch |
+| [2026-06-23-mdp13-the-dependency-that-wasnt.md](2026-06-23-mdp13-the-dependency-that-wasnt.md) | 2026-06-23 | CloudEvent adapter alignment — direct cloudevents-core dep resolves false tension, ARC42STORIES constraint rewrite, quarkus-jackson discovery |
