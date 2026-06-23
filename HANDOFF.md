@@ -2,8 +2,13 @@
 
 ## Last Session
 
-Closed #19 — rewrote ConnectorMeshBridge javadoc (STATUS not EVENT, configured
-delivery channel not case session). Trivial 6-line fix, no code changes.
+Closed #23 — moved ConnectorCloudEventAdapter from separate cloud-events
+submodule into core, renamed to ConnectorsCloudEventAdapter. Direct
+cloudevents-core dependency (not via casehub-platform-api) preserves
+zero-casehubio-dep invariant. Discovered quarkus-jackson needed instead
+of raw jackson-databind for CDI ObjectMapper producer in downstream
+@QuarkusTest modules. ARC42STORIES §1/§2 rewritten to name the real
+invariant ("Lightweight foundation", not "Zero-dep core").
 
 ## Immediate Next Step
 
