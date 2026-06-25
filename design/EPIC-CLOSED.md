@@ -1,4 +1,5 @@
-# Branch Closed — issue-16-mcp-slack-bot-tools
-**Date:** 2026-06-09
-**Issue:** #16
-**Covers:** 16
+# Branch Closed: issue-24-chat-platform-spi
+
+**Date:** 2026-06-25
+**Issues:** 24
+**Status:** merged to main
