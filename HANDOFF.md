@@ -2,10 +2,12 @@
 
 ## Last Session
 
-Closed #24 — ChatPlatform SPI. Resumed from previous session's handover,
-completed work-end: code review (1 NOTE fixed — CopyOnWriteArrayList for
-thread-safe InMemoryStore), squashed 12→2 commits, rebased to main, pushed.
-Journal merged (§10 slack-bot decisions). Design spec posted to #24.
+Closed #25 — chat-irc module. First concrete ChatPlatform adapter (IRC).
+Spec went through three review passes (L2 bypass caught, @PostConstruct
+blocking caught, RFC 1459 AWAY misconception caught). Implementation via
+subagent-driven development — 4 tasks, 41 tests, squashed 9→1 commit.
+3 garden entries submitted (no Java IRC server, CompletableFuture collector,
+RFC 1459 AWAY).
 
 ## Immediate Next Step
 
@@ -15,7 +17,7 @@ from What's Next.
 ## What's Left
 
 - Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
-- ARC42STORIES.MD needs a new chapter for the Chat Platform SPI (L7) · M · Med
+- ARC42STORIES.MD needs new chapters for Chat Platform SPI (L7) and Chat IRC · M · Med
 
 ## What's Next
 
@@ -23,7 +25,6 @@ from What's Next.
 |---|-------------|-------|------------|-------|
 | — | chat-slack module — SlackChatPlatform adapting SlackBotClient | M | Med | Spec ready; needs new SlackBotClient methods |
 | — | chat-discord module — DiscordChatPlatform + DiscordClient | L | Med | New HTTP client, gateway for inbound |
-| — | chat-irc module — IrcChatPlatform + IrcClient | M | Med | TCP protocol, Ergo for integration tests |
 | (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
 
 ## References
