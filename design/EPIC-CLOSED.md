@@ -1,5 +1,5 @@
-# Branch Closed: issue-24-chat-platform-spi
+# Branch Closed: issue-25-chat-irc-module
 
-**Date:** 2026-06-25
-**Issues:** 24
+**Date:** 2026-06-26
+**Issues:** 25
 **Status:** merged to main
