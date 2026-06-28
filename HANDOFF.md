@@ -2,30 +2,33 @@
 
 ## Last Session
 
-Closed #25 — chat-irc module. First concrete ChatPlatform adapter (IRC).
-Spec went through three review passes (L2 bypass caught, @PostConstruct
-blocking caught, RFC 1459 AWAY misconception caught). Implementation via
-subagent-driven development — 4 tasks, 41 tests, squashed 9→1 commit.
-3 garden entries submitted (no Java IRC server, CompletableFuture collector,
-RFC 1459 AWAY).
+Closed #26 — demo chat service. Extended ChatPlatform SPI with 3 new
+capabilities (ChannelManagement, MemberManagement, MessageHistory),
+extended Reactions with list() and Presence with set(). Added ChatBackend
+internal storage in chat-ref, refactored RefChatPlatform to delegate to
+it. Built chat-demo module (profile-gated -Pdemo) with SqliteChatBackend,
+REST endpoints, WebSocket broadcaster, and seed database. Closed #27
+(WebSocket endpoint). Filed 3 pages issues (#52-54). Spec went through
+4 review passes with architectural improvements at each round.
 
 ## Immediate Next Step
 
-No open issues. Check `gh issue list --repo casehubio/connectors` or pick
-from What's Next.
+Pages issues casehub-pages#52 (WebSocket dataset provider), #53
+(multiplexing), #54 (submit action) are filed. When implemented, the
+chat-demo Quinoa UI can be wired up. No open connectors issues.
 
 ## What's Left
 
 - Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
-- ARC42STORIES.MD needs new chapters for Chat Platform SPI (L7) and Chat IRC · M · Med
+- ARC42STORIES.MD L7/L8 layer entries need full §9.4 treatment (currently in §4 taxonomy only) · M · Med
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | chat-slack module — SlackChatPlatform adapting SlackBotClient | M | Med | Spec ready; needs new SlackBotClient methods |
+| — | chat-slack module — SlackChatPlatform adapting SlackBotClient | M | Med | Spec ready; gains from new capabilities |
 | — | chat-discord module — DiscordChatPlatform + DiscordClient | L | Med | New HTTP client, gateway for inbound |
-| (idea) | Quarkus demo chat service — Slack-like, no Docker, for demos | M | Med | See IDEAS.md |
+| pages#52-54 | Pages WebSocket dataset provider + multiplexing + submit action | L+S+S | Med+Med+Low | Enables chat-demo Quinoa UI |
 
 ## References
 
