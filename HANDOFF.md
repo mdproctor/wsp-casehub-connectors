@@ -1,5 +1,7 @@
 # Handoff — connectors
 
+*Updated: #28 closed — removed from backlog.*
+
 ## Last Session
 
 Investigated what Pages WebSocket completion (pages#52, #53) unlocks.
@@ -11,8 +13,7 @@ stamp project branch on close. Manually closed #27 and stamped
 
 ## Immediate Next Step
 
-No blocking issues. Pick from What's Next — chat-demo UI (#28 awareness
-in clinical) is now fully unblocked by Pages WebSocket.
+No blocking issues. Pick from What's Next.
 
 ## What's Left
 
