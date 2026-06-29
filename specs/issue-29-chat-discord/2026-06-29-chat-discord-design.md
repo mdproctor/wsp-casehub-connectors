@@ -21,7 +21,7 @@ Shared HTTP client and Gateway WebSocket client. Independently consumable by MCP
 - `DiscordClient` — CDI `@ApplicationScoped` bean wrapping `HttpHelper.CLIENT`
 - `DiscordGateway` — WebSocket client for Gateway v10 lifecycle
 - `DiscordGatewayPresenceCache` — `@ApplicationScoped` ConcurrentHashMap populated by PRESENCE_UPDATE events
-- `DiscordDiscovery implements ConnectorDiscovery` — lists guild channels as discoverable targets
+- `DiscordDiscovery implements ConnectorDiscovery` — `id() = "discord"`. Lists guild channels as discoverable targets. Blank token → returns empty list (fail-soft).
 - Discord model records (DTOs)
 - Dependencies: `casehub-connectors-core`
 
@@ -112,6 +112,22 @@ record PostResult(boolean ok, String messageId, String channelId, String error) 
 
 HTTP 429 → read `Retry-After` header → sleep → retry. Same pattern as `SlackBotClient`.
 
+### Error response mapping
+
+Non-paginating methods follow these conventions:
+
+| Method | Error status | Result |
+|---|---|---|
+| `sendMessage`, `sendReply` | 4xx/5xx | `PostResult(ok=false, error="<status> <reason>")` |
+| `getChannel` | 404 | Returns `null` → `ChannelManagement.find()` maps to `Optional.empty()` |
+| `getChannel` | 403/other | Returns `null` + WARNING log |
+| `getGuildMember` | 404 | Returns `null` → `Presence.of()` treats absent member as `UNKNOWN` |
+| `getGuild` | 4xx/5xx | Returns `null` + WARNING log |
+| `addReaction`, `removeReaction` | 4xx/5xx | WARNING log, no return value (void methods) |
+| `listReactionEmoji` | 4xx/5xx | Returns empty list + WARNING log |
+
+All error paths log at WARNING level with the HTTP status code and response body. No exceptions propagate from `DiscordClient` — consistent with the fail-soft philosophy.
+
 ### Base URL
 
 `https://discord.com/api/v10` — hardcoded. The API version is part of the contract.
@@ -189,8 +205,8 @@ public interface GatewayEventListener {
 | **Discovery** | `GET /guilds/{guild_id}/channels` | Filtered to text channels (type 0, 5) and threads (10, 11, 12). Forum channels (type 15) excluded — they require thread creation before messaging and would cause 400 errors if a caller attempted `messaging.send()` on a discovered forum channel. |
 | **Reactions** | `PUT/DELETE reactions/{emoji}/@me` | `add()` and `remove()` are direct. `list()` fetches the message object and extracts the `reactions` array for emoji names. Unicode emoji URL-encoded; custom emoji passed as `name:id`. |
 | **Presence** | Gateway PRESENCE_UPDATE cache | `of()` reads `DiscordGatewayPresenceCache`. `set()` logs WARNING and returns — Discord's API does not support setting another user's presence. This is a permanent platform limitation, not a deferred feature. Discord statuses: `online`→ONLINE, `idle`→AWAY, `dnd`→DND, `offline`→OFFLINE. Unknown members return `UNKNOWN`. **Dependency:** `DiscordGatewayPresenceCache` is populated only when `chat-discord` is on the classpath (the `DiscordInboundConnector` feeds PRESENCE_UPDATE events into it). Deployments using `discord` without `chat-discord` (e.g., MCP tools, future `DiscordChannelBackend`) will see all `of()` calls return `UNKNOWN`. |
-| **Members** | `GET /guilds/{guild_id}/members` | **Known semantic deviation:** returns guild-level members, not channel-scoped. All guild members are returned regardless of which `ChatChannelRef` is passed. This is a consequence of Discord's permission model — channel membership is implicit via role-based permission overwrites, not an explicit member list. `supports(Members.class)` returns `true` because the data is real. Requires GUILD_MEMBERS privileged intent. Paginated with fail-soft. |
-| **ChannelManagement** | `POST /guilds/{guild_id}/channels`, `GET /channels/{id}` | `isPrivate` → `DiscordClient.createChannel(..., isPrivate=true)` includes a `permission_overwrites` array denying `@everyone` the `VIEW_CHANNEL` permission. SPI `topic` → Discord `topic` field. SPI `description` → ignored (Discord channels have no separate description field; returned as `null` when reading channels). |
+| **Members** | `GET /guilds/{guild_id}/members` | **Known semantic deviation:** returns guild-level members, not channel-scoped. All guild members are returned regardless of which `ChatChannelRef` is passed. For public channels this is defensible — all guild members can see them by default. **For private channels, results are incorrect:** a private channel denies `@everyone` VIEW_CHANNEL, so most returned members cannot actually access the channel. Callers needing accurate private-channel membership must filter results themselves using permission data. `supports(Members.class)` returns `true` because the data is real for public channels (the common case). Requires GUILD_MEMBERS privileged intent. Paginated with fail-soft. |
+| **ChannelManagement** | `POST /guilds/{guild_id}/channels`, `GET /channels/{id}` | **create():** passes `type = 0` (GUILD_TEXT) and `nsfw = false` to `DiscordClient.createChannel()`. `isPrivate` → `createChannel(..., isPrivate=true)` includes a `permission_overwrites` array denying `@everyone` the `VIEW_CHANNEL` permission (bit `1 << 10`). SPI `topic` → Discord `topic` field. SPI `description` → ignored (Discord has no separate description; returned as `null`). **find():** derives `Channel.isPrivate` from `DiscordChannel.permissionOverwrites()`: scan for a role-type (type 0) overwrite where `id` equals the guild ID (from `casehub.discord.guild-id` config) and `deny` has bit 10 (`VIEW_CHANNEL`) set. Same derivation applies to channels returned by `Discovery.listChannels()`. |
 | **MessageHistory** | `GET /channels/{id}/messages?after=` | `Instant since` converted to synthetic snowflake: `(timestamp_ms - DISCORD_EPOCH) << 22`. Paginated (100/page), fail-soft. `parentRef` from `referencedMessageId` on type-19 messages. |
 
 ### Degraded capability (1 of 9)
@@ -216,6 +232,19 @@ PresenceStatus get(String userId);  // returns UNKNOWN if absent
 
 `@ApplicationScoped` CDI bean implementing `InboundConnector` (pull-based, long-lived connection).
 
+### Blank-token fail-soft
+
+`start(sink)` checks `token.isBlank()` before starting the connect loop. Blank token → `LOG.warning("discord-inbound: no token configured, connector inactive")` and returns immediately. This follows the credential-config-ownership protocol (PP-20260609-0c3e24): blank credentials → WARNING + no-op. Without this, a deployment including `chat-discord` without a configured token would enter a permanent reconnect loop against Discord's Gateway (close code 4004: Authentication failed), producing SEVERE-level log spam indefinitely.
+
+### Shutdown path
+
+`stop()` follows the `IrcInboundConnector.stop()` pattern:
+1. Set `volatile boolean stopping = true`
+2. Call `gateway.disconnect()` — closes the WebSocket cleanly
+3. Shut down the reconnect executor (`executor.shutdownNow()`)
+
+The `stopping` flag is checked before each reconnect attempt in the connect loop — prevents reconnection during JVM shutdown.
+
 ### Gateway intents
 
 | Intent | Bit | Purpose |
@@ -232,6 +261,7 @@ Three privileged intents. Bots in < 100 guilds: toggle in Developer Portal. 100+
 ### Event handling
 
 - **MESSAGE_CREATE:** Filter out `author.bot == true`. Build `InboundMessage` with `connectorId = "discord-inbound"`, `connectorType = "discord"`. Metadata: `discord-message-id`, `discord-guild-id`, `discord-reference-id` (if reply). Deliver via `sink.receive(inboundMessage)`.
+- **GUILD_CREATE:** Iterate `data.presences[]` and call `presenceCache.update(userId, status)` for each entry. This seeds the presence cache on connection — without it, all `Presence.of()` queries return `UNKNOWN` until individual members change status (which could take hours). No `InboundMessage` generated.
 - **PRESENCE_UPDATE:** Extract `user.id` + `status`. Update `DiscordGatewayPresenceCache`. No `InboundMessage` generated.
 - All other events: ignored.
 
@@ -292,7 +322,7 @@ No SPI changes required. Discord maps to the existing ChatPlatform interface cle
 
 Two gaps worth noting for future SPI evolution:
 
-1. **Members scope:** `Members.list(ChatChannelRef)` returns guild members for Discord, not channel-specific members. The SPI contract implies channel scope; Discord provides guild scope. `supports(Members.class)` returns true because the data is real — just broader. A future `Scope` concept on the Members capability could express this, but it's not worth an SPI change until a second platform exhibits the same pattern.
+1. **Members scope:** `Members.list(ChatChannelRef)` returns guild members for Discord, not channel-specific members. The SPI contract implies channel scope; Discord provides guild scope. For public channels this is the broadest correct answer (all guild members can see them). For private channels, the results are incorrect — members who cannot access the channel are included. `supports(Members.class)` returns true because the data is real for the common case (public channels). A future `Scope` concept on the Members capability could express this, but it's not worth an SPI change until a second platform exhibits the same pattern.
 
 2. **Topic/description divergence:** The ARC42 §10 entry states "Topic is dynamic, description is static — Slack/Discord distinguish them." This is correct for Slack (topic vs. purpose) but incorrect for Discord — Discord channels have only a `topic` field with no separate description. The ARC42 entry should be corrected to: "Topic is dynamic, description is static — Slack distinguishes them (topic/purpose); Discord has only topic; IRC has only topic."
 
