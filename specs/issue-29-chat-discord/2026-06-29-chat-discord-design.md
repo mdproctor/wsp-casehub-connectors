@@ -43,10 +43,12 @@ ChatPlatform SPI implementation and inbound connector.
 
 ## Configuration
 
-| Property | Module | Required | Purpose |
+| Property | Module | Default | Purpose |
 |---|---|---|---|
-| `casehub.discord.guild-id` | `discord` | Yes | Target guild (server) snowflake ID. Scopes all guild-level operations. |
-| `casehub.discord.token` | `discord` | Yes | Bot token. Injected by callers (`DiscordDiscovery`, `DiscordChatPlatform`, `DiscordInboundConnector`) and passed to `DiscordClient` at call time. |
+| `casehub.discord.guild-id` | `discord` | `""` | Target guild (server) snowflake ID. Scopes all guild-level operations. Blank → connector inactive (WARNING + no-op). |
+| `casehub.discord.token` | `discord` | `""` | Bot token. Injected by callers (`DiscordDiscovery`, `DiscordChatPlatform`, `DiscordInboundConnector`) and passed to `DiscordClient` at call time. Blank → connector inactive (WARNING + no-op). |
+
+Both properties use `defaultValue = ""` so that deployments which include the `discord` or `chat-discord` module on the classpath without configuring Discord properties do not cause a Quarkus startup failure. Callers check both `token.isBlank()` and `guildId.isBlank()` — if either is blank, the caller logs WARNING and becomes inactive.
 
 Credential ownership follows `credential-config-ownership` protocol: `DiscordClient` takes `String token` as a parameter on every method — it holds no `@ConfigProperty` for credentials. Callers inject their own token. The token property lives in the `discord` module so that all callers — including `DiscordDiscovery` in `discord` — can inject it directly. This follows the `slack-bot` precedent where `SlackBotDiscovery` injects `casehub.connectors.slack-bot.token` from the same module.
 
@@ -110,7 +112,7 @@ record PostResult(boolean ok, String messageId, String channelId, String error) 
 
 ### Rate limit handling
 
-HTTP 429 → read `Retry-After` header → sleep → retry. Same pattern as `SlackBotClient`.
+HTTP 429 → read `Retry-After` header → sleep → retry **once**. If the retry also returns 429, return the failure result (`PostResult(ok=false, error="rate-limited")`). Same single-retry pattern as `SlackBotClient.sendWithRetry()`.
 
 ### Error response mapping
 
@@ -232,9 +234,9 @@ PresenceStatus get(String userId);  // returns UNKNOWN if absent
 
 `@ApplicationScoped` CDI bean implementing `InboundConnector` (pull-based, long-lived connection).
 
-### Blank-token fail-soft
+### Blank-config fail-soft
 
-`start(sink)` checks `token.isBlank()` before starting the connect loop. Blank token → `LOG.warning("discord-inbound: no token configured, connector inactive")` and returns immediately. This follows the credential-config-ownership protocol (PP-20260609-0c3e24): blank credentials → WARNING + no-op. Without this, a deployment including `chat-discord` without a configured token would enter a permanent reconnect loop against Discord's Gateway (close code 4004: Authentication failed), producing SEVERE-level log spam indefinitely.
+`start(sink)` checks `token.isBlank() || guildId.isBlank()` before starting the connect loop. Blank → `LOG.warning("discord-inbound: token or guild-id not configured, connector inactive")` and returns immediately. This follows the credential-config-ownership protocol (PP-20260609-0c3e24): blank credentials → WARNING + no-op. Without this, a deployment including `chat-discord` without configuring Discord properties would either enter a permanent reconnect loop (blank token → Gateway close code 4004) or produce incorrect API calls (blank guild-id → malformed URLs). The same blank-config check applies to `DiscordDiscovery` and `DiscordChatPlatform`.
 
 ### Shutdown path
 
@@ -260,7 +262,7 @@ Three privileged intents. Bots in < 100 guilds: toggle in Developer Portal. 100+
 
 ### Event handling
 
-- **MESSAGE_CREATE:** Filter out `author.bot == true`. Build `InboundMessage` with `connectorId = "discord-inbound"`, `connectorType = "discord"`. Metadata: `discord-message-id`, `discord-guild-id`, `discord-reference-id` (if reply). Deliver via `sink.receive(inboundMessage)`.
+- **MESSAGE_CREATE:** Filter out `author.bot == true`. Filter to message types 0 (DEFAULT) and 19 (REPLY) only — skip all other types (system messages: member join type 7, boost type 8, follow type 12, interaction types 20–21, etc.). Without the type filter, system messages with `author.bot == false` would be delivered as regular chat messages. This matches the IRC precedent where `IrcClient` only fires the callback on `PRIVMSG`. Build `InboundMessage` with `connectorId = "discord-inbound"`, `connectorType = "discord"`. Metadata: `discord-message-id`, `discord-guild-id`, `discord-reference-id` (if reply, type 19). Deliver via `sink.receive(inboundMessage)`.
 - **GUILD_CREATE:** Iterate `data.presences[]` and call `presenceCache.update(userId, status)` for each entry. This seeds the presence cache on connection — without it, all `Presence.of()` queries return `UNKNOWN` until individual members change status (which could take hours). No `InboundMessage` generated.
 - **PRESENCE_UPDATE:** Extract `user.id` + `status`. Update `DiscordGatewayPresenceCache`. No `InboundMessage` generated.
 - All other events: ignored.
@@ -289,7 +291,7 @@ Deferred to a follow-up issue. Discord message attachments require a separate GE
 
 `DiscordClientTest` stubs Discord REST API responses. Verifies request construction, response parsing, rate limit retry, pagination fail-soft, error mapping.
 
-Tests: `sendMessage`, `sendReply`, `getMessages` (pagination + fail-soft), `listGuildChannels`, `addReaction`, `listReactionEmoji`, `listGuildMembers` (pagination), `createChannel`, `rateLimitRetry` (429 + Retry-After), `getGatewayUrl`.
+Tests: `sendMessage`, `sendReply`, `getMessages` (pagination + fail-soft), `listGuildChannels`, `addReaction`, `listReactionEmoji`, `listGuildMembers` (pagination), `createChannel`, `createChannel_privateIncludesPermissionOverwrites`, `rateLimitRetry` (429 + Retry-After, single retry), `rateLimitRetry_secondRetryReturnsFailure`, `getChannel_404ReturnsNull`, `getChannel_403ReturnsNullWithWarning`, `sendMessage_4xxReturnsErrorPostResult`, `getGatewayUrl`.
 
 No new test dependency — WireMock is on the Quarkus test classpath.
 
@@ -297,13 +299,13 @@ No new test dependency — WireMock is on the Quarkus test classpath.
 
 `DiscordGatewayTest` uses a purpose-built embedded WebSocket server (~150 lines, virtual threads, `localhost:0`). Simpler than the IRC server — JSON frames with opcodes, no protocol parsing.
 
-Tests: `connectAndIdentify`, `heartbeatLoop` (interval + seq), `heartbeatAckTimeout` (→ reconnect), `dispatchEvent` (MESSAGE_CREATE delivered), `resumeOnDisconnect` (RESUME with session_id + seq), `invalidSessionFallback` (→ re-IDENTIFY), `reconnectBackoff` (exponential).
+Tests: `connectAndIdentify`, `heartbeatLoop` (interval + seq), `heartbeatAckTimeout` (→ reconnect), `dispatchEvent` (MESSAGE_CREATE delivered), `resumeOnDisconnect` (RESUME with session_id + seq), `invalidSessionFallback` (→ re-IDENTIFY), `reconnectBackoff` (exponential), `reconnectBackoff_logEscalation` (WARNING→SEVERE at attempt 5), `multiFrameMessage_accumulatedBeforeParse`, `guildCreate_presencesCacheSeeded`.
 
 ### Layer 3: DiscordChatPlatform — contract tests
 
 `DiscordChatPlatformTest` — integration tests using WireMock + mock WebSocket together. Verifies all 9 capabilities through the ChatPlatform SPI.
 
-Tests: `messaging_send`, `threading_reply`, `discovery_listChannels`, `reactions_addRemoveList`, `presence_ofMember`, `presence_setIsNoOp`, `members_list`, `memberManagement_isDegraded`, `channelManagement_createAndFind`, `messageHistory_messagesSince`, `inbound_messageCreateFiresEvent`.
+Tests: `messaging_send`, `messaging_contentExceeds2000CharsReturnsFailure`, `messaging_prefersMarkdownOverText`, `threading_reply`, `discovery_listChannels`, `discovery_excludesForumChannels`, `reactions_addRemoveList`, `presence_ofMember`, `presence_setLogsWarning`, `members_list`, `memberManagement_isDegraded`, `channelManagement_createAndFind`, `channelManagement_createPrivateChannel`, `channelManagement_findDerivesIsPrivate`, `messageHistory_messagesSince`, `inbound_messageCreateFiresEvent`, `inbound_systemMessagesFiltered`, `inbound_blankTokenConnectorInactive`, `inbound_blankGuildIdConnectorInactive`, `discovery_blankTokenReturnsEmpty`.
 
 ### No real Discord in CI
 
