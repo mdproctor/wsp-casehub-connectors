@@ -2,15 +2,17 @@
 
 ## Last Session
 
-Closed #29 (Discord chat connector — 2 modules, 8 native capabilities,
-Gateway inbound, 68 tests) and #35 (replaced JDK WebSocket with Vert.x
-for RFC 6455 GUID compliance). Garden entry GE-20260629-c6172a documents
-the JDK Corretto WebSocket GUID deviation. Filed 5 deferred issues
-(#30–#34). Blog entry mdp15 published.
+Investigated what Pages WebSocket completion (pages#52, #53) unlocks.
+Found connectors #27 was already done but GitHub missed the close —
+sub-issue `Closes` refs lost during git-squash. Fixed two work-end
+skill gaps in soredium (c6fce1b): carry sub-issue refs through squash,
+stamp project branch on close. Manually closed #27 and stamped
+`issue-26-demo-chat-service`. Blog entry mdp16 published.
 
 ## Immediate Next Step
 
-No blocking issues. Pick from What's Next.
+No blocking issues. Pick from What's Next — chat-demo UI (#28 awareness
+in clinical) is now fully unblocked by Pages WebSocket.
 
 ## What's Left
 
