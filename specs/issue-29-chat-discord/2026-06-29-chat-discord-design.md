@@ -46,9 +46,9 @@ ChatPlatform SPI implementation and inbound connector.
 | Property | Module | Required | Purpose |
 |---|---|---|---|
 | `casehub.discord.guild-id` | `discord` | Yes | Target guild (server) snowflake ID. Scopes all guild-level operations. |
-| `casehub.discord.token` | `chat-discord` | Yes | Bot token. Injected by `DiscordChatPlatform` and `DiscordInboundConnector`, passed to `DiscordClient` at call time. |
+| `casehub.discord.token` | `discord` | Yes | Bot token. Injected by callers (`DiscordDiscovery`, `DiscordChatPlatform`, `DiscordInboundConnector`) and passed to `DiscordClient` at call time. |
 
-Credential ownership follows `credential-config-ownership` protocol: `DiscordClient` takes `String token` as a parameter on every method — it holds no `@ConfigProperty` for credentials. Callers inject their own token.
+Credential ownership follows `credential-config-ownership` protocol: `DiscordClient` takes `String token` as a parameter on every method — it holds no `@ConfigProperty` for credentials. Callers inject their own token. The token property lives in the `discord` module so that all callers — including `DiscordDiscovery` in `discord` — can inject it directly. This follows the `slack-bot` precedent where `SlackBotDiscovery` injects `casehub.connectors.slack-bot.token` from the same module.
 
 ---
 
@@ -67,7 +67,7 @@ List<DiscordMessage> getMessages(String token, String channelId, String afterId,
 // Channels
 List<DiscordChannel> listGuildChannels(String token);
 DiscordChannel getChannel(String token, String channelId);
-DiscordChannel createChannel(String token, String name, String topic, int type, boolean nsfw);
+DiscordChannel createChannel(String token, String name, String topic, int type, boolean nsfw, boolean isPrivate);
 
 // Reactions
 void addReaction(String token, String channelId, String messageId, String emoji);
@@ -92,7 +92,8 @@ Package: `io.casehub.connectors.discord.model`
 ```java
 record DiscordMessage(String id, String channelId, DiscordUser author, String content,
                       Instant timestamp, String referencedMessageId, int type) {}
-record DiscordChannel(String id, String name, String topic, int type, String parentId) {}
+record DiscordChannel(String id, String name, String topic, int type, String parentId, List<PermissionOverwrite> permissionOverwrites) {}
+record PermissionOverwrite(String id, int type, long allow, long deny) {}
 record DiscordUser(String id, String username, String globalName, boolean bot) {}
 record DiscordMember(DiscordUser user, String nick, List<String> roles, Instant joinedAt) {}
 record DiscordGuild(String id, String name, int approximateMemberCount) {}
@@ -152,7 +153,7 @@ public interface GatewayEventListener {
 
 ### Protocol details
 
-- **Transport:** `java.net.http.HttpClient.newWebSocketBuilder()` — no external WebSocket library
+- **Transport:** `HttpHelper.CLIENT.newWebSocketBuilder()` — uses the shared `HttpClient` per `shared-http-client` protocol (PP-20260607-9794cb). No external WebSocket library.
 - **URL:** `wss://gateway.discord.gg/?v=10&encoding=json`
 - **HELLO (opcode 10):** Extract `heartbeat_interval`
 - **IDENTIFY (opcode 2):** Send `{token, intents, properties: {os, browser, device}}`
@@ -160,8 +161,9 @@ public interface GatewayEventListener {
 - **HEARTBEAT (opcode 1):** Dedicated virtual thread. First heartbeat after `interval * jitter`. Subsequent every `interval` ms. Payload: last sequence number.
 - **HEARTBEAT_ACK (opcode 11):** Expected after each heartbeat. Missing ACK → close and reconnect.
 - **DISPATCH (opcode 0):** Delegate `(eventType, data)` to `GatewayEventListener`
+- **Message accumulation:** `WebSocket.Listener.onText(WebSocket, CharSequence, boolean last)` delivers frames, not messages. Buffer partial frames (where `last == false`) in a `StringBuilder`; only parse and dispatch when `last == true`. Large DISPATCH events (e.g., GUILD_CREATE with many channels/members) can span multiple frames.
 - **Reconnect:** Connect to `resume_gateway_url`, send RESUME (opcode 6) with `session_id` + `seq`. On INVALID_SESSION (opcode 9) → full re-IDENTIFY.
-- **Backoff:** Exponential 1s → 2s → 4s → ... → 60s max. Same pattern as `IrcInboundConnector`.
+- **Backoff:** Exponential 1s → 2s → 4s → ... → 60s max. Same pattern as `IrcInboundConnector.connectLoop()`. Track `consecutiveFailures`; log at WARNING for attempts 1–4, escalate to SEVERE at attempt 5+ (matching IRC's log escalation to surface sustained connectivity failures).
 - **Sequence tracking:** AtomicLong updated on every DISPATCH.
 
 ### Gateway rate limits
@@ -169,6 +171,8 @@ public interface GatewayEventListener {
 - 120 send events per 60 seconds per connection
 - 1000 IDENTIFY calls per 24 hours (global)
 - Max send payload: 4096 bytes
+
+**v1 budget analysis:** v1 sends only HEARTBEAT, IDENTIFY, and RESUME over the WebSocket. At a typical `heartbeat_interval` of ~41s, heartbeats consume ~1.5 events/minute — well within the 120/60s budget. No proactive rate tracking needed. If future versions add frequent outbound events (e.g., PRESENCE_UPDATE, VOICE_STATE_UPDATE), add a send-side counter with defer-on-limit.
 
 ---
 
@@ -180,13 +184,13 @@ public interface GatewayEventListener {
 
 | Capability | Discord API | Implementation notes |
 |---|---|---|
-| **Messaging** | `POST /channels/{id}/messages` | `content.text()` → `content` field. Maps `PostResult` to `SendResult`. |
+| **Messaging** | `POST /channels/{id}/messages` | Prefers `content.markdown()` when non-null (Discord natively renders Markdown), falls back to `content.text()`. Content exceeding 2000 characters → `SendResult.failure("Content exceeds Discord's 2000-character limit")`. Maps `PostResult` to `SendResult`. |
 | **Threading** | `POST /channels/{id}/messages` with `message_reference` | Inline reply with parent preview. Discord threads (child channels) map to ChannelManagement, not Threading. |
-| **Discovery** | `GET /guilds/{guild_id}/channels` | Filtered to text channels (type 0, 5) and threads (10, 11, 12). Forum channels (15) included. |
+| **Discovery** | `GET /guilds/{guild_id}/channels` | Filtered to text channels (type 0, 5) and threads (10, 11, 12). Forum channels (type 15) excluded — they require thread creation before messaging and would cause 400 errors if a caller attempted `messaging.send()` on a discovered forum channel. |
 | **Reactions** | `PUT/DELETE reactions/{emoji}/@me` | `add()` and `remove()` are direct. `list()` fetches the message object and extracts the `reactions` array for emoji names. Unicode emoji URL-encoded; custom emoji passed as `name:id`. |
-| **Presence** | Gateway PRESENCE_UPDATE cache | `of()` reads `DiscordGatewayPresenceCache`. `set()` is a no-op — Discord doesn't support setting another user's presence. Discord statuses: `online`→ONLINE, `idle`→AWAY, `dnd`→DND, `offline`→OFFLINE. Unknown members return `UNKNOWN`. |
-| **Members** | `GET /guilds/{guild_id}/members` | Guild-level, not channel-level. Returns all guild members. Requires GUILD_MEMBERS privileged intent. Paginated with fail-soft. |
-| **ChannelManagement** | `POST /guilds/{guild_id}/channels`, `GET /channels/{id}` | `isPrivate` → creates channel with `@everyone` VIEW_CHANNEL denied. `description` maps to `topic` (Discord has no separate description). |
+| **Presence** | Gateway PRESENCE_UPDATE cache | `of()` reads `DiscordGatewayPresenceCache`. `set()` logs WARNING and returns — Discord's API does not support setting another user's presence. This is a permanent platform limitation, not a deferred feature. Discord statuses: `online`→ONLINE, `idle`→AWAY, `dnd`→DND, `offline`→OFFLINE. Unknown members return `UNKNOWN`. **Dependency:** `DiscordGatewayPresenceCache` is populated only when `chat-discord` is on the classpath (the `DiscordInboundConnector` feeds PRESENCE_UPDATE events into it). Deployments using `discord` without `chat-discord` (e.g., MCP tools, future `DiscordChannelBackend`) will see all `of()` calls return `UNKNOWN`. |
+| **Members** | `GET /guilds/{guild_id}/members` | **Known semantic deviation:** returns guild-level members, not channel-scoped. All guild members are returned regardless of which `ChatChannelRef` is passed. This is a consequence of Discord's permission model — channel membership is implicit via role-based permission overwrites, not an explicit member list. `supports(Members.class)` returns `true` because the data is real. Requires GUILD_MEMBERS privileged intent. Paginated with fail-soft. |
+| **ChannelManagement** | `POST /guilds/{guild_id}/channels`, `GET /channels/{id}` | `isPrivate` → `DiscordClient.createChannel(..., isPrivate=true)` includes a `permission_overwrites` array denying `@everyone` the `VIEW_CHANNEL` permission. SPI `topic` → Discord `topic` field. SPI `description` → ignored (Discord channels have no separate description field; returned as `null` when reading channels). |
 | **MessageHistory** | `GET /channels/{id}/messages?after=` | `Instant since` converted to synthetic snowflake: `(timestamp_ms - DISCORD_EPOCH) << 22`. Paginated (100/page), fail-soft. `parentRef` from `referencedMessageId` on type-19 messages. |
 
 ### Degraded capability (1 of 9)
@@ -197,7 +201,9 @@ public interface GatewayEventListener {
 
 ### DiscordGatewayPresenceCache
 
-`@ApplicationScoped` bean. `ConcurrentHashMap<String, PresenceStatus>` populated by the `DiscordInboundConnector` when it processes PRESENCE_UPDATE Gateway events.
+`@ApplicationScoped` bean in the `discord` module. `ConcurrentHashMap<String, PresenceStatus>` populated by the `DiscordInboundConnector` (in `chat-discord`) when it processes PRESENCE_UPDATE Gateway events.
+
+**Classpath dependency:** The cache is populated only when `chat-discord` is on the classpath. Without the Gateway connection provided by `DiscordInboundConnector`, all `get()` calls return `UNKNOWN`. This is by design — deployments using `discord` alone (MCP tools, future `DiscordChannelBackend`) get correct but empty presence data, not errors.
 
 ```java
 void update(String userId, PresenceStatus status);
@@ -284,7 +290,11 @@ No SPI changes required. Discord maps to the existing ChatPlatform interface cle
 - Guild scoping via config property, not SPI parameter
 - MemberManagement honestly degraded rather than semantic-stretching
 
-The one gap worth noting for future SPI evolution: `Members.list(ChatChannelRef)` returns guild members for Discord, not channel-specific members. The SPI contract implies channel scope; Discord provides guild scope. `supports(Members.class)` returns true because the data is real — just broader. A future `Scope` concept on the Members capability could express this, but it's not worth an SPI change until a second platform exhibits the same pattern.
+Two gaps worth noting for future SPI evolution:
+
+1. **Members scope:** `Members.list(ChatChannelRef)` returns guild members for Discord, not channel-specific members. The SPI contract implies channel scope; Discord provides guild scope. `supports(Members.class)` returns true because the data is real — just broader. A future `Scope` concept on the Members capability could express this, but it's not worth an SPI change until a second platform exhibits the same pattern.
+
+2. **Topic/description divergence:** The ARC42 §10 entry states "Topic is dynamic, description is static — Slack/Discord distinguish them." This is correct for Slack (topic vs. purpose) but incorrect for Discord — Discord channels have only a `topic` field with no separate description. The ARC42 entry should be corrected to: "Topic is dynamic, description is static — Slack distinguishes them (topic/purpose); Discord has only topic; IRC has only topic."
 
 ---
 
@@ -297,7 +307,14 @@ The one gap worth noting for future SPI evolution: `Members.list(ChatChannelRef)
 
 ## Deferred Items
 
-- Discord message attachment downloading (separate GET per attachment) — follow-up issue
-- Multi-guild support (one ChatPlatform instance per guild) — deferred until a real use case
-- `Presence.set()` — no-op; Discord doesn't support setting other users' status
-- Discord slash commands / interactions — out of scope for ChatPlatform SPI
+Each deferred item has a tracked GitHub issue in `casehubio/connectors`:
+
+| Item | Issue | Rationale |
+|---|---|---|
+| Discord message attachment downloading | casehubio/connectors#30 | Requires separate GET per attachment; v1 produces empty attachment lists |
+| Multi-guild support | casehubio/connectors#31 | One ChatPlatform instance per guild; deferred until a real use case |
+| Discord slash commands / interactions | casehubio/connectors#32 | Out of scope for ChatPlatform SPI; separate interaction model |
+| Discord embeds (rich structured messages) | casehubio/connectors#33 | Common bot feature; requires DiscordClient API extension for embed objects |
+| MCP tools (`send_discord`, `list_discord_channels`) | casehubio/connectors#34 | Future consumers of `DiscordClient`; MCP module integration |
+
+Note: `Presence.set()` is a permanent no-op, not a deferred feature — Discord's API does not support setting another user's presence. No issue needed.
