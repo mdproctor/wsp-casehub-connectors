@@ -1,5 +1,5 @@
-# Branch Closed: issue-24-chat-platform-spi
+# Branch Closed: issue-29-chat-discord
 
-**Date:** 2026-06-25
-**Issues:** 24
+**Date:** 2026-06-29
+**Issues:** 29
 **Status:** merged to main
