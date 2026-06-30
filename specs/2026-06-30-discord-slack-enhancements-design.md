@@ -166,7 +166,7 @@ Result records (inner records on `SlackBotClient`):
 - `UserListResult(boolean ok, List<UserInfo> users, String nextCursor, String error)` — paginated result for listUsers
 - `ConversationResult(boolean ok, ConversationInfo info, String error)` — for create/info single-channel operations
 - `HistoryMessage(String ts, String user, String text, String threadTs)` — message in history. No attachment field — Slack file downloads require separate `files.info` API calls with different authorization (file URLs are not direct CDN links like Discord). Slack attachment downloading is a separate enhancement. Discord attachment downloading (Feature 1) uses `DiscordClient.downloadAttachment()` with direct CDN URLs and existing SSRF defense.
-- `HistoryResult(boolean ok, List<HistoryMessage> messages, String nextCursor, String error)` — page result
+- `HistoryResult(boolean ok, List<HistoryMessage> messages, String error)` — single-page result (no pagination)
 
 ### SlackChatPlatform capabilities
 
@@ -174,7 +174,7 @@ All 9 capabilities native — most capable ChatPlatform implementation (Discord:
 
 | # | Capability | Implementation |
 |---|-----------|---------------|
-| 1 | **Messaging** | `postMessage(token, channelId, text, null)` → map `PostResult` to `SendResult`: `PostResult.ts()` → `ChatMessageRef(ChatChannelRef(channelId), ts)`, `Instant` from `PostResult.ts()` parsed as epoch seconds (Slack `ts` format `"1234567890.123456"` — integer part is Unix epoch). `SendResult.success(messageRef, timestamp)` on `PostResult.ok()`, `SendResult.failure(PostResult.error())` otherwise. |
+| 1 | **Messaging** | `postMessage(token, channelId, text, null)` → map `PostResult` to `SendResult`: `PostResult.ts()` → `ChatMessageRef(ChatChannelRef(channelId), ts)`, `Instant` from full `ts` string parsed as decimal — split on `"."`, integer part as epoch seconds, fractional part as microseconds (× 1000 → nanos), via `Instant.ofEpochSecond(seconds, nanoAdjustment)`. Preserves Slack's microsecond precision (e.g. `"1234567890.123456"` → `Instant` at 1234567890s + 123456µs). `SendResult.success(messageRef, timestamp)` on `PostResult.ok()`, `SendResult.failure(PostResult.error())` otherwise. |
 | 2 | **Threading** | `postMessage(token, channelId, text, parentRef.messageId())` — Slack's `thread_ts` = parent `ts` |
 | 3 | **Discovery** | Client layer: `listConversations(token)` → `List<ConversationInfo>`. SPI layer: `SlackChatPlatform` maps `ConversationInfo` → `Channel(ChatChannelRef(c.id()), c.name(), c.topic(), c.purpose(), c.isPrivate())`. The `Discovery` interface returns `List<Channel>` — same pattern as `DiscordChatPlatform` mapping `DiscordChannel` → `Channel`. |
 | 4 | **Reactions** | `addReaction/removeReaction/getReactions` — Slack emoji names without colons |
@@ -192,11 +192,28 @@ Per `credential-config-ownership` protocol: the token is injected by the caller 
 
 If token is blank, all capabilities degrade (same `@PostConstruct` guard pattern as `DiscordChatPlatform`).
 
+**Required bot OAuth scopes:**
+
+| Scope | Required by | Notes |
+|-------|-------------|-------|
+| `chat:write` | `chat.postMessage` | Already required for existing `SlackBotClient` |
+| `channels:read` | `conversations.list`, `conversations.info`, `conversations.members` | Public channels |
+| `channels:history` | `conversations.history` | Public channels |
+| `channels:manage` | `conversations.create`, `conversations.invite`, `conversations.kick` | Public channels |
+| `groups:read` | `conversations.list`, `conversations.info`, `conversations.members` | Private channels |
+| `groups:history` | `conversations.history` | Private channels |
+| `groups:write` | `conversations.create`, `conversations.invite`, `conversations.kick` | Private channels |
+| `reactions:read` | `reactions.get` | |
+| `reactions:write` | `reactions.add`, `reactions.remove` | |
+| `users:read` | `users.list`, `users.getPresence` | |
+
+Minimum for read-only capabilities (Discovery, Members, Presence, Reactions read, MessageHistory): `channels:read`, `channels:history`, `groups:read`, `groups:history`, `reactions:read`, `users:read`. Full 9-capability support requires all 10 scopes above.
+
 ### Slack message identity
 
-Slack `ts` (e.g. `"1234567890.123456"`) serves as the message ID.
+Slack `ts` (e.g. `"1234567890.123456"`) serves as both message ID and timestamp. The string is used as-is for `ChatMessageRef.messageId` (identity) and parsed as a decimal for `Instant` (ordering). Full microsecond precision is preserved: split on `"."`, integer part = epoch seconds, fractional part = microseconds × 1000 → nanos.
 
-- `ChatMessageRef(channel, ts)` — message reference
+- `ChatMessageRef(channel, ts)` — message reference (ts as string)
 - `thread_ts` → `ChatMessageRef(channel, thread_ts)` as `parentRef` for threaded messages
 - `null` parentRef for top-level messages
 
@@ -225,7 +242,7 @@ Implements `InboundTranslator`. Maps Slack webhook `InboundMessage` metadata:
 | `shared-http-client` | All new SlackBotClient methods use `HttpHelper.CLIENT` |
 | `credential-config-ownership` | Token injected by SlackChatPlatform, passed at call time |
 | `spi-id-method-naming` | `id()` not `connectorId()` |
-| `paginating-client-fail-soft` | `listConversationMembers`, `getHistory` return partial + WARNING |
+| `paginating-client-fail-soft` | `listConversations`, `listConversationMembers`, `listUsers` return partial + WARNING |
 | `inbound-connector-id-constants` | `SlackInboundTranslator` uses `InboundConnectorTypes.SLACK` constant |
 
 ---
