@@ -149,12 +149,15 @@ Near 1:1 mapping:
 
 Discord-specific limits enforced before sending: title 256, description 4096, footer 2048, author 256, fields 25, total 6000 chars. Multiple RichCards → multiple embeds (up to 10).
 
+**Cross-platform validity note:** Discord requires `title` when `url` is set — a RichCard with `url` + `description` but no `title` returns `SendResult.failure(...)` on Discord while succeeding on Slack (where `url` is embedded as a mrkdwn link in the description section). This is an inherent platform constraint, not a RichCard validation gap — the RichCard only requires at least one of `title`/`description`.
+
 ### SlackChatPlatform — RichCard → Block Kit JSON
 
 | RichCard | Block Kit |
 |---|---|
 | `title` | Header block (`plain_text`) |
 | `description` | Section block (`mrkdwn` text) |
+| `url` | mrkdwn link in description section text (e.g. `<url\|title>`) — dropped if no `description` |
 | `thumbnailUrl` | Section accessory image (on description section) |
 | `fields` | Section block with fields array (`mrkdwn` text objects) |
 | `imageUrl` | Image block |
