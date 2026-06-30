@@ -1,15 +1,13 @@
 # Handoff — connectors
 
-*Updated: #28 closed — removed from backlog.*
-
 ## Last Session
 
-Investigated what Pages WebSocket completion (pages#52, #53) unlocks.
-Found connectors #27 was already done but GitHub missed the close —
-sub-issue `Closes` refs lost during git-squash. Fixed two work-end
-skill gaps in soredium (c6fce1b): carry sub-issue refs through squash,
-stamp project branch on close. Manually closed #27 and stamped
-`issue-26-demo-chat-service`. Blog entry mdp16 published.
+Implemented three Discord enhancements on one branch (#30, #33, #34):
+attachment downloading with SSRF defense and streaming size enforcement,
+rich embed outbound support, and send_discord/list_discord_channels MCP tools.
+Design-reviewed (19 issues across 6 rounds). Code-reviewed (4 Important fixed,
+3 Minor filed as #39). Garden entry GE-20260630-e18bed for BodyHandlers gotcha.
+Blog entry mdp17 published.
 
 ## Immediate Next Step
 
@@ -19,15 +17,16 @@ No blocking issues. Pick from What's Next.
 
 - Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
 - ARC42STORIES.MD L7/L8 layer entries need full §9.4 treatment · M · Med
+- ARC42STORIES.MD needs §4/§5/§12 updates for Discord enhancements (MCP tools, module deps, risks) · S · Low
 - Connectors deep-dive (`parent/docs/repos/casehub-connectors.md`) needs Discord module additions · S · Low
+- Minor code review findings (#39) — allowedCdnHosts configurability, null URL test, HTTP/1.1 connection reuse · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #34 | MCP tools — send_discord, list_discord_channels | S | Low | Consumes DiscordClient |
-| #30 | Discord message attachment downloading | S | Med | Separate GET per attachment |
-| #33 | Discord rich embed message support | S | Med | DiscordClient API extension |
+| #36 | Discord message history attachment downloading | S | Low | DiscordMessage already carries metadata |
+| #38 | Advanced embed MCP parameters (fields, images, thumbnails) | S | Low | DiscordEmbed model already supports full field set |
 | — | chat-slack module — SlackChatPlatform | M | Med | Spec ready |
 | #31 | Multi-guild support | M | Med | Deferred until real use case |
 
