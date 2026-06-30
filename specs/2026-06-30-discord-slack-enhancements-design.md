@@ -182,7 +182,7 @@ All 9 capabilities native — most capable ChatPlatform implementation (Discord:
 | 6 | **Members** | `listConversationMembers` → IDs, then `listUsers` → workspace user map (paginated, follows `paginating-client-fail-soft`). Join locally by user ID. Members whose user info is unavailable (page cap reached) use their user ID as displayName. O(pages) HTTP calls instead of O(N). |
 | 7 | **ChannelManagement** | `createConversation` for create, `getConversationInfo` for find |
 | 8 | **MemberManagement** | `inviteToConversation` for add, `kickFromConversation` for remove |
-| 9 | **MessageHistory** | `getHistory(token, channelId, oldest, 100)` → map `HistoryMessage` to `ReceivedMessage`. Limit fixed at 100 (matching Discord). Single API call — `conversations.history` returns up to 1000 per page, so 100 fits in one request and no pagination is needed. `oldest` = epoch seconds from `Instant.since`. `ts` = messageId, `threadTs` = parentRef. |
+| 9 | **MessageHistory** | `getHistory(token, channelId, oldest, 100)` → map `HistoryMessage` to `ReceivedMessage`. Limit fixed at 100 (matching Discord). Single API call — `conversations.history` returns up to 1000 per page, so 100 fits in one request and no pagination is needed. `oldest` = full-precision ts-format string from `Instant.since`: `since.getEpochSecond() + "." + String.format("%06d", since.getNano() / 1000)`. Preserves microsecond precision and prevents duplicate messages on sequential history queries. `ts` = messageId, `threadTs` = parentRef. |
 
 ### Credential configuration
 
