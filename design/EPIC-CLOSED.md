@@ -1,5 +1,5 @@
-# Branch Closed: issue-30-discord-enhancements
+# Branch Closed: issue-36-discord-slack-enhancements
 
 **Date:** 2026-06-30
-**Issues:** 30,33,34
+**Issues:** 36,38,40
 **Status:** merged to main
