@@ -29,6 +29,8 @@ In `DiscordChatPlatform.toReceivedMessage()`, iterate over `dm.attachments()` an
 
 Downloads are synchronous within the `getMessageHistory()` call. The caller already chose a blocking API; parallelizing with virtual threads adds complexity for a path that returns ≤100 messages. This differs from the inbound connector, which uses virtual threads because it runs on the Gateway event thread.
 
+**Memory risk**: 100 messages × N attachments × `maxAttachmentBytes` (default 8 MB) could produce significant heap pressure. In practice, most messages carry 0–1 attachments well under 1 MB. The per-attachment cap (`casehub.discord.attachment.max-bytes`) bounds individual downloads. A total byte cap across all attachments is not added in V1 — the combination of 100-message limit and per-attachment size enforcement provides sufficient bounding for realistic workloads. If heap pressure becomes a concern, reduce `maxAttachmentBytes` via config.
+
 ### Changes
 
 | File | Change |
@@ -79,6 +81,17 @@ Add six new optional `@ToolArg` parameters to `sendDiscord()`:
 - Each object requires `name` and `value`; `inline` defaults to `false` if absent
 - `hasEmbed` detection extends to include any of the new parameters being non-blank
 
+**Embed limit validation** (Discord API limits, validated before sending):
+- `embedTitle`: max 256 characters → `"Failed: embedTitle exceeds 256 characters"`
+- `embedDescription`: max 4096 characters → `"Failed: embedDescription exceeds 4096 characters"`
+- `embedFields`: max 25 fields → `"Failed: embedFields exceeds 25 fields"`
+- Field `name`: max 256 characters → `"Failed: embedFields[N].name exceeds 256 characters"`
+- Field `value`: max 1024 characters → `"Failed: embedFields[N].value exceeds 1024 characters"`
+- `embedFooter`: max 2048 characters → `"Failed: embedFooter exceeds 2048 characters"`
+- `embedAuthor`: max 256 characters → `"Failed: embedAuthor exceeds 256 characters"`
+- Total embed content (title + description + footer + author + all field names + all field values): max 6000 characters → `"Failed: total embed content exceeds 6000 characters"`
+- `embedUrl` requires `embedTitle` → `"Failed: embedUrl requires embedTitle"` (Discord's embed URL creates a hyperlink on the title; without a title, the URL is silently ignored)
+
 All existing parameters (`embedTitle`, `embedDescription`, `embedColor`) are unchanged. The `hasEmbed` check expands to include any embed parameter being non-blank.
 
 ### Protocols
@@ -127,20 +140,20 @@ chat-slack/
 
 | Method | Slack API | Pagination | Used by |
 |--------|-----------|------------|---------|
-| `listConversations(token)` | `conversations.list` | Yes | Discovery (returns full channel detail, not just `DiscoveredTarget`) |
+| `listConversations(token)` | `conversations.list` | Yes | Primary paginating method for `conversations.list`. Returns `List<ConversationInfo>`. `listChannels()` delegates to this: `listConversations(token).stream().map(c -> new DiscoveredTarget(c.id(), "#" + c.name())).toList()`. One pagination loop, one `parsePage()`, one maintenance surface. |
 | `addReaction(token, channel, timestamp, emoji)` | `reactions.add` | No | Reactions |
 | `removeReaction(token, channel, timestamp, emoji)` | `reactions.remove` | No | Reactions |
 | `getReactions(token, channel, timestamp)` | `reactions.get` | No | Reactions |
 | `getPresence(token, userId)` | `users.getPresence` | No | Presence |
 | `listConversationMembers(token, channelId)` | `conversations.members` | Yes | Members |
-| `getUserInfo(token, userId)` | `users.info` | No | Members |
+| `listUsers(token)` | `users.list` | Yes | Members (workspace user batch fetch for display name resolution — avoids N+1 `users.info` calls) |
 | `createConversation(token, name, isPrivate)` | `conversations.create` | No | ChannelManagement |
 | `getConversationInfo(token, channelId)` | `conversations.info` | No | ChannelManagement |
 | `inviteToConversation(token, channelId, userId)` | `conversations.invite` | No | MemberManagement |
 | `kickFromConversation(token, channelId, userId)` | `conversations.kick` | No | MemberManagement |
-| `getHistory(token, channelId, oldest, limit)` | `conversations.history` | Yes | MessageHistory |
+| `getHistory(token, channelId, oldest, limit)` | `conversations.history` | No (limit=100 fits in single page) | MessageHistory |
 
-Paginating methods (`listConversationMembers`, `getHistory`) follow the `paginating-client-fail-soft` protocol: return partial results + WARNING on mid-loop failure, bounded by `MAX_PAGES`.
+Paginating methods (`listConversations`, `listConversationMembers`, `listUsers`) follow the `paginating-client-fail-soft` protocol: return partial results + WARNING on mid-loop failure, bounded by `MAX_PAGES`. `getHistory` is not paginated — `limit=100` fits in a single `conversations.history` response.
 
 Result records (inner records on `SlackBotClient`):
 - `ReactionResult(boolean ok, String error)` — for add/remove reaction
@@ -149,9 +162,10 @@ Result records (inner records on `SlackBotClient`):
 - `ConversationInfo(String id, String name, String topic, String purpose, boolean isPrivate)` — channel detail for Discovery and ChannelManagement
 - `ConversationListResult(boolean ok, List<ConversationInfo> conversations, String nextCursor, String error)` — paginated result for listConversations
 - `MembersResult(boolean ok, List<String> memberIds, String nextCursor, String error)` — page result
-- `UserInfoResult(boolean ok, String userId, String displayName, String realName, String error)` — for getUserInfo
+- `UserInfo(String id, String displayName, String realName)` — workspace user entry
+- `UserListResult(boolean ok, List<UserInfo> users, String nextCursor, String error)` — paginated result for listUsers
 - `ConversationResult(boolean ok, ConversationInfo info, String error)` — for create/info single-channel operations
-- `HistoryMessage(String ts, String user, String text, String threadTs)` — message in history
+- `HistoryMessage(String ts, String user, String text, String threadTs)` — message in history. No attachment field — Slack file downloads require separate `files.info` API calls with different authorization (file URLs are not direct CDN links like Discord). Slack attachment downloading is a separate enhancement. Discord attachment downloading (Feature 1) uses `DiscordClient.downloadAttachment()` with direct CDN URLs and existing SSRF defense.
 - `HistoryResult(boolean ok, List<HistoryMessage> messages, String nextCursor, String error)` — page result
 
 ### SlackChatPlatform capabilities
@@ -160,15 +174,15 @@ All 9 capabilities native — most capable ChatPlatform implementation (Discord:
 
 | # | Capability | Implementation |
 |---|-----------|---------------|
-| 1 | **Messaging** | `postMessage(token, channelId, text, null)` → map `PostResult` to `SendResult` |
+| 1 | **Messaging** | `postMessage(token, channelId, text, null)` → map `PostResult` to `SendResult`: `PostResult.ts()` → `ChatMessageRef(ChatChannelRef(channelId), ts)`, `Instant` from `PostResult.ts()` parsed as epoch seconds (Slack `ts` format `"1234567890.123456"` — integer part is Unix epoch). `SendResult.success(messageRef, timestamp)` on `PostResult.ok()`, `SendResult.failure(PostResult.error())` otherwise. |
 | 2 | **Threading** | `postMessage(token, channelId, text, parentRef.messageId())` — Slack's `thread_ts` = parent `ts` |
-| 3 | **Discovery** | `listConversations(token)` → returns `List<ConversationInfo>` with id, name, topic, purpose, isPrivate. Separate from existing `listChannels()` which returns `DiscoveredTarget` for the `ConnectorDiscovery` SPI. Both call `conversations.list` but parse different fields — they serve different layers (Chat SPI vs Connector SPI) |
+| 3 | **Discovery** | Client layer: `listConversations(token)` → `List<ConversationInfo>`. SPI layer: `SlackChatPlatform` maps `ConversationInfo` → `Channel(ChatChannelRef(c.id()), c.name(), c.topic(), c.purpose(), c.isPrivate())`. The `Discovery` interface returns `List<Channel>` — same pattern as `DiscordChatPlatform` mapping `DiscordChannel` → `Channel`. |
 | 4 | **Reactions** | `addReaction/removeReaction/getReactions` — Slack emoji names without colons |
-| 5 | **Presence** | `getPresence(token, userId)` → `active` → ONLINE, `away` → AWAY. No DND in basic API |
-| 6 | **Members** | `listConversationMembers` → IDs, then `getUserInfo` per ID for display names. N+1 queries are acceptable here — member lists are small and cached by Slack |
+| 5 | **Presence** | `getPresence(token, userId)` → `active` → ONLINE, `away` → AWAY. No DND in basic API. `set()` logs a warning and returns (no-op) — Slack's `users.setPresence` can only set the bot's own presence, not another user's. Same pattern as `DiscordPresence.set()`. |
+| 6 | **Members** | `listConversationMembers` → IDs, then `listUsers` → workspace user map (paginated, follows `paginating-client-fail-soft`). Join locally by user ID. Members whose user info is unavailable (page cap reached) use their user ID as displayName. O(pages) HTTP calls instead of O(N). |
 | 7 | **ChannelManagement** | `createConversation` for create, `getConversationInfo` for find |
 | 8 | **MemberManagement** | `inviteToConversation` for add, `kickFromConversation` for remove |
-| 9 | **MessageHistory** | `getHistory` → map `HistoryMessage` to `ReceivedMessage`. `oldest` = epoch seconds from `Instant.since`. `ts` = messageId, `threadTs` = parentRef |
+| 9 | **MessageHistory** | `getHistory(token, channelId, oldest, 100)` → map `HistoryMessage` to `ReceivedMessage`. Limit fixed at 100 (matching Discord). Single API call — `conversations.history` returns up to 1000 per page, so 100 fits in one request and no pagination is needed. `oldest` = epoch seconds from `Instant.since`. `ts` = messageId, `threadTs` = parentRef. |
 
 ### Credential configuration
 
@@ -219,8 +233,8 @@ Implements `InboundTranslator`. Maps Slack webhook `InboundMessage` metadata:
 ## Out of scope
 
 - **#37 (rich content model)** — separate concern. MCP tools are platform-specific and correctly bypass the ChatPlatform SPI for platform-native features (Discord embeds, Slack blocks).
-- **Slack Block Kit in MCP** — `send_slack_bot` could support blocks, but that's a separate enhancement.
-- **`list_slack_channels` MCP tool** — Slack channels already appear in `list_channels` via `SlackBotDiscovery`. A Slack-specific tool with richer detail is a separate issue.
+- **Slack Block Kit in MCP** — `send_slack_bot` could support blocks, but that's a separate enhancement. Filed as #41.
+- **`list_slack_channels` MCP tool** — Slack channels already appear in `list_channels` via `SlackBotDiscovery`. A Slack-specific tool with richer detail is a separate enhancement. Filed as #42.
 
 ---
 
@@ -238,11 +252,14 @@ Implements `InboundTranslator`. Maps Slack webhook `InboundMessage` metadata:
 - Unit test: all six new parameters → verify `DiscordEmbed` construction
 - Unit test: `embedFields` JSON parsing — valid, malformed, missing fields
 - Unit test: `hasEmbed` detection with only new parameters (no title/description)
+- Unit test: embed limit validation — title > 256, description > 4096, > 25 fields, field name > 256, field value > 1024, footer > 2048, author > 256, total > 6000
+- Unit test: `embedUrl` without `embedTitle` → `"Failed: embedUrl requires embedTitle"`
 - WireMock: full end-to-end with embeds
 
 ### #40 — SlackChatPlatform
-- WireMock for all 11 new `SlackBotClient` methods — success and error paths
-- Paginating methods: multi-page, mid-loop failure, page cap
+- WireMock for all new `SlackBotClient` methods — success and error paths
+- Paginating methods (`listConversations`, `listConversationMembers`, `listUsers`): multi-page, mid-loop failure, page cap
+- Members: workspace user batch fetch with local join, graceful fallback to user ID as displayName when user info unavailable
 - `SlackChatPlatform`: all 9 capabilities with mocked `SlackBotClient` responses
 - Degraded mode: blank token → all capabilities degrade
 - `SlackInboundTranslator`: metadata mapping, attachment forwarding
