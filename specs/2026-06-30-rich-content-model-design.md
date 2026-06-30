@@ -19,7 +19,7 @@ The `Channel` model lacks member count, and platform-specific discovery tools (`
 - **Content, not layout.** The abstraction expresses structured information (title, description, fields, images). Layout decisions (dividers, column sets, block ordering) are rendering concerns for each platform translator.
 - **Graceful degradation.** Platforms that can't render rich content fall back to `text`. Fields that don't map (e.g. `color` on Slack) are silently dropped.
 - **No interactivity.** Buttons, inputs, and actions are out of scope — this is a delivery library, not an application framework.
-- **Text is always required.** Every message has a `text` fallback. Every platform can render text.
+- **Text is always required.** Every message has a `text` fallback. Every platform can render text. This is a deliberate capability regression from `send_discord`, which allowed embed-only messages (no text). On Discord, `text` appears above the embed as a separate element — embed-only messages look visually cleaner. The tradeoff is accepted: cross-platform consistency and guaranteed fallback outweigh Discord-specific visual polish.
 
 ## Research
 
@@ -253,18 +253,18 @@ Implementation:
 
 `send_slack`, `send_teams`, `send_sms`, `send_whatsapp`, `send_email`, `list_channels` — these use the Connector SPI, a different abstraction layer.
 
-**Tool coexistence — `send_chat` vs `send_slack_bot`:**
-`send_chat(platform="slack")` supersedes `send_slack_bot`. Both use bot tokens via `SlackBotClient`, but `send_chat` adds rich content support and routes through the ChatPlatform SPI. `send_slack_bot` is deprecated — it will be removed when `send_chat` has proven stable. The LLM system prompt should prefer `send_chat` for all Slack bot messaging.
+**Tool replacement — `send_chat` replaces `send_slack_bot` and `send_discord`:**
+`send_chat` replaces both platform-specific tools immediately. `SlackBotMcpTool` and `DiscordMcpTool` are deleted — no deprecation period. This platform has no external users; a clean break is better than maintaining parallel tools. LLM system prompts are updated to use `send_chat` exclusively.
 
-`send_slack` (webhook, Connector SPI) is NOT deprecated — it serves a different use case: webhook-based delivery without a bot token. No overlap with `send_chat`.
+`send_slack` (webhook, Connector SPI) is unaffected — it serves a different use case: webhook-based delivery without a bot token. No overlap with `send_chat`.
 
 ### Module dependency change
 
 `mcp/pom.xml`:
-- **Add:** `casehub-connectors-chat-spi`
-- **Remove:** `casehub-connectors-slack-bot`, `casehub-connectors-discord`
+- **Add:** `casehub-connectors-chat-slack`, `casehub-connectors-chat-discord`
+- **Remove:** `casehub-connectors-slack-bot`, `casehub-connectors-discord` (now transitive via `chat-slack` and `chat-discord`)
 
-Platform implementations (`chat-slack`, `chat-discord`) are CDI-discovered at runtime via `ChatPlatformService(@All List<ChatPlatform>)`.
+`chat-spi` is not listed explicitly — it is a transitive dependency of both implementation modules. `ChatPlatformService(@All List<ChatPlatform>)` discovers `SlackChatPlatform` and `DiscordChatPlatform` via CDI because their modules are on the classpath.
 
 ## 7. Deferred Concerns
 
