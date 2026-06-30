@@ -31,7 +31,7 @@ The industry has converged on compositional block models (Slack Block Kit, Teams
 
 ## 1. RichCard Model
 
-Lives in `chat-spi` module, package `io.casehub.connectors.chat.model`. Pure-Java record (Tier 1).
+Lives in `chat-spi` module, package `io.casehub.connectors.chat.model`. Pure-Java record in a Tier 2 module (`chat-spi` depends on `quarkus-arc` for CDI used by the SPI interfaces; `RichCard` itself has no CDI annotations).
 
 ```java
 public record RichCard(
@@ -55,6 +55,19 @@ public record RichCard(
     }
 }
 ```
+
+**Builder** for readable construction (9 positional parameters with 7 nullable is caller-hostile):
+
+```java
+RichCard card = RichCard.builder()
+    .title("Deploy Summary")
+    .description("3 services updated")
+    .color(0x00FF00)
+    .fields(List.of(new Field("env", "prod", true)))
+    .build();
+```
+
+A `Builder` inner class follows the `ChatPlatform.Builder` pattern in the codebase. The canonical record constructor remains available for programmatic translation from platform-specific models.
 
 No platform-specific limit enforcement. Each platform translator validates its own limits and returns `SendResult.failure(...)`.
 
@@ -81,6 +94,12 @@ public record ChatContent(
 
 Existing callers using `new ChatContent("text")` are unaffected — `cards` defaults to empty.
 
+**Canonical constructor breakage:** The 3-arg canonical constructor `(text, markdown, attachments)` becomes a 4-arg constructor `(text, markdown, attachments, cards)`. This breaks ~18 call sites (5 production, 13 test). Per platform design philosophy, all call sites are updated — no compatibility shim. Affected production files:
+- `RefInboundTranslator.java`, `IrcInboundTranslator.java`, `DiscordInboundTranslator.java`, `SlackInboundTranslator.java` — add `List.of()` for cards
+- `DiscordChatPlatform.java` (line 341) — add `List.of()` for cards
+
+Affected test files: `ChatContentTest`, `IrcChatPlatformTest`, `SlackChatPlatformTest`, `DiscordChatPlatformTest` — mechanical migration, add `List.of()` as 4th argument.
+
 **Rendering contract:**
 - `cards` empty → send text/markdown as today
 - `cards` non-empty → send both text and cards; text serves as notification fallback (Slack uses `text` for push notifications when blocks are present)
@@ -106,7 +125,7 @@ public record Channel(
 `Integer` (nullable) — `null` means "not available" (IRC, platforms without count support).
 
 **Data sources:**
-- Slack: `conversations.list` returns `num_members` by default — parse in `SlackBotClient.listConversations`, carry through `ConversationInfo`
+- Slack: `conversations.list` supports `num_members` — pass `include_num_members=true` query parameter in `SlackBotClient.listConversations`. Requires adding `numMembers` (nullable `Integer`) to `SlackBotClient.ConversationInfo` record (currently `(id, name, topic, purpose, isPrivate)` — becomes `(id, name, topic, purpose, isPrivate, numMembers)`)
 - Discord: `approximate_member_count` from guild endpoint (`?with_counts=true`) — cheap single call, no pagination
 - IRC/Ref: `null`
 
@@ -189,7 +208,7 @@ Payload example:
 
 ### New: `ChatPlatformMcpTool`
 
-Single class with two tools, injecting `ChatPlatformService` and `ConnectorMeshBridge`.
+Single `@ApplicationScoped` class with two `@Tool @Blocking` methods, injecting `ChatPlatformService` and `ConnectorMeshBridge`. `@Blocking` is required per protocol PP-20260609-e3a2bd — platform translators call `SlackBotClient`/`DiscordClient` which use synchronous `HttpClient.send()`.
 
 **`send_chat`** — replaces `send_slack_bot` and `send_discord`:
 
@@ -213,7 +232,7 @@ Implementation:
 2. Build `ChatContent` — if any card parameter is non-null, construct `RichCard`, add to `cards`
 3. If `parentMessageId` set → `platform.threading().reply(parentRef, content)`; else → `platform.messaging().send(channelRef, content)`
 4. Check `SendResult` — return `"Sent to <channel> (messageId=<id>)"` on success or `"Failed: <reason>"` on failure
-5. `meshBridge.notifyDelivered()` on success
+5. `meshBridge.notifyDelivered(platform.id(), channel, McpContentSanitizer.sanitize(text))` on success — uses `ChatPlatform.id()` which returns `InboundConnectorTypes` values (`"slack"`, `"discord"`). Note: for Slack, this changes the bridge ID from `"slack-bot"` (used by `SlackBotMcpTool`) to `"slack"` — the platform type, not the delivery mechanism. This is consistent with the Connector SPI tools which use the connector type string.
 
 **`list_chat_channels`** — replaces `list_discord_channels`, satisfies #42:
 
@@ -234,6 +253,11 @@ Implementation:
 
 `send_slack`, `send_teams`, `send_sms`, `send_whatsapp`, `send_email`, `list_channels` — these use the Connector SPI, a different abstraction layer.
 
+**Tool coexistence — `send_chat` vs `send_slack_bot`:**
+`send_chat(platform="slack")` supersedes `send_slack_bot`. Both use bot tokens via `SlackBotClient`, but `send_chat` adds rich content support and routes through the ChatPlatform SPI. `send_slack_bot` is deprecated — it will be removed when `send_chat` has proven stable. The LLM system prompt should prefer `send_chat` for all Slack bot messaging.
+
+`send_slack` (webhook, Connector SPI) is NOT deprecated — it serves a different use case: webhook-based delivery without a bot token. No overlap with `send_chat`.
+
 ### Module dependency change
 
 `mcp/pom.xml`:
@@ -247,8 +271,8 @@ Platform implementations (`chat-slack`, `chat-discord`) are CDI-discovered at ru
 | Concern | Issue | Why deferred |
 |---|---|---|
 | Inbound rich content parsing | #44 | Outbound is the primary use case; no current consumer reads rich content from inbound messages |
-| Teams ChatPlatform implementation | #45 | Requires Teams Bot registration and API client; webhook connector stays for now |
-| Multiple cards per `send_chat` | #46 | Single card covers the primary LLM use case |
+| Teams ChatPlatform implementation | #45 | Requires Teams Bot registration and API client; webhook connector stays for now. **Forward-compatibility assessment:** RichCard's fields map naturally to Adaptive Card elements — `title` → TextBlock (large), `description` → TextBlock, `fields` → FactSet, `imageUrl`/`thumbnailUrl` → Image, `footer`/`author` → TextBlock (subtle). `color` has no direct equivalent (Adaptive Cards use container styles). No RichCard schema changes expected for #45. |
+| Multiple cards per `send_chat` | #46 | Single card covers the primary LLM use case. Multi-card translation logic (Discord 10-embed limit, Slack divider insertion) is implemented in platform translators and unit-tested at the SPI level; not exercisable via MCP until #46 adds a `cards` JSON array parameter. |
 | Chat demo UI | #28 (reopened) | Blocked on casehub-pages WebSocket provider |
 
 ## 8. Impact Summary
@@ -263,7 +287,7 @@ Platform implementations (`chat-slack`, `chat-discord`) are CDI-discovered at ru
 - `chat-discord/.../DiscordChatPlatform.java` — RichCard → DiscordEmbed translation
 - `chat-slack/.../SlackChatPlatform.java` — RichCard → Block Kit translation
 - `chat-ref/.../RefChatPlatform.java` — pass cards through to backend
-- `slack-bot/.../SlackBotClient.java` — add `blocksJson` parameter overload
+- `slack-bot/.../SlackBotClient.java` — add `blocksJson` parameter overload; add `numMembers` to `ConversationInfo`; add `include_num_members=true` to `listConversations` API call
 - `mcp/pom.xml` — dependency swap
 
 ### Files deleted
@@ -271,7 +295,7 @@ Platform implementations (`chat-slack`, `chat-discord`) are CDI-discovered at ru
 - `mcp/.../DiscordMcpTool.java`
 
 ### Tests
-- `RichCard` validation tests (title/description requirement, field copying)
+- `RichCard` validation tests (title/description requirement, field copying, builder)
 - `ChatContent` backward compatibility (existing constructor still works)
 - `Channel` backward compatibility (5-param constructor still works)
 - `DiscordChatPlatform` — send with cards, limit enforcement, multiple cards
