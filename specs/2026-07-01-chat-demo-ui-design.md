@@ -104,13 +104,15 @@ Message examples:
 
 ### TypeScript Dataset Definitions
 
-The frontend must register `ExternalDataSetDef` entries with `keyColumn` for datasets that use `replace` or `remove`. These are passed to the `WebSocketSource` constructor.
+The frontend registers datasets using the `dataset()` builder from `pages-ui/src/dsl/builders.ts:422`, which produces valid `ExternalDataSetDef` objects (mapping `id` → `uuid`, including `url`). Each definition's URL includes `?dataset=<name>` so `extractWireName` (websocket-source.ts:36) can route incoming wire messages to the correct subscription.
+
+The `createWebSocketSource` is called with the base URL; individual dataset definitions provide their URLs for wire name extraction:
 
 ```typescript
-const datasets: ExternalDataSetDef[] = [
-  {
-    id: "channels",
-    label: "Channels",
+const WS_BASE = "ws://localhost:8090/ws/chat";
+
+const datasets = [
+  dataset("channels", `${WS_BASE}?dataset=channels`, {
     columns: [
       { id: "id", name: "ID", type: ColumnType.LABEL },
       { id: "name", name: "Name", type: ColumnType.LABEL },
@@ -118,10 +120,8 @@ const datasets: ExternalDataSetDef[] = [
       { id: "description", name: "Description", type: ColumnType.LABEL },
       { id: "isPrivate", name: "Private", type: ColumnType.LABEL },
     ],
-  },
-  {
-    id: "messages",
-    label: "Messages",
+  }),
+  dataset("messages", `${WS_BASE}?dataset=messages`, {
     columns: [
       { id: "channelId", name: "Channel", type: ColumnType.LABEL },
       { id: "messageId", name: "Message ID", type: ColumnType.LABEL },
@@ -130,35 +130,33 @@ const datasets: ExternalDataSetDef[] = [
       { id: "text", name: "Text", type: ColumnType.LABEL },
       { id: "timestamp", name: "Timestamp", type: ColumnType.DATE },
     ],
-  },
-  {
-    id: "members",
-    label: "Members",
+  }),
+  dataset("members", `${WS_BASE}?dataset=members`, {
+    keyColumn: "membershipId",
     columns: [
       { id: "membershipId", name: "Membership", type: ColumnType.LABEL },
       { id: "channelId", name: "Channel", type: ColumnType.LABEL },
       { id: "memberId", name: "Member", type: ColumnType.LABEL },
       { id: "displayName", name: "Display Name", type: ColumnType.LABEL },
     ],
-    keyColumn: "membershipId",
-  },
-  {
-    id: "presence",
-    label: "Presence",
+  }),
+  dataset("presence", `${WS_BASE}?dataset=presence`, {
+    keyColumn: "memberId",
     columns: [
       { id: "memberId", name: "Member", type: ColumnType.LABEL },
       { id: "status", name: "Status", type: ColumnType.LABEL },
     ],
-    keyColumn: "memberId",
-  },
+  }),
 ];
+
+const source = createWebSocketSource(WS_BASE);
 ```
 
-The `reactions` dataset is omitted — no UI consumer exists in this iteration, so reaction events from the backend are silently dropped by the multiplexer.
+The `reactions` dataset is omitted — no UI consumer exists this iteration (casehubio/connectors#50), so reaction events are silently dropped by the multiplexer.
 
 ### Inter-Panel Communication
 
-Channel selection uses `pages-event` DOM events:
+Channel selection uses `pages-event` DOM events. All consuming panels — message list, member panel, **and compose input** — listen for `channel-selected`:
 
 ```typescript
 // Sidebar dispatches
@@ -167,7 +165,7 @@ this.dispatchEvent(new CustomEvent("pages-event", {
   detail: { topic: "channel-selected", payload: { channelId: "ch-1" } },
 }));
 
-// Message list and member panel listen
+// Message list, member panel, and compose input listen
 document.addEventListener("pages-event", (e) => {
   const { topic, payload } = (e as CustomEvent).detail;
   if (topic === "channel-selected") {
@@ -177,6 +175,8 @@ document.addEventListener("pages-event", (e) => {
 ```
 
 No server round-trip for channel switching — panels filter locally from the full dataset.
+
+**Initialization ordering:** The sidebar's auto-selection on snapshot load (first channel) must not fire before other panels have registered their `pages-event` listeners. The sidebar defers its initial `channel-selected` dispatch via `queueMicrotask()` — all Web Components from the same `loadSite()` call are synchronously constructed and connected before microtasks run, guaranteeing listeners are registered before the first event fires.
 
 ## Panel Designs
 
@@ -206,8 +206,17 @@ No server round-trip for channel switching — panels filter locally from the fu
 
 - Full-width text input, placeholder "Type a message..."
 - Styled with theme CSS vars: `--pages-bg-alt` background, `--pages-text` color, `--pages-border` border
-- Enter sends: `POST /api/channels/{channelId}/messages` via fetch
+- Listens for `channel-selected` events and stores the current `channelId`
+- Enter sends message via fetch:
+  ```
+  POST /api/channels/{channelId}/messages
+  Content-Type: application/json
+  {"text": "message content"}
+  ```
+  `ChatResource.postMessage()` expects `PostMessageRequest(String text)`.
 - Clears on success, disabled during request (prevents double-send)
+- On POST failure: re-enable input, flash border red (`--pages-error` or `#ef5350`) for 2 seconds
+- Disabled with muted placeholder when no channel is selected
 - Single line — no multiline support
 
 ### Member Panel (`chat-member-list`)
@@ -307,7 +316,7 @@ Relative path from `chat-demo/src/main/webui/` to the local pages repo. Adjust i
 - Extract column definitions as constants (one per dataset)
 - Serialise all row values as strings — `String.valueOf(ch.isPrivate())` instead of bare boolean (the wire protocol requires `(string | null)[][]`)
 - Add `membershipId` composite column to members dataset: `channelId + ":" + memberId` as first column in all member rows (snapshot, append, remove key)
-- Add presence snapshot: iterate all members across all channels, query `chatPlatform.presence().status(memberRef)`, build `[memberId, status.name()]` rows
+- Add presence snapshot: collect unique `MemberRef` instances across all channels (deduplicate by `memberId` — a member in multiple channels should produce one presence row, not one per channel), query `chatPlatform.presence().of(memberRef)` for each, build `[memberId, status.name()]` rows
 - Snapshot on connect sends four datasets: channels, messages, members, presence
 
 ### ChatWebSocket
@@ -341,6 +350,7 @@ New `ChatWebSocketTest` class using Quarkus WebSocket test client:
 - **Seq monotonicity:** Verify `seq` values are monotonically increasing across all events in a connection
 - **MembershipId:** Verify members rows include `membershipId` as first column with value `channelId:memberId`
 - **Presence snapshot:** Verify presence dataset has snapshot rows with `[memberId, status]` structure
+- **Presence deduplication:** Verify a member in multiple channels produces exactly one presence row in the snapshot
 
 ### Manual UI Testing
 
@@ -360,7 +370,7 @@ New `ChatWebSocketTest` class using Quarkus WebSocket test client:
 
 Each deferred item has a corresponding GitHub issue for tracking:
 
-- Thread view / reply UI — threading exists in the API but not surfaced in this iteration (casehubio/connectors#TBD)
-- Reaction UI — backend broadcasts reactions but no UI to add/view them (casehubio/connectors#TBD)
-- Channel creation UI — use REST API directly (casehubio/connectors#TBD)
-- User identity / login — the demo uses `"ref"` as sender for all messages (casehubio/connectors#TBD)
+- Thread view / reply UI — threading exists in the API but not surfaced in this iteration (casehubio/connectors#49)
+- Reaction UI — backend broadcasts reactions but no UI to add/view them (casehubio/connectors#50)
+- Channel creation UI — use REST API directly (casehubio/connectors#51)
+- User identity / login — the demo uses `"ref"` as sender for all messages (casehubio/connectors#52)
