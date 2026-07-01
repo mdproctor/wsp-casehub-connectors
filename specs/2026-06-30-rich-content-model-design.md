@@ -157,7 +157,7 @@ Discord-specific limits enforced before sending: title 256, description 4096, fo
 |---|---|
 | `title` | Header block (`plain_text`) |
 | `description` | Section block (`mrkdwn` text) |
-| `url` | mrkdwn link in description section text (e.g. `<url\|title>`) — dropped if no `description` |
+| `url` | Bare mrkdwn link in description section (e.g. `<url>`) — dropped if no `description`. Title is not repeated in the link text since it already appears as a Header block above. |
 | `thumbnailUrl` | Section accessory image (on description section) |
 | `fields` | Section block with fields array (`mrkdwn` text objects) |
 | `imageUrl` | Image block |
