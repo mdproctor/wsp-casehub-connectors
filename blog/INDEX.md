@@ -20,3 +20,4 @@
 | [2026-06-29-mdp16-what-the-squash-was-hiding.md](2026-06-29-mdp16-what-the-squash-was-hiding.md) | 2026-06-29 | What the squash was hiding — sub-issue refs lost during git-squash, unstamped project branches, two work-end fixes |
 | [2026-06-30-mdp17-three-cdn-bytes-and-a-virtual-thread.md](2026-06-30-mdp17-three-cdn-bytes-and-a-virtual-thread.md) | 2026-06-30 | Three CDN bytes and a virtual thread — Discord attachments (streaming size enforcement, event loop offloading, SSRF defense), embeds, MCP tools |
 | [2026-07-01-mdp18-content-not-layout.md](2026-07-01-mdp18-content-not-layout.md) | 2026-07-01 | Content, not layout — platform-agnostic RichCard model, Block Kit translation, MCP tool consolidation, silent Slack num_members bug |
+| [2026-07-01-mdp19-the-demo-gets-a-face.md](2026-07-01-mdp19-the-demo-gets-a-face.md) | 2026-07-01 | The demo gets a face — casehub-pages Quinoa frontend, wire protocol alignment, four Web Component panels, profile-gated build |
