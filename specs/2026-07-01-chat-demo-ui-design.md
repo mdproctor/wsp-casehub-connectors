@@ -67,22 +67,24 @@ The existing `ChatWebSocketBroadcaster` must be updated to match the casehub-pag
 | Change | Before | After |
 |--------|--------|-------|
 | Op field | `type` | `op` |
-| Schema | absent | `columns` array on snapshot/append |
+| Schema | absent | `columns` array on snapshot/append/replace |
 | Ordering | absent | monotonic `seq` counter |
+
+All row values are strings or null — no JSON booleans, numbers, or objects. The `Column` type requires `name` alongside `id` and `type`.
 
 Message examples:
 
 ```json
 {"op":"snapshot","dataset":"channels","seq":"1",
- "columns":[{"id":"id","type":"LABEL"},{"id":"name","type":"LABEL"},{"id":"topic","type":"LABEL"},{"id":"description","type":"LABEL"},{"id":"isPrivate","type":"LABEL"}],
- "rows":[["ch-1","general","General chat","",false]]}
+ "columns":[{"id":"id","name":"ID","type":"LABEL"},{"id":"name","name":"Name","type":"LABEL"},{"id":"topic","name":"Topic","type":"LABEL"},{"id":"description","name":"Description","type":"LABEL"},{"id":"isPrivate","name":"Private","type":"LABEL"}],
+ "rows":[["ch-1","general","General chat","","false"]]}
 
 {"op":"append","dataset":"messages","seq":"12",
- "columns":[{"id":"channelId","type":"LABEL"},{"id":"messageId","type":"LABEL"},{"id":"parentId","type":"LABEL"},{"id":"senderId","type":"LABEL"},{"id":"text","type":"LABEL"},{"id":"timestamp","type":"LABEL"}],
+ "columns":[{"id":"channelId","name":"Channel","type":"LABEL"},{"id":"messageId","name":"Message ID","type":"LABEL"},{"id":"parentId","name":"Parent","type":"LABEL"},{"id":"senderId","name":"Sender","type":"LABEL"},{"id":"text","name":"Text","type":"LABEL"},{"id":"timestamp","name":"Timestamp","type":"DATE"}],
  "rows":[["ch-1","msg-42","","alice","Hey everyone!","2026-07-01T10:32:00Z"]]}
 
 {"op":"replace","dataset":"presence","seq":"15",
- "columns":[{"id":"memberId","type":"LABEL"},{"id":"status","type":"LABEL"}],
+ "columns":[{"id":"memberId","name":"Member","type":"LABEL"},{"id":"status","name":"Status","type":"LABEL"}],
  "row":["alice","ONLINE"],"key":"alice"}
 
 {"op":"remove","dataset":"members","seq":"16","key":"general:bob"}
@@ -90,13 +92,69 @@ Message examples:
 
 ### Datasets
 
-| Dataset | Snapshot | Live ops | Consumers |
-|---------|----------|----------|-----------|
-| `channels` | All channels | `append` on create | Channel sidebar |
-| `messages` | All messages (all channels) | `append` on send/reply | Message list (client-filtered by selected channel) |
-| `members` | All memberships | `append`/`remove` | Member panel (client-filtered by selected channel) |
-| `presence` | — | `replace` on status change | Member panel (presence dots) |
-| `reactions` | — | `append` | Message list (reaction badges) |
+| Dataset | Snapshot | Live ops | Key column | Consumers |
+|---------|----------|----------|------------|-----------|
+| `channels` | All channels | `append` on create | — | Channel sidebar |
+| `messages` | All messages (all channels) | `append` on send/reply | — | Message list (client-filtered by selected channel) |
+| `members` | All memberships (with composite `membershipId`) | `append`/`remove` | `membershipId` | Member panel (client-filtered by selected channel) |
+| `presence` | All member presence states | `replace` on status change | `memberId` | Member panel (presence dots) |
+| `reactions` | — | `append` | — | No UI consumer this iteration (backend broadcasts, frontend ignores) |
+
+`keyColumn` is required for `replace` and `remove` operations — without it, the pages data layer silently drops those events (push-source.ts:119-122).
+
+### TypeScript Dataset Definitions
+
+The frontend must register `ExternalDataSetDef` entries with `keyColumn` for datasets that use `replace` or `remove`. These are passed to the `WebSocketSource` constructor.
+
+```typescript
+const datasets: ExternalDataSetDef[] = [
+  {
+    id: "channels",
+    label: "Channels",
+    columns: [
+      { id: "id", name: "ID", type: ColumnType.LABEL },
+      { id: "name", name: "Name", type: ColumnType.LABEL },
+      { id: "topic", name: "Topic", type: ColumnType.LABEL },
+      { id: "description", name: "Description", type: ColumnType.LABEL },
+      { id: "isPrivate", name: "Private", type: ColumnType.LABEL },
+    ],
+  },
+  {
+    id: "messages",
+    label: "Messages",
+    columns: [
+      { id: "channelId", name: "Channel", type: ColumnType.LABEL },
+      { id: "messageId", name: "Message ID", type: ColumnType.LABEL },
+      { id: "parentId", name: "Parent", type: ColumnType.LABEL },
+      { id: "senderId", name: "Sender", type: ColumnType.LABEL },
+      { id: "text", name: "Text", type: ColumnType.LABEL },
+      { id: "timestamp", name: "Timestamp", type: ColumnType.DATE },
+    ],
+  },
+  {
+    id: "members",
+    label: "Members",
+    columns: [
+      { id: "membershipId", name: "Membership", type: ColumnType.LABEL },
+      { id: "channelId", name: "Channel", type: ColumnType.LABEL },
+      { id: "memberId", name: "Member", type: ColumnType.LABEL },
+      { id: "displayName", name: "Display Name", type: ColumnType.LABEL },
+    ],
+    keyColumn: "membershipId",
+  },
+  {
+    id: "presence",
+    label: "Presence",
+    columns: [
+      { id: "memberId", name: "Member", type: ColumnType.LABEL },
+      { id: "status", name: "Status", type: ColumnType.LABEL },
+    ],
+    keyColumn: "memberId",
+  },
+];
+```
+
+The `reactions` dataset is omitted — no UI consumer exists in this iteration, so reaction events from the backend are silently dropped by the multiplexer.
 
 ### Inter-Panel Communication
 
@@ -210,6 +268,8 @@ quarkus.quinoa.package-manager-install.node-version=22.16.0
 quarkus.quinoa.enable-spa-routing=true
 ```
 
+SPA routing catches unmatched paths and returns `index.html`. Quinoa integrates with Quarkus's routing layer — routes handled by JAX-RS (`/api/*`) and WebSocket (`/ws/chat`) take priority. SPA routing only applies to paths not matched by any Quarkus route.
+
 ### Maven Profile
 
 ```xml
@@ -242,10 +302,23 @@ Relative path from `chat-demo/src/main/webui/` to the local pages repo. Adjust i
 ### ChatWebSocketBroadcaster
 
 - Rename `type` → `op` in all broadcast messages
-- Add `columns` array to `snapshot` and `append` messages
+- Add `columns` array to `snapshot`, `append`, and `replace` messages
 - Add `AtomicLong seq` counter, increment per broadcast, include as string `seq` field
 - Extract column definitions as constants (one per dataset)
-- Snapshot on connect already sends all three datasets — add column metadata
+- Serialise all row values as strings — `String.valueOf(ch.isPrivate())` instead of bare boolean (the wire protocol requires `(string | null)[][]`)
+- Add `membershipId` composite column to members dataset: `channelId + ":" + memberId` as first column in all member rows (snapshot, append, remove key)
+- Add presence snapshot: iterate all members across all channels, query `chatPlatform.presence().status(memberRef)`, build `[memberId, status.name()]` rows
+- Snapshot on connect sends four datasets: channels, messages, members, presence
+
+### ChatWebSocket
+
+- Add `@OnTextMessage` handler. The pages WebSocket client sends `{"op":"subscribe","dataset":"..."}` on connect and `{"op":"unsubscribe","dataset":"..."}` on disconnect. The demo server broadcasts everything regardless of subscriptions, so these messages are logged at DEBUG level and not acted upon. The handler prevents silent message drops and provides a clear extension point if per-dataset subscription is added later.
+
+### Sender Identity
+
+All messages sent via the compose input go through `ChatResource.postMessage()` → `chatPlatform.messaging().send()`. In `RefChatPlatform`, the sender is always `new MemberRef(id())` where `id()` returns `"ref"`. Every outbound message has `senderId = "ref"` in the messages dataset. The UI should render this as the platform's own identity (e.g., display "You" or use the `"ref"` string directly).
+
+This is intentional for the demo — the `ChatResource` calls the outbound messaging path directly rather than the L2 inbound event path described in the prior demo spec. The inbound path (`InboundMessage → RefInboundTranslator → ReceivedMessage`) would allow per-user sender identity, but is not exercised by the demo module. User identity is out of scope for this iteration.
 
 ### No Other Backend Changes
 
@@ -253,8 +326,24 @@ REST API, WebSocket endpoint path, SQLite schema, seed database — all unchange
 
 ## Testing
 
+### REST API Tests
+
 - Update existing `ChatResourceTest` assertions for wire protocol changes (`op`, `columns`, `seq`)
-- New unit test: verify snapshot structure matches pages wire protocol (field names, column types, row shapes)
+
+### WebSocket Integration Tests
+
+New `ChatWebSocketTest` class using Quarkus WebSocket test client:
+
+- **Snapshot structure:** Connect, verify snapshot contains four datasets (channels, messages, members, presence) each with `op`, `columns`, `rows`, `seq`
+- **Column compliance:** Verify every column object has `id`, `name`, and `type` fields
+- **Row type safety:** Verify all row values are strings or null — no booleans, numbers, or objects
+- **Append event:** POST a message via REST, verify the append event arrives on the WebSocket with correct structure and `seq` greater than the snapshot's
+- **Seq monotonicity:** Verify `seq` values are monotonically increasing across all events in a connection
+- **MembershipId:** Verify members rows include `membershipId` as first column with value `channelId:memberId`
+- **Presence snapshot:** Verify presence dataset has snapshot rows with `[memberId, status]` structure
+
+### Manual UI Testing
+
 - UI not testable in `@QuarkusTest` (Quinoa is disabled — GE-20260701-c000c7). Manual verification via `mvn quarkus:dev -Pdemo -Pui`.
 
 ## Garden Context
@@ -269,7 +358,9 @@ REST API, WebSocket endpoint path, SQLite schema, seed database — all unchange
 
 ## Out of Scope
 
-- Thread view / reply UI (threading exists in the API but not surfaced in this iteration)
-- Reaction UI (backend broadcasts reactions but no UI to add/view them)
-- Channel creation UI (use REST API directly)
-- User identity / login (the demo uses a hardcoded sender)
+Each deferred item has a corresponding GitHub issue for tracking:
+
+- Thread view / reply UI — threading exists in the API but not surfaced in this iteration (casehubio/connectors#TBD)
+- Reaction UI — backend broadcasts reactions but no UI to add/view them (casehubio/connectors#TBD)
+- Channel creation UI — use REST API directly (casehubio/connectors#TBD)
+- User identity / login — the demo uses `"ref"` as sender for all messages (casehubio/connectors#TBD)
