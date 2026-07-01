@@ -1,5 +1,5 @@
-# Branch Closed: issue-30-discord-enhancements
+# Branch Closed: issue-28-chat-demo-ui
 
-**Date:** 2026-06-30
-**Issues:** 30,33,34
+**Date:** 2026-07-01
+**Issues:** 28
 **Status:** merged to main
