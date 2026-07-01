@@ -8,7 +8,9 @@
 
 The chat-demo module has a complete REST + WebSocket backend (`ChatResource`, `ChatWebSocket`, `ChatWebSocketBroadcaster`, `SqliteChatBackend`) with SQLite persistence and a pre-populated seed database. This spec covers adding a casehub-pages frontend via Quinoa, served alongside the Quarkus backend.
 
-Blockers resolved: casehubio/casehub-pages#52 (WebSocket dataset provider), #53 (multiplexing), #54 (submit action on form inputs).
+Blockers resolved: casehubio/casehub-pages#52 (WebSocket dataset provider), #53 (multiplexing).
+
+Note: casehub-pages#54 (submit action on form inputs) is **not** a blocker for this spec. The pages `SubmitConfig.url` is a static `readonly string` set at construction time, but the compose input requires a dynamic URL (`/api/channels/{selectedChannelId}/messages`) that changes at runtime based on channel selection. The compose input uses a custom Web Component with manual fetch logic instead.
 
 ## Layout
 
@@ -221,11 +223,16 @@ No server round-trip for channel switching — panels filter locally from the fu
 
 ### Member Panel (`chat-member-list`)
 
-- Listens for `channel-selected`, filters members locally
+This is the only panel that consumes two datasets: `members` (for the member list) and `presence` (for status dots).
+
+- Subscribes to the `members` dataset — filters by `channelId` matching the selected channel
+- Subscribes to the `presence` dataset — maintains a local `memberId → status` map, updated on `replace` events. The presence snapshot on connect provides initial state so members display correct status immediately (no grey-then-update flicker)
+- Listens for `channel-selected` to update the channel filter
 - Member row: presence dot (10px circle) + display name
   - Green `#4caf50` = ONLINE
   - Amber `#ffc107` = AWAY
   - Grey `#757575` = OFFLINE/UNKNOWN
+- On render: joins member rows with the presence map by `memberId` to determine each member's dot color
 - Sorted: ONLINE first, then AWAY, then OFFLINE; alphabetical within groups
 - "Members" header with count badge
 - Scrollable, `padding: 6px 12px` per row, `font-size: 13px`
@@ -337,7 +344,7 @@ REST API, WebSocket endpoint path, SQLite schema, seed database — all unchange
 
 ### REST API Tests
 
-- Update existing `ChatResourceTest` assertions for wire protocol changes (`op`, `columns`, `seq`)
+No changes needed to `ChatResourceTest`. REST responses from `ChatResource` return domain objects (`Channel`, `ReceivedMessage`, `Map`) serialised by Jackson — these are unaffected by wire protocol changes. The wire protocol (`op`, `columns`, `seq`) is WebSocket-only, covered by `ChatWebSocketTest` below.
 
 ### WebSocket Integration Tests
 
