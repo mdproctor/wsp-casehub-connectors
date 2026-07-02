@@ -44,12 +44,13 @@ The three-column layout collapses to a full-screen chat view with two slide-in d
 
 ### CSS transformation
 
-- Outer `columns` grid: `grid-template-columns: 1fr` (single column)
+- Outer `columns` grid (`[data-component-type="columns"]`): `grid-template-columns: 1fr` (single column). The renderer sets `data-component-type` on every component — no `withId()` needed here.
 - Dock-bar column (`col-0` slot): `display: none`
-- Channel-panel slot: `position: fixed; left: 0; top: 0; bottom: 0; width: 280px; transform: translateX(-100%);` — slides in when `.open` class added
-- Member-panel slot: `position: fixed; right: 0; top: 0; bottom: 0; width: 280px; transform: translateX(100%);` — slides in when `.open` class added
+- Channel-panel slot: `position: fixed; left: -280px; top: 0; bottom: 0; width: 280px;` — slides in via `left: 0` when `.open` class added. Uses `left` instead of `transform` to avoid creating a new containing block, which would break `position: fixed` modals inside the channel-sidebar Shadow DOM (CSS Transforms Level 1 §6.1).
+- Member-panel slot: `position: fixed; right: -280px; top: 0; bottom: 0; width: 280px;` — slides in via `right: 0` when `.open` class added. Same `left`/`right` rationale.
 - Chat-area slot: full width, becomes a flex column to accommodate the injected header
 - All drag handles: `display: none`
+- `will-change: left` / `will-change: right` on drawer slots as rendering hints
 
 ### Header bar
 
@@ -76,7 +77,8 @@ Injected by `ResponsiveController` into the chat-area's parent slot container.
 
 - Backdrop: `rgba(0,0,0,0.5)` overlay, controlled by `opacity` + `pointer-events` (no `display` toggle). Clicking it closes the drawer.
 - Auto-dismiss: selecting a channel closes the channel drawer.
-- Transition: `transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)` (Material standard easing). Backdrop fades in sync.
+- Transition: `left 0.3s cubic-bezier(0.4, 0, 0.2, 1)` / `right 0.3s cubic-bezier(0.4, 0, 0.2, 1)` (Material standard easing). Backdrop fades in sync.
+- Focus management: when a drawer opens, set `inert` on the chat-area slot and the opposite drawer slot. When the drawer closes, remove `inert`. This traps focus within the open drawer and prevents keyboard interaction with obscured content (WCAG 2.1 SC 2.4.3).
 
 ### Channel name in header
 
@@ -88,11 +90,14 @@ detail: { topic: "channel-selected", payload: { channelId: id, channelName: name
 
 One-field addition. The `member-list` and `message-input` components already destructure only the fields they use, so the added field is backward-compatible.
 
+The `ResponsiveController` listens for `channel-selected` in its constructor — not per-mode — and stores `currentChannelName` as instance state. This ensures the phone header displays the correct channel name even when transitioning from desktop/tablet to phone mode after a channel was already selected.
+
 ### Accessibility
 
 - `aria-expanded` on toggle buttons
-- `aria-hidden` on closed drawers
+- `aria-hidden="true"` on closed drawers
 - Focus moves to drawer on open, returns to trigger button on close
+- `inert` attribute on chat-area and opposite drawer when a drawer is open — prevents focus, click, and assistive tech interaction with obscured content
 - `@media (prefers-reduced-motion: reduce)`: all transitions `0ms`
 
 ## Tablet Layout
@@ -103,7 +108,7 @@ One sidebar is always visible. It alternates between channels and members via a 
 
 - Outer `columns` grid: single column (dock-bar hidden)
 - Channel-panel slot: visible by default, `flex: 25`
-- Member-panel slot: hidden by default (`display: none`). When active: `display` restored, `order: -1` repositions to left of chat area
+- Member-panel slot: hidden by default (`display: none`). When active: `style.display = ""` (clears inline override, letting the CSS cascade determine the correct display value — matches the pages-runtime dock-toggle pattern in `site.ts`), `order: -1` repositions to left of chat area
 - Chat-area slot: `flex: 75`
 - All drag handles: `display: none`
 
@@ -144,10 +149,25 @@ responsive.dispose();
 
 1. **Breakpoint detection** — two `matchMedia` listeners. On change: tear down current mode, set up new mode.
 2. **Style injection** — injects one `<style>` element into `document.head`. All responsive CSS scoped under `#app.phone` / `#app.tablet`. Removed on `dispose()`.
-3. **Phone mode** — creates header bar, backdrop. Wires toggle buttons, backdrop click, `channel-selected` listener.
-4. **Tablet mode** — creates tab switcher. Wires tab clicks, slot visibility toggling.
-5. **Desktop mode** — removes all injected elements. Ensures both sidebars visible.
-6. **Mode teardown** — removes injected DOM, CSS classes, resets inline overrides. Uses `AbortController` per mode for clean listener removal.
+3. **Channel tracking** — listens for `channel-selected` in the constructor (not per-mode). Stores `currentChannelName` as instance state. Available to any mode's UI construction — eliminates stale state on viewport transitions.
+4. **Phone mode** — creates header bar (using `currentChannelName`), backdrop. Wires toggle buttons, backdrop click, `inert` management.
+5. **Tablet mode** — creates tab switcher. Wires tab clicks, slot visibility toggling.
+6. **Desktop mode** — removes all injected elements. Ensures both sidebars visible, `inert` removed from all slots.
+7. **Mode teardown** — removes injected DOM, CSS classes, resets inline overrides, removes `inert` from all slots. Uses `AbortController` per mode for clean listener removal.
+
+### Dispose contract
+
+`dispose()` restores the DOM to its pre-controller state:
+- Tears down the current mode (removes injected DOM, CSS classes, inline style overrides)
+- Removes the injected `<style>` element from `document.head`
+- Removes the `phone`/`tablet`/`desktop` CSS class from `#app`
+- Aborts both `matchMedia` listeners
+- Removes the persistent `channel-selected` listener
+- Removes `inert` from all slots
+
+After `dispose()`, the layout renders as the default desktop three-column view. The controller is not reusable after disposal — create a new instance if needed.
+
+**When it's called:** `dispose()` exists for testability (clean teardown between test cases) and future SPA integration (route-level mount/unmount). In the current demo, the app lives for the page lifetime and `dispose()` is not called at runtime.
 
 ### DOM discovery
 
@@ -161,7 +181,8 @@ The controller operates on rendered DOM only. It does not import pages-runtime A
 
 | What | Property | Duration | Easing | Notes |
 |------|----------|----------|--------|-------|
-| Phone drawer | `transform` | 300ms | cubic-bezier(0.4, 0, 0.2, 1) | Never animate width/left/display |
+| Phone drawer (channel) | `left` | 300ms | cubic-bezier(0.4, 0, 0.2, 1) | `will-change: left`; uses `left` not `transform` to avoid containing block issue with `position: fixed` modals |
+| Phone drawer (member) | `right` | 300ms | cubic-bezier(0.4, 0, 0.2, 1) | `will-change: right`; same rationale |
 | Backdrop | `opacity` | 300ms | same | Synced with drawer |
 | Tablet tab switch | — | instant | — | No animation |
 | Breakpoint change | — | instant | — | Full mode teardown/setup |
@@ -172,7 +193,7 @@ The controller operates on rendered DOM only. It does not import pages-runtime A
 - **Resize with drawer open:** mode teardown closes drawers before new mode sets up.
 - **Channel selection across modes:** `selectedChannelId` lives in component instances. Components stay in DOM across modes (repositioned, never destroyed). State survives.
 - **WebSocket data during mode change:** events dispatch on `document`, unaffected by layout.
-- **Modals (create/delete channel):** `position: fixed` inside Shadow DOM. Work at all viewport sizes.
+- **Modals (create/delete channel):** `position: fixed` inside Shadow DOM. The phone drawers use `left`/`right` positioning (not `transform`) specifically to preserve `position: fixed` behavior — `transform` would create a containing block that constrains fixed-position descendants to the drawer's 280px width (CSS Transforms Level 1 §6.1).
 - **Existing dock-bar URL state:** controller bypasses dock mechanism. No conflict.
 - **No swipe gestures:** buttons only. Avoids accessibility issues found in Discord's mobile UX feedback.
 
@@ -186,9 +207,19 @@ The controller operates on rendered DOM only. It does not import pages-runtime A
 
 No changes to pages-runtime or pages-ui.
 
+## Testing Strategy
+
+- **Breakpoint transitions:** mock `matchMedia` to simulate phone/tablet/desktop transitions. Verify mode teardown cleans up all injected elements (header bar, backdrop, tab switcher), CSS classes, and inline style overrides.
+- **Drawer state:** verify `inert` is set on chat-area and opposite drawer when a drawer opens, removed when it closes. Verify `aria-expanded` and `aria-hidden` attributes are correct at each state.
+- **Channel name persistence:** simulate `channel-selected` event in desktop mode, then trigger phone mode setup. Verify the header displays the stored channel name, not the fallback.
+- **Dispose:** call `dispose()`, verify no injected DOM remains, no event listeners leak (AbortController aborted), `#app` has no mode CSS class.
+- **Tablet tab switching:** verify toggling between channels/members correctly shows/hides slots and repositions the tab switcher.
+
 ## Out of Scope
 
-- Swipe-to-reveal gestures (can be added later)
-- Emoji palette overflow on narrow screens (pre-existing, separate issue)
-- Platform-level responsive primitives in pages-runtime (separate epic if needed)
-- Touch-specific message interactions (long-press, swipe-to-reply)
+Each out-of-scope item is tracked as a GitHub issue for future planning.
+
+- Swipe-to-reveal gestures — tracked as casehubio/connectors#TBD. Note: issue #54 body text mentions "swipe/tap-outside" but the acceptance criteria specify only button-triggered panels. The acceptance criteria are authoritative; swipe is aspirational and deferred.
+- Emoji palette overflow on narrow screens — tracked as casehubio/connectors#TBD (pre-existing, separate concern)
+- Platform-level responsive primitives in pages-runtime — tracked as casehubio/connectors#TBD (separate epic if needed)
+- Touch-specific message interactions (long-press, swipe-to-reply) — tracked as casehubio/connectors#TBD
