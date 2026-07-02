@@ -78,7 +78,8 @@ Injected by `ResponsiveController` into the chat-area's parent slot container.
 - Backdrop: `rgba(0,0,0,0.5)` overlay, controlled by `opacity` + `pointer-events` (no `display` toggle). Clicking it closes the drawer.
 - Auto-dismiss: selecting a channel closes the channel drawer.
 - Transition: `left 0.3s cubic-bezier(0.4, 0, 0.2, 1)` / `right 0.3s cubic-bezier(0.4, 0, 0.2, 1)` (Material standard easing). Backdrop fades in sync.
-- Focus management: when a drawer opens, set `inert` on the chat-area slot and the opposite drawer slot. When the drawer closes, remove `inert`. This traps focus within the open drawer and prevents keyboard interaction with obscured content (WCAG 2.1 SC 2.4.3).
+- Focus management: when a drawer opens, set `inert` on `[data-component-id="chat-area"]` (the split element, not its slot container — the slot container also holds the injected header bar, which must remain interactive for drawer toggle buttons) and on the opposite drawer's slot container. When the drawer closes, remove `inert`. This traps focus within the open drawer and prevents keyboard interaction with obscured content (WCAG 2.1 SC 2.4.3).
+- Escape key: a `keydown` listener (on the mode's `AbortController` signal) closes the active drawer on `Escape`. Follows the WAI-ARIA Dialog Pattern — the drawers are functionally modal (backdrop + `inert`), so Escape should dismiss them. Essential for keyboard-only users who cannot reach the backdrop.
 
 ### Channel name in header
 
@@ -97,7 +98,8 @@ The `ResponsiveController` listens for `channel-selected` in its constructor —
 - `aria-expanded` on toggle buttons
 - `aria-hidden="true"` on closed drawers
 - Focus moves to drawer on open, returns to trigger button on close
-- `inert` attribute on chat-area and opposite drawer when a drawer is open — prevents focus, click, and assistive tech interaction with obscured content
+- `inert` attribute on `[data-component-id="chat-area"]` and opposite drawer's slot container when a drawer is open — prevents focus, click, and assistive tech interaction with obscured content. Note: `inert` targets the chat-area component element, not its slot container, because the header bar (injected into the slot container) must remain interactive.
+- `Escape` key closes the active drawer (WAI-ARIA Dialog Pattern)
 - `@media (prefers-reduced-motion: reduce)`: all transitions `0ms`
 
 ## Tablet Layout
@@ -130,8 +132,8 @@ Injected by `ResponsiveController` into the active sidebar slot.
 
 - Two pill-style tabs styled with `--pages-*` CSS variables
 - Compact: 36px height + 8px padding = 52px total
-- Switching: toggles `display: none` between slots, moves tab switcher into the newly-visible slot, flips `order`
-- State is local to the controller — not persisted to URL
+- Switching: toggles `display: none` between slots, moves tab switcher into the newly-visible slot, flips `order`, updates `tabletActiveTab` instance state
+- State: `tabletActiveTab` (`'channels' | 'members'`, default `'channels'`) is instance state on the controller — survives mode transitions (desktop→tablet restores the last active tab). Not persisted to URL.
 
 ## ResponsiveController
 
@@ -150,8 +152,8 @@ responsive.dispose();
 1. **Breakpoint detection** — two `matchMedia` listeners. On change: tear down current mode, set up new mode.
 2. **Style injection** — injects one `<style>` element into `document.head`. All responsive CSS scoped under `#app.phone` / `#app.tablet`. Removed on `dispose()`.
 3. **Channel tracking** — listens for `channel-selected` in the constructor (not per-mode). Stores `currentChannelName` as instance state. Available to any mode's UI construction — eliminates stale state on viewport transitions.
-4. **Phone mode** — creates header bar (using `currentChannelName`), backdrop. Wires toggle buttons, backdrop click, `inert` management.
-5. **Tablet mode** — creates tab switcher. Wires tab clicks, slot visibility toggling.
+4. **Phone mode** — creates header bar (using `currentChannelName`), backdrop. Wires toggle buttons, backdrop click, Escape key listener, `inert` management on `[data-component-id="chat-area"]` (not its slot container, which holds the header bar).
+5. **Tablet mode** — creates tab switcher using `tabletActiveTab` instance state (defaults to `'channels'`). Wires tab clicks, slot visibility toggling. Tab selection stored as instance state — survives mode transitions.
 6. **Desktop mode** — removes all injected elements. Ensures both sidebars visible, `inert` removed from all slots.
 7. **Mode teardown** — removes injected DOM, CSS classes, resets inline overrides, removes `inert` from all slots. Uses `AbortController` per mode for clean listener removal.
 
@@ -210,10 +212,10 @@ No changes to pages-runtime or pages-ui.
 ## Testing Strategy
 
 - **Breakpoint transitions:** mock `matchMedia` to simulate phone/tablet/desktop transitions. Verify mode teardown cleans up all injected elements (header bar, backdrop, tab switcher), CSS classes, and inline style overrides.
-- **Drawer state:** verify `inert` is set on chat-area and opposite drawer when a drawer opens, removed when it closes. Verify `aria-expanded` and `aria-hidden` attributes are correct at each state.
+- **Drawer state:** verify `inert` is set on `[data-component-id="chat-area"]` (not its slot container) and opposite drawer when a drawer opens, removed when it closes. Verify `aria-expanded` and `aria-hidden` attributes are correct at each state. Verify Escape key closes the active drawer.
 - **Channel name persistence:** simulate `channel-selected` event in desktop mode, then trigger phone mode setup. Verify the header displays the stored channel name, not the fallback.
 - **Dispose:** call `dispose()`, verify no injected DOM remains, no event listeners leak (AbortController aborted), `#app` has no mode CSS class.
-- **Tablet tab switching:** verify toggling between channels/members correctly shows/hides slots and repositions the tab switcher.
+- **Tablet tab switching:** verify toggling between channels/members correctly shows/hides slots and repositions the tab switcher. Verify `tabletActiveTab` state persists across tablet→desktop→tablet transitions.
 
 ## Out of Scope
 
