@@ -2,36 +2,36 @@
 
 ## Last Session
 
-Shipped #28 — casehub-pages Quinoa UI for chat-demo. Three-column workspace with
-dockable side panels (dock bar toggles channels/members), message grouping, scroll
-anchoring, presence indicators, dark mode. Wire protocol updated to match casehub-pages
-spec (op/columns/seq/string coercion/membershipId/presence snapshot). Profile-gated
-build: `-Pdemo` = backend only, `-Pdemo -Pui` = full stack with Quinoa.
-Design review ran 4 rounds (26 issues, all resolved). Garden entry GE-20260701-b84dd2
-captured Quinoa profile-gating gotcha.
+Shipped #49, #50, #51 — chat-demo interactive features. Channel create/delete
+with cascade (SPI addition across all platforms), emoji reactions with palette
+and pills, Discord-style inline reply threading. Design review ran 4 rounds
+(14 issues, 13 verified, 1 accepted). Blog entry mdp19 published.
+casehub-pages#88 filed for dev-auth (SmallRye JWT login gate).
 
 ## Immediate Next Step
 
-No blocking issues. Pick from What's Next.
+Pick from What's Next. #52 (user identity) is ready once casehub-pages#88 ships.
 
 ## What's Left
 
 - Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
-- ARC42STORIES.MD needs update for RichCard model, send_chat/list_chat_channels tools, Block Kit support, chat-demo UI — L7/L8 + §4/§5/§12 · M · Med
+- #53 ARC42STORIES.MD sync — ChannelManagement.delete, reactions snapshot, threading UI, RichCard, send_chat, Block Kit · M · Med
 - casehubio.github.io push blocked by pre-push hook (unrelated .gitignore from prior commit) · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #49 | Thread view / reply UI for chat-demo | S | Low | Threading API exists, UI not surfaced |
-| #50 | Reaction UI for chat-demo | S | Low | Backend broadcasts reactions, no UI |
-| #51 | Channel creation UI for chat-demo | XS | Low | REST endpoint exists |
-| #52 | User identity / login for chat-demo | M | Med | Currently all messages from "ref" |
+| #52 | User identity / login for chat-demo | M | Med | Blocked on casehub-pages#88 (dev-auth) |
 | #45 | Teams ChatPlatform implementation with Adaptive Cards | M | Med | Requires Teams Bot API client |
 | #31 | Multi-guild support for Discord | M | Med | Deferred until real use case |
 | #32 | Discord slash commands and interactions | M | Med | |
 
 ## References
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+| Doc | Path |
+|-----|------|
+| Spec | `specs/2026-07-02-chat-demo-interactive-features-design.md` |
+| Blog | `blog/2026-07-02-mdp19-making-the-demo-talk-back.md` |
+| Pages issue | `casehubio/casehub-pages#88` — dev-auth JWT module |
+| ARC42 sync | `casehubio/connectors#53` |
