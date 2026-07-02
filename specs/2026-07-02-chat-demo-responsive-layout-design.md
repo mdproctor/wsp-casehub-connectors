@@ -221,7 +221,7 @@ No changes to pages-runtime or pages-ui.
 
 Each out-of-scope item is tracked as a GitHub issue for future planning.
 
-- Swipe-to-reveal gestures — tracked as casehubio/connectors#TBD. Note: issue #54 body text mentions "swipe/tap-outside" but the acceptance criteria specify only button-triggered panels. The acceptance criteria are authoritative; swipe is aspirational and deferred.
-- Emoji palette overflow on narrow screens — tracked as casehubio/connectors#TBD (pre-existing, separate concern)
-- Platform-level responsive primitives in pages-runtime — tracked as casehubio/connectors#TBD (separate epic if needed)
-- Touch-specific message interactions (long-press, swipe-to-reply) — tracked as casehubio/connectors#TBD
+- Swipe-to-reveal gestures — #55. Note: issue #54 body text mentions "swipe/tap-outside" but the acceptance criteria specify only button-triggered panels. The acceptance criteria are authoritative; swipe is aspirational and deferred.
+- Emoji palette overflow on narrow screens — #56 (pre-existing, separate concern)
+- Platform-level responsive primitives in pages-runtime — #58 (separate epic if needed)
+- Touch-specific message interactions (long-press, swipe-to-reply) — #57
