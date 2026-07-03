@@ -115,8 +115,11 @@ broadcasts the new member via `broadcaster.broadcastMemberAppend()`.
 
 On message send, `ChatResource` checks the sender's presence via
 `ChatPlatform.presence().of(memberRef)`. If the result is
-`PresenceStatus.UNKNOWN` (the default returned by `InMemoryChatBackend`
-when no entry exists):
+`PresenceStatus.UNKNOWN` (the default returned by `ChatBackend`
+implementations when no entry exists — both `SqliteChatBackend` (the
+runtime backend for chat-demo) and `InMemoryChatBackend` return
+`UNKNOWN` for unknown members, though this is an implementation
+convention, not an interface contract):
 
 1. Set presence to `PresenceStatus.ONLINE` via
    `ChatPlatform.presence().set(memberRef, PresenceStatus.ONLINE)`
@@ -178,9 +181,34 @@ Attributes:
 - `identities="..."` — populated from the `members` dataset, deduplicated
   by memberId from the WebSocket snapshot
 
+**Two-phase behavior:** On first load, no JWT exists and the WebSocket
+is `@Authenticated`, so no snapshot is available. The `identities`
+attribute is empty and `<pages-dev-auth>` renders a free-text input
+(its fallback when no identities are provided). After first login, the
+WebSocket connects, the snapshot arrives with the members dataset, and
+the `identities` attribute is populated. Subsequent logins or identity
+switches show the dropdown of known members.
+
 On first load with no JWT in `sessionStorage`, the overlay blocks
 interaction until login completes. The component handles token expiry
 detection and re-shows the gate when `pages-auth-expired` is dispatched.
+
+**Login success coordination:** The `<pages-dev-auth>` component stores
+the JWT and dismisses the overlay but does not emit an event. Chat-demo
+needs a signal to trigger the post-login sequence (presence ONLINE,
+WebSocket connect). Two options:
+
+- **Preferred:** Add a `pages-auth-success` custom event to
+  `<pages-dev-auth>` (in casehub-pages), dispatched after
+  `sessionStorage.setItem()` succeeds. This pairs with the existing
+  `pages-auth-expired` event the component already listens for.
+- **Fallback:** If modifying pages-ui is out of scope, chat-demo can
+  use a `MutationObserver` on the shadow DOM to detect overlay dismissal,
+  or poll `sessionStorage` for the token key.
+
+Chat-demo listens for the auth success signal and triggers:
+1. `PUT /api/presence/{memberId}` with status `ONLINE`
+2. WebSocket connect: `/ws/chat?token=<jwt>`
 
 ### Identity Widget
 
