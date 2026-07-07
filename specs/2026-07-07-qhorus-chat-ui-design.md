@@ -83,11 +83,21 @@ All enrichments are additive. Existing ChatPlatform SPI integrations
 
 | Source | Space | Channel | Topic | Thread |
 |--------|-------|---------|-------|--------|
-| Slack | — | maps to qhorus channel | "General" (default) | Slack thread ts → inReplyTo |
+| Slack | — | maps to qhorus channel | "General" (default) | Slack thread ts → parentRef (platform-native ref; `inReplyTo` is null in v1 — see note below) |
 | IRC | — | maps to qhorus channel | "General" | — |
 | Teams | — | maps to qhorus channel | "General" | Teams reply → inReplyTo |
 | Qhorus agent | Case space | work/observe/oversight | Named per task | correlationId chain |
 | Drafthouse | Session space | debate/review channel | Named per review point | Entry chain |
+
+**Slack thread note:** The `SlackInboundTranslator` maps Slack `thread_ts`
+to `parentRef` — a `ChatMessageRef` containing the platform-native thread
+timestamp. This is distinct from `inReplyTo`, which carries a qhorus ledger
+ID and is always null in v1 (the gateway's `receiveHumanMessage()` is void,
+so there is no way to build a `slackTs → ledgerId` mapping). The UI adapter
+can use `parentRef` for visual thread grouping in the feed, but correlation
+chain features (§2 `<qhorus-thread>` commitmentState, correlation panel)
+require `inReplyTo`/`correlationId` which are only available for
+qhorus-native messages.
 
 ### Five conversation patterns
 
@@ -614,7 +624,7 @@ chat-demo/src/main/webui/
 
 | Step | What | Tests | Old code touched? |
 |------|------|-------|:-:|
-| 1. Scaffold | Package structure, Lit + pages deps, vitest config | Config validates | No |
+| 1. Scaffold | Package structure, Lit + pages + blocks-ui-core deps, vitest config | Config validates | No |
 | 2. Types | `types.ts` — QhorusMessage, QhorusChannel, Reaction, CommitmentState, ArtefactRef | Type tests | No |
 | 3. Primitives | qhorus-message, reaction-bar, thread, message-input | Props → rendered output | No |
 | 4. Composites | channel-feed, channel-nav, member-panel | Mock datasets → rendered output | No |
@@ -745,7 +755,7 @@ Commitment state badge colors:
 
 - **Build tooling:** Vite for dev server + HMR, esbuild for production
   bundle (Vite uses esbuild internally). Aligns with blocks-ui convention.
-- **Lit version:** Lit 3.3, matching `@casehubio/pages-primitives` (per
+- **Lit version:** Lit 3.3, matching `@casehubio/blocks-ui-core` (per
   pages ARC42STORIES §10).
 - **WebSocket vs SSE:** The adapter pattern supports both. Chat-demo uses
   WebSocket; claudony uses SSE. No single primary — each backend provides
