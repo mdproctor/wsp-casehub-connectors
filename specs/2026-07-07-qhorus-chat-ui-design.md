@@ -31,7 +31,7 @@ A component family that renders qhorus channel conversations with full
 structural awareness: speech act badges, correlation chain grouping, normative
 layer navigation, topic-based sub-conversations, dockable contextual panels
 for artifacts/tasks/correlation. Built on pages/blocks conventions (Lit,
-PagesElement, design tokens, split/dockBar layout). Embeddable as a whole in
+pages dataset pipeline, design tokens, split/dockBar layout). Embeddable as a whole in
 any pages application (claudony, case workbenches) or decomposed — mount just
 the feed, just the channel nav, just a single message renderer.
 
@@ -112,10 +112,14 @@ Renders a single message. Receives message data as properties.
 
 **Renders:**
 - Speech act badge (pill: QUERY, COMMAND, RESPONSE, STATUS, DONE, FAILURE,
-  DECLINE, HANDOFF, EVENT) — color-coded by category:
-  - Information exchange (QUERY, RESPONSE, STATUS): neutral
-  - Obligation lifecycle (COMMAND, DONE, FAILURE, DECLINE, HANDOFF): accent
-  - Telemetry (EVENT): muted
+  DECLINE, HANDOFF, EVENT) — color-coded per §8 mapping:
+  - Information exchange (QUERY, RESPONSE, STATUS) → `--pages-info-*`
+  - Obligation initiation (COMMAND) → `--pages-accent-*`
+  - Terminal success (DONE) → `--pages-success-*`
+  - Terminal failure (FAILURE) → `--pages-danger-*`
+  - Terminal refusal (DECLINE) → `--pages-warning-*`
+  - Obligation transfer (HANDOFF) → `--pages-info-*`
+  - Telemetry (EVENT) → `--pages-neutral-*`
 - Actor icon (human silhouette / robot / gear for HUMAN/AGENT/SYSTEM)
 - Sender name + timestamp
 - Message content (markdown-rendered)
@@ -220,7 +224,6 @@ Topics, simple chat channels default to Flat. Topic mode requires the
 Flat and Threaded only.
 
 **Events emitted:**
-- `chat:select-channel` — `{channelId}` (when switching channels)
 - `chat:select-topic` — `{channelId, topic}` (when filtering by topic)
 - `chat:message-selected` — `{message}` (for panel updates)
 
@@ -305,7 +308,7 @@ Full correlation chain viewer. Dockable panel.
 - Timing information (duration between steps)
 - Branching for HANDOFF (obligation transferred to different agent)
 
-### Workbench (PagesElement — full experience)
+### Workbench (LitElement + pages layout — full experience)
 
 #### `<qhorus-workbench>`
 Complete chat experience assembled from composites.
@@ -438,6 +441,9 @@ UI elements:
 
 | Capability | UI element | When unsupported |
 |-----------|-----------|-----------------|
+| Messaging | Entire workbench | **Required** — workbench will not mount without it |
+| Discovery | Channel nav population | Manual channel ID entry only |
+| Members | Member panel list | Member panel hidden |
 | Reactions | Reaction bar, add reaction button | Hidden |
 | Presence | Presence dots in member panel | Show all as "unknown" status |
 | ChannelManagement | Create/delete channel buttons | Hidden |
@@ -601,7 +607,9 @@ to blocks-ui if the composition argument materialises later.
 ## 6. Phased Epics
 
 ### Phase 1: Foundation
-**Depends on:** Nothing (uses existing qhorus fields only)
+**Depends on:** Nothing (uses existing qhorus fields only).
+**Blocked by:** Message rendering format decision (§9 Q2) — must resolve
+before build step 3 (primitives).
 
 Port steps 1–6. Primitives, composites, workbench with pages layout.
 Speech act badges, actor indicators, correlation chain grouping, flat and
@@ -643,8 +651,10 @@ Human participation via oversight channel.
 
 ## 7. Accessibility
 
-All components use `@casehubio/pages-primitives` accessibility mixins
-(per pages ARC42STORIES §5/§10 — Lit 3.3, a11y infrastructure):
+All components use Lit accessibility mixins targeting the
+`@casehubio/pages-primitives` package (per pages ARC42STORIES §5/§10).
+These mixins do not exist on disk yet — Phase 1 will implement them and
+contribute upstream to pages-primitives:
 
 - **KeyboardShortcutMixin** — keyboard navigation throughout (arrow keys
   in channel nav, Escape to close panels, Enter to send)
