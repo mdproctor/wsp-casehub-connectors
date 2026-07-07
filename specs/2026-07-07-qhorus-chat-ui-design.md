@@ -57,7 +57,8 @@ badges.
 ### Why this hierarchy
 
 Research across 11 chat platforms and 6 agent communication frameworks
-(documented in brainstorming session) identified three key findings:
+(see [conversation-model-research.md](2026-07-07-conversation-model-research.md))
+identified three key findings:
 
 1. **Optional threading degrades to no threading** (Zulip's central insight).
    For agent communication, mandatory topics solve the "5 agents, 5 tasks,
