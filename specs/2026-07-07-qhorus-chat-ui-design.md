@@ -153,7 +153,8 @@ Compose area for sending messages.
 **Features:**
 - Auto-expanding textarea (max height configurable)
 - Reply banner (when replying to a specific message)
-- Topic selector (current topic name, option to create new topic)
+- Topic selector (current topic name, option to create new topic).
+  Requires `topic` field from qhorus#328; hidden until available.
 - Speech act selector (dropdown — hidden by default, shown in power-user
   or agent mode). Defaults to EVENT for simple chat.
 - Attachment/anchor controls (reference artifacts)
@@ -213,6 +214,7 @@ Scrollable message stream. The core rendering engine.
   topic. Topic headers separate groups.
 - **Topic navigator bar** (top of feed): horizontal scrollable list of
   active topics in this channel. Click to filter. "All" to show everything.
+  Requires `topic` field from qhorus#328; hidden until available.
 - Scroll-to-new-messages pill when scrolled up
 - Message selection (click to select → triggers panel updates)
 - `prefers-reduced-motion` respected for all animations
@@ -380,6 +382,33 @@ Each composite is a LitElement that receives its dataset via the pages
 data pipeline (`DataSetManager` event model from `@casehubio/pages-data`).
 The workbench owns the data connection and configures the datasets.
 Composites don't know the transport.
+
+### Dataset subscription pattern
+
+Composites use **event-based data subscription** — the same integration
+pattern as `@casehubio/pages-viz` components (`PagesElement`), adapted
+for LitElement:
+
+1. Composite dispatches `pages-data-request` custom event during
+   `connectedCallback`, specifying its required dataset IDs
+2. The pages runtime (whether a full workbench or standalone `hostPanel`)
+   catches the event and resolves datasets via the data pipeline
+3. Runtime feeds data back through reactive Lit `@property()` setters on
+   the composite (e.g., `messages`, `reactions`, `commitments`)
+
+This preserves two mounting modes:
+- **Workbench-hosted:** the workbench configures the data pipeline,
+  subscribes to push sources, and the runtime routes datasets to
+  composites automatically
+- **Standalone-hosted** (`hostPanel("qhorus-channel-feed", {...})`): the
+  host application configures its own data pipeline; composites work
+  identically because they only depend on the `pages-data-request` event
+  contract, not on the workbench
+
+The key difference from `PagesElement` in pages-viz: PagesElement extends
+raw `HTMLElement` and uses a `DataReceiver` interface with imperative
+setters. Chat composites extend `LitElement` and use reactive `@property()`
+declarations — same data flow direction, different lifecycle model.
 
 ### Outbound (UI → qhorus)
 
@@ -651,10 +680,11 @@ Human participation via oversight channel.
 
 ## 7. Accessibility
 
-All components use Lit accessibility mixins targeting the
-`@casehubio/pages-primitives` package (per pages ARC42STORIES §5/§10).
-These mixins do not exist on disk yet — Phase 1 will implement them and
-contribute upstream to pages-primitives:
+All components use Lit accessibility mixins from
+`@casehubio/blocks-ui-core` (`packages/blocks-ui-core/src/mixins/`).
+These are Lit 3.3 mixins with tests. The mixins are planned to migrate
+to `@casehubio/pages-primitives` (per pages ARC42STORIES §5/§10); when
+that migration happens, import paths change but APIs do not.
 
 - **KeyboardShortcutMixin** — keyboard navigation throughout (arrow keys
   in channel nav, Escape to close panels, Enter to send)
