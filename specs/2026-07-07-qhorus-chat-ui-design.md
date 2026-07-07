@@ -7,11 +7,19 @@
 
 ## Problem
 
-The chat-demo webui is a hand-rolled vanilla Web Components app (4 components,
-~72KB TypeScript) that bypasses the pages/blocks UI framework. It uses raw
-HTMLElement, custom CSS, a hand-built responsive controller, and its own event
-wiring. It works but is inconsistent with the platform's UI conventions, hard
-to embed in other applications, and can only render flat chat messages.
+The chat-demo webui is a Web Components app (4 panel components + 3
+infrastructure modules, ~60KB production TypeScript) built on pages-runtime
+and pages-ui for layout (`loadSite`, `split`, `dockBar`, `hostPanel`), panel
+hosting (`registerPanel`), identity (`PagesDevAuth`, `PagesIdentity`), and
+event routing (`pages-event` custom events). However, individual components
+extend raw `HTMLElement` with Shadow DOM and manual `innerHTML` rendering —
+they don't use Lit, the pages dataset pipeline, or accessibility
+infrastructure. A hand-built `ResponsiveController` handles viewport
+adaptation outside the pages layout system.
+
+The result works but is hard to embed in other applications (components are
+tightly coupled to the WebSocket lifecycle in `index.ts`), lacks
+accessibility, and can only render flat chat messages.
 
 Meanwhile, qhorus channels carry rich structured conversations — speech acts,
 correlation chains, normative layers, commitment lifecycles — that the current
@@ -115,13 +123,15 @@ Renders a single message. Receives message data as properties.
 - Artefact chips (clickable, typed — document/code/case/work-item icons)
 - Correlation context (expandable — "In reply to..." or "Responding to
   COMMAND: ...")
-- Commitment state badge (for COMMAND messages: OPEN/FULFILLED/FAILED/
-  DECLINED/EXPIRED)
+- Commitment state badge (for COMMAND messages: OPEN/ACKNOWLEDGED/FULFILLED/
+  FAILED/DECLINED/DELEGATED/EXPIRED)
+- Delegation indicator (for HANDOFF messages: source → target agent transfer)
 
 **Expanded view (click-to-expand / progressive disclosure):**
 - Full correlation chain (what this message replies to, what replied to it)
 - Artefact details (type, label, selection scope preview)
-- Commitment details (deadline, acknowledgedAt, linked work item)
+- Commitment details (deadline, acknowledgedAt, delegation target for
+  DELEGATED state, linked work item)
 - Topic name and channel
 
 **Properties:**
@@ -157,6 +167,8 @@ Collapsible group of correlated messages.
 - Nested `<qhorus-message>` for each message in the chain
 - Commitment state on the group header (for obligation chains)
 - Thread age/activity indicator
+- Delegation fork point (for HANDOFF: visual split showing obligation
+  transfer to new agent, with link to child correlation chain)
 
 **Properties:**
 ```typescript
@@ -178,7 +190,7 @@ Emoji reaction pills with add button.
 - `chat:react` — `{messageId, emoji}`
 - `chat:unreact` — `{messageId, emoji}`
 
-### Composites (PagesElement — dataset-driven)
+### Composites (LitElement + pages dataset pipeline)
 
 #### `<qhorus-channel-feed>`
 Scrollable message stream. The core rendering engine.
@@ -203,7 +215,9 @@ Scrollable message stream. The core rendering engine.
 
 **Mode toggle:** Flat/Threaded/Topics — three view modes controlled by
 toolbar buttons. Default depends on channel: normative channels default to
-Topics, simple chat channels default to Flat.
+Topics, simple chat channels default to Flat. Topic mode requires the
+`topic` field on messages (qhorus#328); until then, the toggle shows
+Flat and Threaded only.
 
 **Events emitted:**
 - `chat:select-channel` — `{channelId}` (when switching channels)
@@ -271,8 +285,8 @@ Commitment/obligation tracker. Dockable panel.
 
 **Renders:**
 - List of all COMMAND messages with their commitment state
-- State badge: OPEN (blue), FULFILLED (green), FAILED (red), DECLINED
-  (gray), EXPIRED (orange)
+- State badge: OPEN (blue), ACKNOWLEDGED (teal), FULFILLED (green),
+  FAILED (red), DECLINED (gray), DELEGATED (amber), EXPIRED (orange)
 - Click to scroll to the originating COMMAND in the feed
 - Deadline indicator (overdue highlighted)
 - Work item link (when available — future integration)
@@ -359,9 +373,10 @@ Pages Datasets:
     commitments → qhorus-task-panel
 ```
 
-Each composite is a PagesElement that receives its dataset via the pages
-data pipeline. The workbench owns the data connection and configures the
-datasets. Composites don't know the transport.
+Each composite is a LitElement that receives its dataset via the pages
+data pipeline (`DataSetManager` event model from `@casehubio/pages-data`).
+The workbench owns the data connection and configures the datasets.
+Composites don't know the transport.
 
 ### Outbound (UI → qhorus)
 
@@ -387,7 +402,7 @@ remove ops. An adapter maps this to the pages dataset shape:
 | Chat-demo dataset | Pages dataset | Mapping |
 |-------------------|---------------|---------|
 | channels (id, name, topic) | channels | Direct — add defaults for missing fields |
-| messages (channelId, messageId, parentId, senderId, text, timestamp) | messages | parentId → inReplyTo, add messageType=EVENT, actorType=HUMAN, topic="General" |
+| messages (channelId, messageId, parentId, senderId, text, timestamp) | messages | parentId → inReplyTo; passthrough messageType if present, default EVENT; passthrough actorType if present, default HUMAN; passthrough topic if present, default "General" |
 | reactions (messageId, emoji) | reactions | Direct |
 | members (membershipId, channelId, memberId, displayName) | members | Add role=PARTICIPANT |
 | presence (memberId, status) | presence | Map ONLINE/AWAY/OFFLINE |
@@ -395,6 +410,73 @@ remove ops. An adapter maps this to the pages dataset shape:
 The components render the same way regardless of whether the backend is
 qhorus-native or chat-demo. Richer fields (speech acts, topics, artefactRefs)
 simply light up when the data includes them.
+
+### Event mechanism
+
+All `chat:*` topics are `pages-event` DOM custom events (`bubbles: true`,
+`composed: true`), consistent with the existing pages inter-panel
+communication convention. Components dispatch via `emitPagesEvent()` from
+`@casehubio/pages-component`.
+
+**Migration from existing chat-demo events:**
+
+| Current (chat-demo) | New (qhorus) | Change |
+|---------------------|--------------|--------|
+| `ws-data` (WebSocket snapshot/append/remove) | Adapter-managed datasets | Adapter consumes raw WebSocket, applies mutations to `DataSetManager`. Components no longer listen for `ws-data`. |
+| `channel-selected` | `chat:select-channel` | Same mechanism (`pages-event`), renamed to `chat:*` namespace. |
+| Direct REST via `authenticatedFetch` | `chat:create-channel` etc. → workbench handler | Components emit events; workbench translates to REST. No direct REST in components. |
+
+The `chat:*` namespace is specific to qhorus chat components. It is not a
+new platform convention — other pages applications use their own topic
+namespaces.
+
+### Capability-driven UI
+
+The workbench adapter exposes capability flags derived from the backend's
+supported features. Composites check these flags to show, hide, or disable
+UI elements:
+
+| Capability | UI element | When unsupported |
+|-----------|-----------|-----------------|
+| Reactions | Reaction bar, add reaction button | Hidden |
+| Presence | Presence dots in member panel | Show all as "unknown" status |
+| ChannelManagement | Create/delete channel buttons | Hidden |
+| MemberManagement | Add/remove member controls | Hidden |
+| MessageHistory | Scroll-back loading | Disabled with tooltip |
+| Threading | Thread view mode toggle | Hidden; flat mode only |
+
+The adapter declares capabilities at construction time. For ChatPlatform
+SPI backends, these map directly to `ChatPlatform.supports()`. For the
+chat-demo backend, the adapter hardcodes capabilities based on what its
+REST/WebSocket API implements.
+
+### Connection lifecycle
+
+The workbench adapter uses the pages `PushSource` infrastructure
+(`@casehubio/pages-data`) for connection management, which provides:
+
+- **Auto-reconnect** with exponential backoff (built into `PushSource`)
+- **Error classification** — transient errors (corrupt message, network
+  glitch) log and reconnect; permanent errors (auth expired, server
+  rejected) propagate to components via `target.error`
+- **Pool management** — one connection per base URL, shared across datasets
+
+**UI presentation:**
+
+| Connection state | UI indicator |
+|-----------------|-------------|
+| Connected | No indicator (normal state) |
+| Reconnecting | Subtle banner: "Reconnecting..." with spinner |
+| Disconnected (permanent) | Persistent banner: "Connection lost" with retry button |
+
+**Message queue during disconnect:** Messages composed while disconnected
+are held in a local queue. On reconnect, queued messages are sent in order.
+If reconnection fails permanently, the queue is surfaced to the user with
+option to retry or discard.
+
+**State sync on reconnect:** The adapter requests a full dataset snapshot
+on reconnection (the `PushSource` protocol supports this via the `snapshot`
+op). Components re-render from the fresh snapshot.
 
 ---
 
@@ -522,9 +604,10 @@ to blocks-ui if the composition argument materialises later.
 **Depends on:** Nothing (uses existing qhorus fields only)
 
 Port steps 1–6. Primitives, composites, workbench with pages layout.
-Speech act badges, actor indicators, correlation chain grouping, flat/
-threaded/topic view toggle. Works with chat-demo backend via adapter AND
-qhorus channels as-is.
+Speech act badges, actor indicators, correlation chain grouping, flat and
+threaded view modes. Works with chat-demo backend via adapter AND qhorus
+channels as-is. Topic view mode deferred to Phase 4 (requires `topic`
+field from qhorus#328).
 
 Replaces the current webui entirely. Old code deleted.
 
@@ -560,7 +643,8 @@ Human participation via oversight channel.
 
 ## 7. Accessibility
 
-All components use blocks-ui accessibility mixins:
+All components use `@casehubio/pages-primitives` accessibility mixins
+(per pages ARC42STORIES §5/§10 — Lit 3.3, a11y infrastructure):
 
 - **KeyboardShortcutMixin** — keyboard navigation throughout (arrow keys
   in channel nav, Escape to close panels, Enter to send)
@@ -590,24 +674,39 @@ automatically via the OKLCH token system. Compact density supported via
 `pages-density-compact` class.
 
 Speech act badge colors mapped to semantic token groups:
-- Information exchange → `--pages-info-*`
-- Obligation lifecycle → `--pages-accent-*`
+- Information exchange (QUERY, RESPONSE, STATUS) → `--pages-info-*`
+- Obligation lifecycle (COMMAND) → `--pages-accent-*`
 - Terminal success (DONE) → `--pages-success-*`
 - Terminal failure (FAILURE) → `--pages-danger-*`
-- Terminal refusal (DECLINE, HANDOFF) → `--pages-warning-*`
+- Terminal refusal (DECLINE) → `--pages-warning-*`
+- Obligation transfer (HANDOFF) → `--pages-info-*` (distinct from
+  DECLINE — a transfer is not a refusal)
 - Telemetry (EVENT) → `--pages-neutral-*`
+
+Commitment state badge colors:
+- Active: OPEN → `--pages-accent-*`, ACKNOWLEDGED → `--pages-info-*`
+- Success: FULFILLED → `--pages-success-*`
+- Failure: FAILED → `--pages-danger-*`
+- Refusal: DECLINED → `--pages-neutral-*`
+- Transfer: DELEGATED → `--pages-info-*` (matches HANDOFF speech act)
+- Timeout: EXPIRED → `--pages-warning-*`
 
 ---
 
 ## 9. Open Questions
 
-1. **Build tooling:** Vite (blocks-ui convention) vs esbuild (current)?
-   Likely Vite for consistency but needs validation.
-2. **Lit version:** Match whatever blocks-ui uses. Check current version.
-3. **WebSocket vs SSE for qhorus-native backend:** Chat-demo uses WebSocket.
-   Claudony uses SSE. The adapter pattern means the workbench can support
-   both, but which is primary for qhorus-native?
-4. **Emoji palette component:** Build custom or adopt an existing Lit-based
-   emoji picker? blocks-ui notification-inbox doesn't have one.
-5. **Message rendering:** Markdown vs plain text vs rich content? Current
+1. **Emoji palette component:** Build custom or adopt an existing Lit-based
+   emoji picker? Deferred to Phase 3.
+2. **Message rendering:** Markdown vs plain text vs rich content? Current
    chat-demo is plain text. Qhorus messages may contain structured content.
+   Blocks Phase 1 implementation — must decide before primitives.
+
+### Settled Decisions
+
+- **Build tooling:** Vite for dev server + HMR, esbuild for production
+  bundle (Vite uses esbuild internally). Aligns with blocks-ui convention.
+- **Lit version:** Lit 3.3, matching `@casehubio/pages-primitives` (per
+  pages ARC42STORIES §10).
+- **WebSocket vs SSE:** The adapter pattern supports both. Chat-demo uses
+  WebSocket; claudony uses SSE. No single primary — each backend provides
+  its adapter.
