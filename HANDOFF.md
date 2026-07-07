@@ -2,42 +2,47 @@
 
 ## Last Session
 
-Shipped #52 — user identity for chat-demo. JWT auth via casehub-pages-auth
-dependency, `@Authenticated` REST, `HttpUpgradeCheck` WebSocket auth,
-identity-based messaging bypassing Messaging/Threading SPIs, auto-membership,
-presence auto-create. Frontend login gate (`<pages-dev-auth>`), identity
-widget (`<pages-identity>`), `authenticatedFetch()` with Bearer headers.
-Design review ran 2 rounds (14 issues, all resolved). Garden entry
-GE-20260703-e4a6b0 (Quarkus WebSockets Next ignores JAX-RS filters gotcha).
-Cross-repo: `pages-auth-success` event added to casehub-pages (8a6bc9d).
+Designed and implemented the notification UI component system. Brainstormed
+the full notification architecture (platform routing, subscriptions, target
+resolution, mute/snooze, channel preferences) → filed epic platform#147 with
+7 child issues. Wrote notification UI spec, ran adversarial design review
+(4 rounds, 15 issues, all resolved). Built 5 components in blocks-ui:
+notification-bell, notification-inbox, subscription-list + types/API/events.
+Example showcase page with mock SSE, demo controls, 345+ tests. Fixed
+data-table: row-click activates (not selects), zebra striping, column
+alignment, mode switcher in dropdown. Squashed and pushed to blocks-ui main.
 
 ## Immediate Next Step
 
-Pick from What's Next. #53 (ARC42STORIES.MD sync) is immediately actionable
-and should capture the identity additions alongside the responsive layout
-work from the previous session.
+Pick from What's Next. #53 (ARC42STORIES.MD sync) should capture the
+notification architecture alongside previous responsive layout work.
 
 ## What's Left
 
 - Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
-- #53 ARC42STORIES.MD sync — needs identity, responsive layout, textarea, breakpoint additions · M · Med
+- #53 ARC42STORIES.MD sync — needs identity, responsive layout, notification architecture additions · M · Med
 - casehubio.github.io push blocked by pre-push hook (unrelated .gitignore) · XS · Low
-- #59 responsive minor polish — aria-label, member drawer test, constants dedup, afterEach · S · Low
+- #59 responsive minor polish — aria-label, member drawer test, constants dedup · S · Low
+- Notification spec modified on connectors main (design review changes) — commit the final version · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #45 | Teams ChatPlatform implementation with Adaptive Cards | M | Med | Requires Teams Bot API client |
+| — | subscription-editor component (blocks-ui) | M | Med | Event type picker + constraint builder. Depends on platform#155 (EventTypeRegistry) |
+| — | subscribe-button component (blocks-ui) | S | Med | Contextual entity/filter subscribe |
+| — | pages-summary-bar primitive proposal | S | Low | File issue on casehub-pages, propose API |
+| #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
 | #55 | Swipe-to-reveal gestures for phone drawers | S | Med | Depends on #54 (done) |
-| #57 | Touch-specific message interactions (long-press, swipe-to-reply) | S | Med | |
-| #31 | Multi-guild support for Discord | M | Med | Deferred until real use case |
-| #32 | Discord slash commands and interactions | M | Med | |
+| #57 | Touch-specific message interactions | S | Med | |
 
 ## References
 
 | Doc | Path |
 |-----|------|
-| Spec | `specs/2026-07-03-chat-demo-user-identity-design.md` |
-| Garden | `GE-20260703-e4a6b0` — Quarkus WebSockets Next ignores JAX-RS filters |
-| Deferred | #55 (swipe), #56 (emoji overflow), #57 (touch), #58 (platform responsive), #59 (minor polish) |
+| Notification UI spec | `specs/2026-07-06-notification-ui-components-design.md` |
+| Implementation plan | `plans/2026-07-06-notification-inbox-ui.md` |
+| Design review | `~/adr/casehub-connectors/notification-ui-components-20260706-102246/` |
+| Platform epic | casehubio/platform#147 |
+| Pages SSE issue | casehubio/casehub-pages#131 (done) |
+| blocks-ui branch | `issue-146-notification-inbox` (closed, landed as 9ac2f80) |
