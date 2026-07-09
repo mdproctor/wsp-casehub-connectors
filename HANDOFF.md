@@ -2,47 +2,55 @@
 
 ## Last Session
 
-Designed and implemented the notification UI component system. Brainstormed
-the full notification architecture (platform routing, subscriptions, target
-resolution, mute/snooze, channel preferences) → filed epic platform#147 with
-7 child issues. Wrote notification UI spec, ran adversarial design review
-(4 rounds, 15 issues, all resolved). Built 5 components in blocks-ui:
-notification-bell, notification-inbox, subscription-list + types/API/events.
-Example showcase page with mock SSE, demo controls, 345+ tests. Fixed
-data-table: row-click activates (not selects), zebra striping, column
-alignment, mode switcher in dropdown. Squashed and pushed to blocks-ui main.
+Designed and implemented a qhorus-native chat UI component family (Phase 1).
+Brainstormed the full conversation model (Space→Channel→Topic→Thread) after
+researching 11 chat platforms and 6 agent frameworks. Ran adversarial design
+review (7 rounds, 27 issues). Implemented 9 tasks via SDD: 4 primitives
+(qhorus-message, reaction-bar, thread, message-input), 3 composites
+(channel-feed, channel-nav, member-panel), adapter + workbench, atomic swap
+deleting old code. 182 tests after comprehensive audit. Final code review
+(2 rounds, 24 issues). Filed qhorus epic #328 with 6 child issues (#329–#334)
+for conversation model enrichments. Filed 9 connectors issues (#62–#70) for
+Phases 2–5.
 
 ## Immediate Next Step
 
-Pick from What's Next. #53 (ARC42STORIES.MD sync) should capture the
-notification architecture alongside previous responsive layout work.
+Manual browser verification of the new UI. Start the dev server and navigate
+to `http://localhost:8090/src/index.html`. Chrome MCP is now installed — use
+it for automated browser testing. Verify: login gate, channel list, message
+send/receive, reactions, flat/threaded toggle, member panel.
+
+Then `work-end` to close branch `issue-61-qhorus-chat-ui` / #61.
+
+## Cross-Module
+
+**Qhorus can work in parallel:**
+- Epic qhorus#328 with 6 child issues (#329–#334)
+- Priority: #329 (Topic) and #330 (Reactions) — highest impact, independent
 
 ## What's Left
 
-- Delete overdue closed branches (issue-4, 6, 7, 9, 12) — past 14-day hold · XS · Low
-- #53 ARC42STORIES.MD sync — needs identity, responsive layout, notification architecture additions · M · Med
-- casehubio.github.io push blocked by pre-push hook (unrelated .gitignore) · XS · Low
-- #59 responsive minor polish — aria-label, member drawer test, constants dedup · S · Low
-- Notification spec modified on connectors main (design review changes) — commit the final version · XS · Low
+- Browser verification of new UI (Chrome MCP available) · S · Low
+- #53 ARC42STORIES.MD sync — needs chat UI architecture additions · M · Med
+- #70 Tech debt — a11y mixins, thread root selection, reaction perf · S · Med
+- Delete overdue closed branches (issue-4, 6, 7, 9, 12) · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | subscription-editor component (blocks-ui) | M | Med | Event type picker + constraint builder. Depends on platform#155 (EventTypeRegistry) |
-| — | subscribe-button component (blocks-ui) | S | Med | Contextual entity/filter subscribe |
-| — | pages-summary-bar primitive proposal | S | Low | File issue on casehub-pages, propose API |
-| #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
-| #55 | Swipe-to-reveal gestures for phone drawers | S | Med | Depends on #54 (done) |
-| #57 | Touch-specific message interactions | S | Med | |
+| #62 | Dockable contextual panels (Phase 2) | M | Med | artifact, task, correlation panels |
+| #63 | Progressive disclosure (Phase 2) | S | Med | |
+| #64 | Emoji reaction palette (Phase 3) | S | Med | Needs qhorus#330 |
+| #65 | Rich artefact references (Phase 3) | M | Med | Needs qhorus#331 |
+| #66 | Topic navigator (Phase 4) | M | Med | Needs qhorus#329 |
+| #69 | Claudony integration (Phase 5) | L | High | Needs Phase 2 min |
 
 ## References
 
 | Doc | Path |
 |-----|------|
-| Notification UI spec | `specs/2026-07-06-notification-ui-components-design.md` |
-| Implementation plan | `plans/2026-07-06-notification-inbox-ui.md` |
-| Design review | `~/adr/casehub-connectors/notification-ui-components-20260706-102246/` |
-| Platform epic | casehubio/platform#147 |
-| Pages SSE issue | casehubio/casehub-pages#131 (done) |
-| blocks-ui branch | `issue-146-notification-inbox` (closed, landed as 9ac2f80) |
+| Design spec | `specs/2026-07-07-qhorus-chat-ui-design.md` |
+| Research | `specs/2026-07-07-conversation-model-research.md` |
+| Plan | `plans/2026-07-07-qhorus-chat-ui-phase1.md` |
+| Qhorus epic | casehubio/qhorus#328 |
