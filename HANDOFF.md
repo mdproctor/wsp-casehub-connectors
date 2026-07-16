@@ -1,3 +1,5 @@
+*Updated: #62 not found — removed from backlog.*
+
 # Handoff — connectors
 
 ## Last Session
@@ -20,8 +22,10 @@ Pick from What's Next. No outstanding blockers.
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #62 | Dockable contextual panels (Phase 2) | M | Med | Can build on expanded view infrastructure |
 | #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
+| #60 | Adopt casehub-pages-push typed protocol SDK | M | Med | — |
+| #58 | Responsive layout primitives for pages-runtime | M | Med | — |
+| #32 | Discord slash commands and interactions | M | Med | — |
 
 ## References
 
