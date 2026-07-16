@@ -1,14 +1,11 @@
-*Updated: #62 not found — removed from backlog.*
-
 # Handoff — connectors
 
 ## Last Session
 
-Closed branch `issue-70-ui-polish-a11y-emoji-swipe` — five issues landed
-as `6c1cec0` on main: tech debt (#70), recently used emojis (#81), skin
-tone preference (#82), swipe-to-close (#83). Reaction pre-indexing O(N+M),
-orphaned reply promotion, aria-live feed, Escape collapse, swipe-to-close
-gesture. 248 tests, Maven BUILD SUCCESS.
+Closed branch `issue-19-add-chat-app-dispatch` — added `chat-app` to
+`publish.yml` downstream dispatch list (`3dcb222` on main). Closes
+casehubio/chat-app#19. Also fixed remote topology: origin now points
+to `mdproctor/connectors` fork, upstream to `casehubio/connectors`.
 
 ## Immediate Next Step
 
@@ -24,13 +21,11 @@ Pick from What's Next. No outstanding blockers.
 |---|-------------|-------|------------|-------|
 | #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
 | #60 | Adopt casehub-pages-push typed protocol SDK | M | Med | — |
-| #58 | Responsive layout primitives for pages-runtime | M | Med | — |
+| #58 | Responsive layout primitives for pages-runtime | L | High | Cross-module design needed |
 | #32 | Discord slash commands and interactions | M | Med | — |
+| #39 | Discord minor code review findings | S | Low | Cleanup from #30/#33/#34 |
+| #31 | Discord multi-guild support | M | Med | Deferred until real use case |
 
 ## References
 
-| Doc | Path |
-|-----|------|
-| ARC42STORIES.MD | `ARC42STORIES.MD` |
-| Progressive disclosure spec | `docs/specs/2026-07-12-progressive-disclosure-emoji-swipe-design.md` |
-| Qhorus UI spec | workspace `specs/2026-07-07-qhorus-chat-ui-design.md` |
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
