@@ -83,7 +83,8 @@ Update `parseChannel()` in DiscordClient: `guild_id` is nullable (DM channels om
 | `discovery().listChannels()` | Iterate cached guilds, call `listGuildChannels(token, guild.id())` for each, use cached `guildDetails` for member counts (no per-call `getGuild` needed), populate `channelToGuild` map, aggregate results |
 | `members().listMembers(channel)` | If single guild → use `guilds.get(0).id()`. If multiple → look up `channelToGuild` map, fall back to `client.getChannel(token, channel.id())` only for channels not previously seen. Then `listGuildMembers(token, guildId, ...)` |
 | `channelManagement().create(...)` | If `guilds.size() == 1` → use that guild. If multiple → throw `IllegalStateException("Multiple guilds — channel creation requires disambiguation")` |
-| `channelManagement().delete/find` | Already guild-agnostic (operates on channel IDs) — no change |
+| `channelManagement().delete` | Already guild-agnostic (operates on channel IDs) — no change |
+| `channelManagement().find(channelId)` | Guild-agnostic (operates on channel ID). When the returned `DiscordChannel` has a non-null `guildId`, insert into `channelToGuild` map — avoids redundant `getChannel()` if `listMembers()` is called next |
 | `isPrivateChannel(channel)` | Use `channel.guildId()` as the @everyone role ID (Discord convention: @everyone role ID == guild ID). For channels from `listGuildChannels`, guildId is set from the request parameter. For channels from `getChannel`, guildId comes from the API response. |
 | Messaging, threading, reactions, presence, history | Already channel-scoped — no change |
 
@@ -106,7 +107,7 @@ Remove `guildId` field and config injection. Only `token` needed.
 
 Remove `guildId` field and config injection.
 
-`discover()`: call `client.listBotGuilds(token)`, iterate guilds, call `listGuildChannels(token, guild.id())` for each, filter to text channel types (`0, 5, 10, 11, 12`), aggregate.
+`discover()`: call `client.listBotGuilds(token)`. If `null` (API error), return `List.of()` — fail-soft, matching the existing `listGuildChannels` null-check pattern. Otherwise iterate guilds, call `listGuildChannels(token, guild.id())` for each, filter to text channel types (`0, 5, 10, 11, 12`), aggregate.
 
 DiscordDiscovery and DiscordChatPlatform discover guilds independently — they're in different modules with different lifecycles. This doubles the `listBotGuilds` call at startup (two HTTP round-trips). Acceptable because: the calls happen seconds apart, both modules handle errors in their own context, and `DiscordClient` remains a stateless HTTP transport.
 
