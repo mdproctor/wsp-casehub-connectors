@@ -87,7 +87,7 @@ Update `parseChannel()` in DiscordClient: `guild_id` is nullable (DM channels om
 | `isPrivateChannel(channel)` | Use `channel.guildId()` as the @everyone role ID (Discord convention: @everyone role ID == guild ID). For channels from `listGuildChannels`, guildId is set from the request parameter. For channels from `getChannel`, guildId comes from the API response. |
 | Messaging, threading, reactions, presence, history | Already channel-scoped — no change |
 
-**Guild cache staleness:** The guild list and details are cached at `@PostConstruct` time and not refreshed at runtime. If the bot is added to or removed from a guild while running, the change is not reflected until restart. The Gateway receives `GUILD_CREATE`/`GUILD_DELETE` events — runtime cache invalidation is a future enhancement (tracked as a GitHub issue).
+**Guild cache staleness:** The guild list and details are cached at `@PostConstruct` time and not refreshed at runtime. If the bot is added to or removed from a guild while running, the change is not reflected until restart. The Gateway receives `GUILD_CREATE`/`GUILD_DELETE` events — runtime cache invalidation is a future enhancement (wsp-casehub-connectors#1).
 
 ### Layer 4: DiscordInboundConnector — event-driven guild context
 
