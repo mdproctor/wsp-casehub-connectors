@@ -32,9 +32,11 @@ New method:
 ```java
 public List<DiscordGuild> listBotGuilds(String token)
 ```
-Calls `GET /users/@me/guilds`. Returns guilds the bot is a member of.
+Calls `GET /users/@me/guilds` with cursor pagination (`after` parameter, `MAX_PAGES` cap, fail-soft partial return on mid-page error — matching `listGuildMembers` pattern). Returns `null` on first-page failure (matching `getGuild` error pattern), empty list for a valid response with zero guilds.
 
 Channel-scoped methods (`sendMessage`, `sendReply`, `getMessages`, `getChannel`, `deleteChannel`, reactions) are unchanged — they already work on globally unique channel IDs without guild context.
+
+`listGuildChannels(token, guildId)` sets the guild ID on each returned `DiscordChannel` since `GET /guilds/{id}/channels` does not include `guild_id` per channel in the response.
 
 **#39 Finding 1 — configurable CDN hosts:**
 
@@ -46,6 +48,8 @@ String allowedCdnHostsConfig;
 ```
 Add a `@PostConstruct` to DiscordClient to parse the comma-separated string into a `Set<String>`. The public `downloadAttachment(DiscordAttachment)` method uses the parsed set. The package-private `downloadAttachment(DiscordAttachment, Set<String>)` overload remains for testing.
 
+**Test impact:** `DiscordClientTest` sets fields directly (`client.apiBaseUrl`, `client.guildId`). Adding `@PostConstruct` means tests must call `init()` after setting `allowedCdnHostsConfig`, or continue setting the parsed `allowedCdnHosts` set directly (package-private). The existing `downloadAttachment(attachment, hosts)` test overload is unaffected.
+
 ### Layer 2: DiscordChannel model — add guildId
 
 Add `guildId` to the record:
@@ -55,34 +59,42 @@ public record DiscordChannel(String id, String guildId, String name, String topi
                              List<PermissionOverwrite> permissionOverwrites) { ... }
 ```
 
-Update `parseChannel()` in DiscordClient: `guild_id` is nullable (DM channels omit it), parsed as `node.has("guild_id") ? node.get("guild_id").asText() : null`.
+Update `parseChannel()` in DiscordClient: `guild_id` is nullable (DM channels omit it), parsed as `node.has("guild_id") ? node.get("guild_id").asText() : null`. Add an overload `parseChannel(node, guildId)` for use by `listGuildChannels` where the guild ID is known from the request parameter but absent from the response JSON.
 
 ### Layer 3: DiscordChatPlatform — multi-guild aware
 
 **Constructor:** Remove `guildId` injection. Inject only `client`, `presenceCache`, and `token`.
 
 **Init (`@PostConstruct`):**
-- If `token.isBlank()` → degraded mode (no guild-id check needed)
-- Call `client.listBotGuilds(token)` → cache as `List<DiscordGuild> guilds`
-- If empty → warn, degraded mode
-- Otherwise → initialize capabilities normally
+- If `token.isBlank()` → degraded mode, `activeCapabilities = Set.of()`
+- Call `client.listBotGuilds(token)`:
+  - If `null` (API error) → log SEVERE with diagnostic guidance ("check token and network connectivity"), degraded mode
+  - If empty (valid response, zero guilds) → log WARNING ("bot not added to any guild"), degraded mode
+  - Otherwise → cache as `List<DiscordGuild> guilds`; fetch guild details with member counts via `getGuild(token, guild.id(), true)` per guild, cache as `Map<String, DiscordGuild> guildDetails`; set `activeCapabilities = NATIVE_CAPABILITIES`; initialize capabilities normally
+
+**`supports()` uses `activeCapabilities`** (computed at init, following Slack's pattern). ChannelManagement remains in `NATIVE_CAPABILITIES` for multi-guild — `find()` and `delete()` are guild-agnostic, and `create()` throwing is within the SPI contract ("Operations may throw unchecked exceptions on failure"). The degradation default `NoOpChannelManagement` also throws from `create()` and `delete()`, so excluding the capability would break working operations.
+
+**Channel-to-guild map:** Maintain `Map<String, String> channelToGuild` mapping channel IDs to guild IDs, populated during `listChannels()` from the per-guild iteration. Used by `listMembers()` to avoid redundant `getChannel()` calls.
 
 **Capability behavior:**
 
 | Capability | Behavior |
 |---|---|
-| `discovery().listChannels()` | Iterate cached guilds, call `listGuildChannels(token, guild.id())` for each, call `getGuild(token, guild.id(), true)` per guild for member counts, aggregate results |
-| `members().listMembers(channel)` | Call `client.getChannel(token, channel.id())` to resolve channel's `guildId`, then `listGuildMembers(token, guildId, ...)` |
+| `discovery().listChannels()` | Iterate cached guilds, call `listGuildChannels(token, guild.id())` for each, use cached `guildDetails` for member counts (no per-call `getGuild` needed), populate `channelToGuild` map, aggregate results |
+| `members().listMembers(channel)` | If single guild → use `guilds.get(0).id()`. If multiple → look up `channelToGuild` map, fall back to `client.getChannel(token, channel.id())` only for channels not previously seen. Then `listGuildMembers(token, guildId, ...)` |
 | `channelManagement().create(...)` | If `guilds.size() == 1` → use that guild. If multiple → throw `IllegalStateException("Multiple guilds — channel creation requires disambiguation")` |
 | `channelManagement().delete/find` | Already guild-agnostic (operates on channel IDs) — no change |
-| `isPrivateChannel(channel)` | Use `channel.guildId()` as the @everyone role ID (Discord convention: @everyone role ID == guild ID) |
+| `isPrivateChannel(channel)` | Use `channel.guildId()` as the @everyone role ID (Discord convention: @everyone role ID == guild ID). For channels from `listGuildChannels`, guildId is set from the request parameter. For channels from `getChannel`, guildId comes from the API response. |
 | Messaging, threading, reactions, presence, history | Already channel-scoped — no change |
+
+**Guild cache staleness:** The guild list and details are cached at `@PostConstruct` time and not refreshed at runtime. If the bot is added to or removed from a guild while running, the change is not reflected until restart. The Gateway receives `GUILD_CREATE`/`GUILD_DELETE` events — runtime cache invalidation is a future enhancement (tracked as a GitHub issue).
 
 ### Layer 4: DiscordInboundConnector — event-driven guild context
 
 Remove `guildId` field and config injection. Only `token` needed.
 
 - `start()` activation guard: `token.isBlank()` only — the Gateway connects to all guilds
+- **Gateway scaling:** `GUILD_CREATE` fires for every guild at connect, each containing initial presences, channels, and member lists. `MESSAGE_CREATE` events flow from all guilds through the single event handler. Volume scales linearly with guild count — negligible for typical CaseHub deployments (single-digit guilds), worth monitoring for bots in dozens of guilds.
 - `deliverMessage()`: extract guild from event data instead of hardcoding from config:
   ```java
   String eventGuildId = data.has("guild_id") ? data.get("guild_id").asText() : "unknown";
@@ -96,7 +108,7 @@ Remove `guildId` field and config injection.
 
 `discover()`: call `client.listBotGuilds(token)`, iterate guilds, call `listGuildChannels(token, guild.id())` for each, filter to text channel types (`0, 5, 10, 11, 12`), aggregate.
 
-DiscordDiscovery and DiscordChatPlatform discover guilds independently — they're in different modules with different lifecycles.
+DiscordDiscovery and DiscordChatPlatform discover guilds independently — they're in different modules with different lifecycles. This doubles the `listBotGuilds` call at startup (two HTTP round-trips). Acceptable because: the calls happen seconds apart, both modules handle errors in their own context, and `DiscordClient` remains a stateless HTTP transport.
 
 ### #39 Finding 2 — null URL downloadAttachment test
 
