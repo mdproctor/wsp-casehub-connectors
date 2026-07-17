@@ -1,5 +1,5 @@
-# Branch Closed: issue-63-progressive-disclosure-swipe-emoji
+# Branch Closed: issue-39-discord-review-multi-guild
 
-**Date:** 2026-07-13
-**Issues:** 63,64,55
+**Date:** 2026-07-17
+**Issues:** 39,31
 **Status:** merged to main
