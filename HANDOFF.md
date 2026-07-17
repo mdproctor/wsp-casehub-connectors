@@ -2,18 +2,21 @@
 
 ## Last Session
 
-Closed branch `issue-19-add-chat-app-dispatch` — added `chat-app` to
-`publish.yml` downstream dispatch list (`3dcb222` on main). Closes
-casehubio/chat-app#19. Also fixed remote topology: origin now points
-to `mdproctor/connectors` fork, upstream to `casehubio/connectors`.
+Closed branch `issue-39-discord-review-multi-guild` — removed
+`casehub.discord.guild-id` config, made DiscordClient a stateless HTTP
+transport (guild-id as parameter), added `listBotGuilds` with cursor
+pagination, multi-guild support across DiscordChatPlatform,
+DiscordDiscovery, and DiscordInboundConnector. Fixed hardcoded guild-id
+bug in inbound events. Made CDN hosts configurable. PR #85 to upstream.
+Closes #39, #31.
 
 ## Immediate Next Step
 
-Pick from What's Next. No outstanding blockers.
+Pick from What's Next. No outstanding blockers. PR #85 awaits merge.
 
 ## What's Left
 
-- Delete overdue closed branches (issue-4, 6, 7, 9, 12) · XS · Low
+- Delete overdue closed branches (issue-4, 6, 7, 9, 12, 39) · XS · Low
 
 ## What's Next
 
@@ -23,8 +26,6 @@ Pick from What's Next. No outstanding blockers.
 | #60 | Adopt casehub-pages-push typed protocol SDK | M | Med | — |
 | #58 | Responsive layout primitives for pages-runtime | L | High | Cross-module design needed |
 | #32 | Discord slash commands and interactions | M | Med | — |
-| #39 | Discord minor code review findings | S | Low | Cleanup from #30/#33/#34 |
-| #31 | Discord multi-guild support | M | Med | Deferred until real use case |
 
 ## References
 
