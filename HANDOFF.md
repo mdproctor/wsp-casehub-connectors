@@ -23,7 +23,6 @@ Pick from What's Next. No outstanding blockers. PR #85 awaits merge.
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
 | #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
-| #60 | Adopt casehub-pages-push typed protocol SDK | M | Med | — |
 | #58 | Responsive layout primitives for pages-runtime | L | High | Cross-module design needed |
 | #32 | Discord slash commands and interactions | M | Med | — |
 
