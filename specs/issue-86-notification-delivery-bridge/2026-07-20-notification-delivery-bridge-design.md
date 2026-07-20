@@ -218,6 +218,21 @@ value compile without changes.
 public String channelType() { return "sms"; }
 ```
 
+**Modified: `SlackConnector`** — opt out of notification bridging (per-tenant
+webhook destinations produce N duplicates; see §Initial bridge scope):
+
+```java
+@Override
+public String channelType() { return null; }
+```
+
+**Modified: `TeamsConnector`** — same reason:
+
+```java
+@Override
+public String channelType() { return null; }
+```
+
 ### casehub-connectors — new `notification-bridge` module
 
 **Dependencies:**
