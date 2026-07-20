@@ -23,10 +23,15 @@ delivery channel.
 Notification infrastructure systems (Knock, MagicBell, Novu) converge on a
 three-concept model:
 
-1. **Channel** — delivery medium type (email, SMS, push, chat)
-2. **Provider** — swappable implementation (SendGrid, Twilio, FCM)
+1. **Channel** — delivery platform or medium (email, SMS, push, Slack, Teams)
+2. **Provider** — swappable implementation within a channel (SendGrid, Twilio, FCM)
 3. **Subscriber profile** — user record with structured contact fields (email, phone,
    device tokens) stored separately from notification preferences
+
+Channels are defined at the level where users need independent preference control.
+SMS and email are medium types — swapping Twilio for Vonage within SMS is transparent
+to users. Slack and Teams are distinct channels: different platforms, different
+audiences, different capabilities, independent user preferences.
 
 Contact attributes answer "where can I be reached?" — notification preferences answer
 "how do I want to be notified?" These are separate concerns with separate stores.
@@ -38,19 +43,22 @@ SPI introduced here is the seam for this — a future user profile store impleme
 
 ## Design Decisions
 
-### Channel type vs connector implementation (two-level model)
+### Channel type vs connector implementation
 
 `Connector.id()` is implementation-specific (`"twilio-sms"`). Notification channels are
-delivery medium types (`"sms"`). The bridge registers channels by type, not by
-connector id.
+delivery platforms or medium types (`"sms"`, `"slack"`). The bridge registers channels
+by channel type, not by connector id.
+
+Channels are defined at the level where users need independent preference control:
+- **Medium-type channels** (SMS, email): multiple providers may share one channel type.
+  Swap Twilio for Vonage — user preferences and destination resolvers remain unchanged.
+- **Platform channels** (Slack, Teams, WhatsApp): each platform is its own channel type.
+  Different audiences, capabilities, and user preferences.
 
 `Connector` gains a `channelType()` default method returning `id()`. Connectors where
 the implementation id differs from the channel type override it (e.g.,
 `TwilioSmsConnector` returns `"sms"`). Returning `null` opts out of notification
 bridging.
-
-Payoff: swap Twilio for Vonage (same channelType `"sms"`, different connector id) —
-user preferences and destination resolvers remain unchanged.
 
 ### DestinationResolver in platform-api
 
@@ -61,16 +69,80 @@ concern — any `NotificationDeliverer` (not just connector-backed) may need it.
 Per-channel CDI beans with `channelId()`, matching the `NotificationDeliverer` pattern.
 Returns `Optional<String>` — empty means no known destination, delivery skips.
 
+#### Per-user vs per-tenant destinations
+
+Destinations follow two resolution models:
+- **Per-user** (email, SMS, WhatsApp): each user has their own destination (email
+  address, phone number). The resolver looks up the user's contact attribute.
+- **Per-tenant** (Slack, Teams): the destination is a shared webhook URL configured
+  per tenant or integration. The resolver ignores `userId` and returns the tenant's
+  configured webhook URL.
+
+Both models use the same `DestinationResolver` SPI — the implementation determines
+the resolution strategy. The bridge does not need to know whether a destination is
+per-user or per-tenant.
+
+Note: per-tenant destinations mean the notification dispatcher sends one message per
+user to the same webhook URL. Deduplication for shared destinations is a dispatcher
+concern, not a bridge concern (#2).
+
+#### Relationship to ConnectorDiscovery
+
+`ConnectorDiscovery` in connectors-core answers "what delivery targets are reachable?"
+for MCP tool use (e.g., listing available Slack channels for an agent).
+`DestinationResolver` answers "where does this user's notification go?" for automated
+delivery routing. These are distinct concerns at different layers:
+- `ConnectorDiscovery` — interactive, exploratory, agent-driven
+- `DestinationResolver` — automated, deterministic, system-driven
+
+They operate independently and are not substitutable.
+
 ### Bridge-wide descriptor defaults
 
-All bridged connectors use the same `DeliveryChannelDescriptor` defaults. Connectors
-do not declare notification metadata — that's the bridge's concern.
+All bridged connectors share common descriptor defaults with per-channel-type
+overrides where reliability profiles differ.
 
+Common defaults:
 - `external = true`
 - `defaultEnabled = false` (users must explicitly enable)
 - `defaultMinSeverity = WARNING`
-- `defaultDigestSchedule = null` (immediate delivery)
-- `guaranteedMinSeverity = null` (no retry)
+- `defaultDigestSchedule = null` (immediate delivery; digest not yet supported — #3)
+
+Per-channel-type retry policy (`guaranteedMinSeverity`):
+- Email, SMS: `WARNING` (retry on transient SMTP/carrier failures)
+- Slack, Teams, WhatsApp: `null` (no retry — webhook/API failures are typically
+  configuration errors, not transient)
+
+Display names are explicit per connector, not algorithmically derived:
+
+| channelType | displayName |
+|---|---|
+| `email` | "Email" |
+| `sms` | "SMS" |
+| `slack` | "Slack" |
+| `teams` | "Teams" |
+| `whatsapp` | "WhatsApp" |
+| (unknown) | channelType as-is |
+
+### Channel enablement
+
+Bridged channels register in `DeliveryChannelRegistry` at startup with
+`defaultEnabled = false`. Users enable channels through the existing
+`NotificationPreferenceStore` (supports in-memory and JPA backends). The
+`ChannelPreference` model already includes `enabled`, `minSeverity`, and
+`digestSchedule` — no new preference model is needed.
+
+A REST API for notification preference management is not yet available (#4).
+
+### Known connector reliability gaps
+
+Some connectors have known limitations that affect delivery result accuracy:
+- WhatsApp: Meta may return HTTP 200 with an error body for invalid template names,
+  which `HttpHelper` treats as success (#5). The bridge will report
+  `DeliveryResult(true)` for these silent failures until the connector is fixed.
+
+These are pre-existing connector issues, not bridge design problems, but they affect
+the bridge's end-to-end reliability.
 
 ### connectors-core stays independent of platform-api
 
@@ -101,11 +173,28 @@ public static final String WHATSAPP = "whatsapp";
 
 ### casehub-connectors-core
 
-**Modified: `Connector`** — add default method:
+**Modified: `Connector`** — change `send()` return type and add `channelType()`:
 
 ```java
+/**
+ * Send a message via this connector.
+ *
+ * @param message the message to deliver; must not be null
+ * @return true if delivery succeeded, false on failure
+ */
+boolean send(ConnectorMessage message);
+
 default String channelType() { return id(); }
 ```
+
+All built-in connectors already track success/failure internally (HTTP status checks,
+try/catch). The change from `void` to `boolean` makes failure reporting explicit
+rather than swallowed. The "must not throw" contract is unchanged — connectors catch
+exceptions internally and return `false`.
+
+**Modified: `ConnectorService.send()`** — return type changes from `void` to `boolean`
+to propagate the connector's delivery result. Existing callers that ignore the return
+value compile without changes.
 
 **Modified: `TwilioSmsConnector`** — override:
 
@@ -144,12 +233,25 @@ class ConnectorNotificationDeliverer implements NotificationDeliverer {
         try {
             String body = notification.body() != null
                     ? notification.body() : notification.title();
-            connector.send(new ConnectorMessage(
-                    destination.get(), notification.title(), body));
-            return new DeliveryResult(true, null);
+            var attributes = new java.util.HashMap<String, String>();
+            attributes.put("category", notification.category());
+            attributes.put("severity", notification.severity().name());
+            if (notification.actionUrl() != null) {
+                attributes.put("actionUrl", notification.actionUrl());
+            }
+            boolean success = connector.send(new ConnectorMessage(
+                    destination.get(), notification.title(), body, attributes));
+            return new DeliveryResult(success,
+                    success ? null : "connector reported delivery failure");
         } catch (Exception e) {
             return new DeliveryResult(false, e.getMessage());
         }
+    }
+
+    @Override
+    public DeliveryResult deliverDigest(DigestSummary summary) {
+        return new DeliveryResult(false,
+                "digest delivery not yet supported for bridged channels");
     }
 }
 ```
@@ -166,14 +268,14 @@ class ConnectorNotificationDeliverer implements NotificationDeliverer {
    a. Duplicate channelType check → startup error
    b. Match DestinationResolver by channelId (may be null)
    c. Create ConnectorNotificationDeliverer
-   d. Build DeliveryChannelDescriptor with bridge-wide defaults:
+   d. Build DeliveryChannelDescriptor:
       - channelId = channelType
-      - displayName = channelType with first letter capitalised (e.g., "Email", "Sms", "Slack")
+      - displayName = from explicit display name map (see §Bridge-wide descriptor defaults)
       - external = true
       - defaultEnabled = false
       - defaultMinSeverity = WARNING
       - defaultDigestSchedule = null
-      - guaranteedMinSeverity = null
+      - guaranteedMinSeverity = per-channel-type (see §Bridge-wide descriptor defaults)
    e. registry.register(descriptor, deliverer)
 ```
 
@@ -184,7 +286,7 @@ class ConnectorNotificationDeliverer implements NotificationDeliverer {
 | (from resolver)   | destination      |
 | title()           | title            |
 | body() ?: title() | body             |
-| (none)            | attributes       |
+| category, severity, actionUrl | attributes |
 
 ### Parent pom.xml
 
@@ -204,16 +306,19 @@ The bridge is the only place the two worlds meet.
 ## What Does Not Change
 
 - `NotificationDispatcher`, `ChannelRouter`, `InAppNotificationDeliverer` — work as-is
-- `ConnectorService`, `ConnectorDiscovery` — untouched
+- `ConnectorDiscovery` — untouched; distinct concern from `DestinationResolver`
+  (see §DestinationResolver in platform-api)
 - `NotificationPreferences`, `ChannelPreference` — user preferences key on channelType,
   which the existing model already supports
 
 ## Testing Strategy
 
 - **Unit tests for `ConnectorNotificationDeliverer`**: resolver present/absent, destination
-  found/not found, connector send success/failure, null body fallback
+  found/not found, connector send success/failure (boolean return), null body fallback,
+  metadata attribute mapping, digest rejection
 - **Unit tests for `NotificationBridgeStartup`**: auto-discovery of connectors, resolver
-  matching, duplicate channelType detection, null channelType opt-out
+  matching, duplicate channelType detection, null channelType opt-out, per-channel-type
+  display names and retry policies
 - **Contract test for `DestinationResolver`**: follows `NotificationDelivererContractTest`
   pattern in platform-api
 - **Integration test**: bridge startup with real CDI container, verify channels appear in
