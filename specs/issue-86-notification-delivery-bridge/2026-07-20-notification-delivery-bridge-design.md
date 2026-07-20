@@ -75,16 +75,32 @@ Destinations follow two resolution models:
 - **Per-user** (email, SMS, WhatsApp): each user has their own destination (email
   address, phone number). The resolver looks up the user's contact attribute.
 - **Per-tenant** (Slack, Teams): the destination is a shared webhook URL configured
-  per tenant or integration. The resolver ignores `userId` and returns the tenant's
-  configured webhook URL.
+  per tenant or integration. All users in a tenant resolve to the same URL.
 
 Both models use the same `DestinationResolver` SPI — the implementation determines
-the resolution strategy. The bridge does not need to know whether a destination is
-per-user or per-tenant.
+the resolution strategy.
 
-Note: per-tenant destinations mean the notification dispatcher sends one message per
-user to the same webhook URL. Deduplication for shared destinations is a dispatcher
-concern, not a bridge concern (#2).
+#### Initial bridge scope: per-user channels only
+
+Per-tenant destinations have a deduplication problem: when a subscription matches
+N users, the dispatcher calls `deliver()` N times per channel. For per-user channels
+(email, SMS), each call delivers to a different destination — correct. For per-tenant
+channels (Slack, Teams), all N calls deliver to the same webhook URL, producing N
+identical messages in the same channel. A team of 20 people generates 20 copies of
+every notification.
+
+Deduplication cannot happen in the bridge — `deliver()` is called per-user with no
+visibility into other users' destinations. It must happen in the dispatcher, which
+sees all recipients but currently resolves destinations inside deliverers (#2).
+
+Until #2 lands, Slack and Teams connectors opt out of notification bridging by
+returning `null` from `channelType()`. The initial bridge covers **email, SMS, and
+WhatsApp** — all per-user destination channels. Slack and Teams remain fully
+functional as connectors (MCP tools, direct `ConnectorService` use) but are not
+registered as notification delivery channels.
+
+Future per-user Slack/Teams connectors (e.g., bot-based DMs) would return a non-null
+`channelType()` and bridge correctly without deduplication.
 
 #### Relationship to ConnectorDiscovery
 
@@ -110,8 +126,9 @@ Common defaults:
 
 Per-channel-type retry policy (`guaranteedMinSeverity`):
 - Email, SMS: `WARNING` (retry on transient SMTP/carrier failures)
-- Slack, Teams, WhatsApp: `null` (no retry — webhook/API failures are typically
-  configuration errors, not transient)
+- WhatsApp: `null` (no retry — API failures are typically configuration errors)
+
+Slack and Teams are not bridged initially (see §Initial bridge scope).
 
 Display names are explicit per connector, not algorithmically derived:
 
@@ -119,8 +136,6 @@ Display names are explicit per connector, not algorithmically derived:
 |---|---|
 | `email` | "Email" |
 | `sms` | "SMS" |
-| `slack` | "Slack" |
-| `teams` | "Teams" |
 | `whatsapp` | "WhatsApp" |
 | (unknown) | channelType as-is |
 
@@ -163,13 +178,13 @@ public interface DestinationResolver {
 }
 ```
 
-**Modified: `DeliveryChannels`** — add constants:
+**Modified: `DeliveryChannels`** — add constant:
 
 ```java
-public static final String SLACK = "slack";
-public static final String TEAMS = "teams";
 public static final String WHATSAPP = "whatsapp";
 ```
+
+`SLACK` and `TEAMS` constants are deferred until per-tenant deduplication lands (#2).
 
 ### casehub-connectors-core
 
@@ -256,7 +271,7 @@ class ConnectorNotificationDeliverer implements NotificationDeliverer {
 }
 ```
 
-**`NotificationBridgeStartup`** — `@ApplicationScoped`, wires everything at
+**`NotificationBridgeStartup`** — `@Startup @ApplicationScoped`, wires everything at
 `@PostConstruct`:
 
 ```java
