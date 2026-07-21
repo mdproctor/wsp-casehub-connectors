@@ -2,21 +2,24 @@
 
 ## Last Session
 
-Closed branch `issue-39-discord-review-multi-guild` — removed
-`casehub.discord.guild-id` config, made DiscordClient a stateless HTTP
-transport (guild-id as parameter), added `listBotGuilds` with cursor
-pagination, multi-guild support across DiscordChatPlatform,
-DiscordDiscovery, and DiscordInboundConnector. Fixed hardcoded guild-id
-bug in inbound events. Made CDN hosts configurable. PR #85 to upstream.
-Closes #39, #31.
+Closed branch `issue-86-notification-delivery-bridge` — new
+`notification-bridge` module bridges platform `NotificationDeliverer`
+SPI to `Connector` SPI. Breaking change: `Connector.send()` → `boolean`.
+`channelType()` default method for channel type mapping. `DestinationResolver`
+SPI added to `casehub-platform-api`. PR #87 to upstream. Closes #86.
+
+Cross-repo: platform branch `issue-86-destination-resolver` adds
+`DestinationResolver` + `DeliveryChannels.WHATSAPP` to platform-api.
 
 ## Immediate Next Step
 
-Pick from What's Next. No outstanding blockers. PR #85 awaits merge.
+Merge platform `issue-86-destination-resolver` before connectors PR #87.
+Then pick from What's Next.
 
 ## What's Left
 
-- Delete overdue closed branches (issue-4, 6, 7, 9, 12, 39) · XS · Low
+- Delete overdue closed branches (issue-4, 6, 7, 9, 12, 39, 86) · XS · Low
+- Merge platform branch `issue-86-destination-resolver` · XS · Low
 
 ## What's Next
 
