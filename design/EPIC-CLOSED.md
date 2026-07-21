@@ -1,5 +1,5 @@
-# Branch Closed: issue-63-progressive-disclosure-swipe-emoji
+# Branch Closed: issue-86-notification-delivery-bridge
 
-**Date:** 2026-07-13
-**Issues:** 63,64,55
+**Date:** 2026-07-20
+**Issues:** 86
 **Status:** merged to main
