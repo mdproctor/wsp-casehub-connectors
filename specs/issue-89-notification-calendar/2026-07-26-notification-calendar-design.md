@@ -194,7 +194,7 @@ public record EventDetails(
 
 **Event timing model:** All-day events and timed events have incompatible temporal semantics. Google Calendar API represents them with different types (`date` vs `dateTime`). A boolean `allDay` flag with `Instant` forces a lossy round-trip through timezone-dependent midnight conversion. The sealed `EventTiming` interface encodes the distinction at the type level:
 - `Timed(Instant start, Instant end, ZoneId timeZone)` — timed events carry timezone for meaningful display ("3:00 PM BST")
-- `AllDay(LocalDate start, LocalDate end)` — all-day events are date-scoped, no timezone ambiguity
+- `AllDay(LocalDate start, LocalDate end)` — all-day events are date-scoped, no timezone ambiguity. `end` is **exclusive** following iCalendar (RFC 5545) convention — a one-day event on June 15 has `start = 2025-06-15` and `end = 2025-06-16`. Google Calendar API uses the same convention.
 
 Platform-agnostic — no Google types leak through.
 
