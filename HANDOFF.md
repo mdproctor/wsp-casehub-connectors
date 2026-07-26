@@ -1,34 +1,31 @@
-*Updated: #86 closed, PR #87 merged — removed from backlog.*
-
 # Handoff — connectors
 
 ## Last Session
 
-Closed branch `issue-86-notification-delivery-bridge` — new
-`notification-bridge` module bridges platform `NotificationDeliverer`
-SPI to `Connector` SPI. Breaking change: `Connector.send()` → `boolean`.
-`channelType()` default method for channel type mapping. `DestinationResolver`
-SPI added to `casehub-platform-api`. PR #87 to upstream. Closes #86.
+Closed branch `issue-89-notification-calendar` — three issues landed:
+- **#89** config-based `DestinationResolver` fallback in `NotificationBridgeStartup`
+- **#91** `DigestFormatter` CDI SPI (email HTML, SMS, WhatsApp) + `EmailConnector` format=html attribute
+- **#88** `CalendarPlatform` SPI (`calendar-spi`, `calendar-ref`, `calendar-google`) + `CalendarMcpTool` (6 tools)
 
-Cross-repo: platform branch `issue-86-destination-resolver` adds
-`DestinationResolver` + `DeliveryChannels.WHATSAPP` to platform-api.
+Design spec adversarially reviewed (5 rounds, 20 issues, all resolved).
+Pushed directly to upstream/main. 9 commits after squash.
 
 ## Immediate Next Step
 
-#89 (config-based DestinationResolver) — makes the notification bridge functional.
-PR #87 landed, platform resolver SPI is in place. Pick up #89 next.
+Pick up #90 (per-tenant destination deduplication) — unblocks Slack/Teams
+notification bridging. Or #45 (Teams ChatPlatform) if messaging breadth
+is the priority.
 
 ## What's Left
 
-- Delete overdue closed branches (issue-4, 6, 7, 9, 12, 39, 86) · XS · Low
+- Delete overdue closed branches (issue-4, 6, 7, 9, 12, 39, 86, 89) · XS · Low
+- 14 unrecovered artifacts on closed workspace branches (specs, blogs) · S · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #89 | Config-based DestinationResolver implementation | S | Low | Makes bridge functional — first usable resolver |
 | #90 | Per-tenant destination deduplication | M | Med | Unblocks Slack/Teams notification bridging |
-| #91 | Digest delivery for bridged channels | S | Med | Channel-type-aware digest formatting |
 | #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
 | #58 | Responsive layout primitives for pages-runtime | L | High | Cross-module design needed |
 | #32 | Discord slash commands and interactions | M | Med | — |
