@@ -24,7 +24,9 @@ Three pieces on one branch:
 
 ### Design
 
-A single `ConfigDestinationResolver` class (package-private, not a CDI bean) reads userId→destination mappings from MicroProfile `Config` by scanning a key prefix. A CDI producer dynamically creates one resolver instance per channel type discovered in config.
+A single `ConfigDestinationResolver` class (package-private, not a CDI bean) reads userId→destination mappings from MicroProfile `Config` by scanning a key prefix.
+
+`NotificationBridgeStartup` creates `ConfigDestinationResolver` instances directly as a fallback for any connector whose `channelType()` has config entries but no CDI-provided `DestinationResolver`. This eliminates the need for a CDI producer — the startup already does the wiring and is the only consumer of resolvers.
 
 **Config format:**
 ```properties
@@ -33,18 +35,33 @@ casehub.notification.destinations.sms.user-1=+447700900000
 casehub.notification.destinations.whatsapp.user-1=+447700900000
 ```
 
+**Wiring in `NotificationBridgeStartup.registerBridgedChannels()`:**
+```java
+DestinationResolver resolver = resolverIndex.get(channelType);
+if (resolver == null) {
+    var configResolver = new ConfigDestinationResolver(channelType, config);
+    if (configResolver.hasEntries()) {
+        resolver = configResolver;
+    }
+}
+```
+
+CDI-provided resolvers (from production implementations like SCIM or database) take precedence — the config fallback only activates when no CDI bean exists for that channel type.
+
 **Key design decisions:**
 - `resolve()` ignores `tenancyId` — single-tenant starter. Production resolvers (SCIM, database, OIDC) replace via the SPI.
-- The producer scans `Config.getPropertyNames()` for keys matching `casehub.notification.destinations.*`, extracts the channel type from the third segment, and produces one `ConfigDestinationResolver` per discovered channel type. No hardcoded channel list — adding a new connector with a `channelType()` only requires config entries.
-- All resolvers are always present; if no config entries exist for a channel type, `resolve()` returns `Optional.empty()`.
+- No hardcoded channel list. The startup creates a config resolver for any channel type that has entries under `casehub.notification.destinations.<channelType>.*`. Adding a new connector with a `channelType()` only requires config entries.
+- No CDI producer needed. `ConfigDestinationResolver` is package-private and only used by `NotificationBridgeStartup`. Standard CDI cannot dynamically produce N beans from a single `@Produces` method, and the startup is the sole consumer — direct instantiation is simpler and correct.
+- If no config entries exist for a channel type and no CDI resolver exists, `resolver` stays null and `ConnectorNotificationDeliverer` handles it gracefully (returns `DeliveryResult(false, "no destination resolver for <channelType>")`).
 
 ### Files
 
 | File | Purpose |
 |------|---------|
-| `ConfigDestinationResolver` | Package-private. Reads config prefix, provides `channelId()` + `resolve()` |
-| `ConfigDestinationResolverProducer` | `@ApplicationScoped`. Single `@Produces` method that scans config keys and produces resolvers dynamically per channel type |
-| `ConfigDestinationResolverTest` | Unit tests: resolve hit, resolve miss, empty config, multiple channels, dynamic channel type discovery |
+| `ConfigDestinationResolver` | Package-private. `ConfigDestinationResolver(String channelType, Config config)`. Reads config prefix, provides `channelId()` + `resolve()` + `hasEntries()` |
+| `NotificationBridgeStartup` | Updated `registerBridgedChannels()` — creates config resolvers as fallback for connectors without a CDI-provided resolver |
+| `ConfigDestinationResolverTest` | Unit tests: resolve hit, resolve miss, empty config, multiple channels |
+| `NotificationBridgeStartupTest` | Updated: config resolver fallback, CDI resolver precedence, no config no CDI |
 
 All in `notification-bridge/src/main/java/io/casehub/connectors/notification/`.
 
@@ -73,7 +90,7 @@ Each `DigestFormatter` is an `@ApplicationScoped` CDI bean. Implementations are 
 
 | Channel | Subject/Title | Body | Grouping |
 |---------|--------------|------|----------|
-| email | "N notifications (period)" | HTML summary: title, category, severity, action link per notification. Uses `attributes.put("format", "html")` to signal HTML rendering to `EmailConnector`. | Respects `groupBy == CATEGORY` |
+| email | "N notifications (period)" | HTML summary: title, category, severity, action link per notification. Sets `attributes.put("format", "html")` on the `ConnectorMessage`. | Respects `groupBy == CATEGORY` |
 | sms | — | "N notifications. Most urgent: \<title\>" | Always flat (no room) |
 | whatsapp | — | Count + category breakdown + most urgent + action link | Always flat |
 | fallback | — | "You have N notifications from \<start\> to \<end\>" | Always flat |
@@ -83,9 +100,28 @@ Each `DigestFormatter` is an `@ApplicationScoped` CDI bean. Implementations are 
 - `CATEGORY` — notifications grouped under category headings (email only; other channels always flat)
 - `ENTITY` — treated as `FLAT` with a `WARNING` log. Entity-based grouping requires entity metadata (type descriptions, display names) that the formatter does not have. Tracked as a future enhancement.
 
+**EmailConnector HTML support:**
+
+`EmailConnector.send()` currently calls `Mail.withText()` unconditionally and ignores `ConnectorMessage.attributes()`. This must be modified to support HTML digest delivery:
+
+```java
+public boolean send(final ConnectorMessage message) {
+    // ... existing validation ...
+    String format = message.attributes() != null
+            ? message.attributes().getOrDefault("format", "text") : "text";
+    if ("html".equals(format)) {
+        mailer.send(Mail.withHtml(message.destination(), subject, body));
+    } else {
+        mailer.send(Mail.withText(message.destination(), subject, body));
+    }
+}
+```
+
+`ConnectorMessage` Javadoc updated to document the `format` attribute: `"html"` causes `EmailConnector` to use `Mail.withHtml()` instead of `Mail.withText()`. Default is plain text — backward-compatible.
+
 **Key design decisions:**
 - DigestFormatter is a CDI SPI following the `Connector` pattern — `@ApplicationScoped` beans discovered via `@All List<DigestFormatter>`, indexed by `channelId()`.
-- Email body is HTML, matching issue #91's requirement ("Email: HTML summary with links"). The `attributes` map carries `format=html` to signal HTML rendering to the email connector. `ConnectorMessage.body` is a String — HTML is valid content.
+- Email body is HTML, matching issue #91's requirement ("Email: HTML summary with links"). `ConnectorMessage.body` is a String — HTML is valid content. The `format=html` attribute signals `EmailConnector` to use Quarkus Mailer's `Mail.withHtml()`.
 - Unknown channel types get a plain fallback via `DefaultDigestFormatter`, not the platform default (which is misleading).
 
 ### Files
@@ -93,14 +129,16 @@ Each `DigestFormatter` is an `@ApplicationScoped` CDI bean. Implementations are 
 | File | Purpose |
 |------|---------|
 | `DigestFormatter` | CDI SPI interface — `channelId()` + `format()` |
-| `EmailDigestFormatter` | `@ApplicationScoped`. HTML formatting with category grouping |
+| `EmailDigestFormatter` | `@ApplicationScoped`. HTML formatting with category grouping. Sets `format=html` attribute |
 | `SmsDigestFormatter` | `@ApplicationScoped`. Count + most urgent |
 | `WhatsAppDigestFormatter` | `@ApplicationScoped`. Count + category breakdown |
 | `DefaultDigestFormatter` | `@ApplicationScoped @DefaultBean`. Plain fallback for unknown channel types |
 | `ConnectorNotificationDeliverer` | Updated `deliverDigest()` implementation — looks up formatter by channel type |
+| `EmailConnector` | Updated `send()` — checks `attributes.get("format")`, uses `Mail.withHtml()` for `"html"` |
 | `ConnectorNotificationDelivererTest` | New digest tests: email format (HTML), sms format, whatsapp format, fallback, groupBy (CATEGORY, ENTITY warning), no resolver, no destination |
+| `EmailConnectorTest` | New test: HTML rendering via `format=html` attribute, backward-compatible plain text default |
 
-All in `notification-bridge`.
+`notification-bridge` files + `EmailConnector`/`EmailConnectorTest` in `email` module.
 
 ---
 
@@ -120,8 +158,8 @@ public interface CalendarPlatform {
     List<CalendarInfo> listCalendars();
     List<CalendarEvent> listEvents(String calendarId, Instant from, Instant to);
     CalendarEvent getEvent(String calendarId, String eventId);
-    CalendarEvent createEvent(String calendarId, CreateEventRequest request);
-    CalendarEvent updateEvent(String calendarId, String eventId, CreateEventRequest request);
+    CalendarEvent createEvent(String calendarId, EventDetails details);
+    CalendarEvent updateEvent(String calendarId, String eventId, EventDetails details);
     void deleteEvent(String calendarId, String eventId);
 }
 ```
@@ -148,7 +186,7 @@ public record CalendarEvent(
     String location, EventTiming timing,
     List<String> attendees, String recurringEventId) {}
 
-public record CreateEventRequest(
+public record EventDetails(
     String summary, String description, String location,
     EventTiming timing,
     List<String> attendees) {}
@@ -159,6 +197,10 @@ public record CreateEventRequest(
 - `AllDay(LocalDate start, LocalDate end)` — all-day events are date-scoped, no timezone ambiguity
 
 Platform-agnostic — no Google types leak through.
+
+**`EventDetails` — shared type for create and update:** Named `EventDetails` (not `CreateEventRequest`) because the same fields apply to both `createEvent()` and `updateEvent()`. Both operations use full-replacement (PUT) semantics — all fields in `EventDetails` are applied to the event. For create, all fields are fresh. For update, the caller provides the complete desired state.
+
+**Update semantics — full replacement (PUT):** `updateEvent()` replaces the entire event with the state described in `EventDetails`. Null fields clear the corresponding value on the event. This matches Google Calendar API's `events.update` (PUT) semantics. The MCP tool layer provides PATCH convenience — see MCP tools section below.
 
 **Recurrence:** The SPI returns expanded recurring event instances as individual `CalendarEvent` records. `recurringEventId` (nullable) indicates the event is an instance of a recurring series. Recurrence rule creation (`RRULE`) and series-level operations are not in scope for the initial SPI — tracked as future enhancement (GitHub issue to be filed).
 
@@ -213,17 +255,43 @@ In-memory `ConcurrentHashMap<String, List<CalendarEvent>>`. `@ApplicationScoped`
 | `calendar_list_calendars` | `platform` | Discovery |
 | `calendar_list_events` | `platform, calendarId, from, to` | `calendarId` defaults to `"primary"` |
 | `calendar_get_event` | `platform, calendarId, eventId` | Returns full event details including timing and recurrence info |
-| `calendar_create_event` | `platform, calendarId, summary, description, location, start, end, timeZone, startDate, endDate, attendees` | Timed: `start` + `end` + `timeZone`. All-day: `startDate` + `endDate`. Returns created event details |
-| `calendar_update_event` | `platform, calendarId, eventId, summary, description, location, start, end, timeZone, startDate, endDate, attendees` | Same timing parameters as create. Returns updated event details |
+| `calendar_create_event` | `platform, calendarId, summary, description, location, start, end, timeZone, startDate, endDate, attendees` | See timing validation rules below. Returns created event details |
+| `calendar_update_event` | `platform, calendarId, eventId, summary, description, location, start, end, timeZone, startDate, endDate, attendees` | PATCH convenience — fetches existing event, merges provided parameters, calls SPI `updateEvent()` with full state. See timing and update rules below |
 | `calendar_delete_event` | `platform, calendarId, eventId` | Confirmation message |
 
 Routes through `CalendarPlatformService` — same pattern as `ChatPlatformMcpTool`.
+
+**MCP tool timing parameter validation (`calendar_create_event`, `calendar_update_event`):**
+
+The tool accepts flat parameters that map to `EventTiming`. Validation follows the fail-soft MCP tool pattern — invalid combinations return `"Failed: ..."`, never throw.
+
+| Condition | Result |
+|-----------|--------|
+| Both `start` and `startDate` provided | `"Failed: provide either start/end/timeZone (timed) or startDate/endDate (all-day), not both"` |
+| `start` provided without `timeZone` | `"Failed: timeZone is required for timed events (e.g. 'Europe/London', 'America/New_York')"` |
+| `start` provided without `end` | `"Failed: end is required when start is provided"` |
+| `startDate` provided without `endDate` | `"Failed: endDate is required when startDate is provided"` |
+| `end` provided without `start` | `"Failed: start is required when end is provided"` |
+| Neither `start` nor `startDate` for create | `"Failed: timing is required — provide start/end/timeZone or startDate/endDate"` |
+| Neither `start` nor `startDate` for update | Valid — timing unchanged, only other fields updated |
+| All parameters null for update | `"Failed: at least one field must be provided for update"` |
+
+**MCP tool update semantics (`calendar_update_event`):**
+
+The MCP tool provides PATCH convenience on top of the SPI's PUT semantics. The tool:
+1. Calls `getEvent()` to fetch the current state
+2. Merges provided parameters over the existing values — only non-null parameters override
+3. Calls `updateEvent()` with the merged `EventDetails`
+
+This means agents can call `calendar_update_event(eventId=..., summary="New title")` without providing every other field. The tool handles the get-merge-put cycle internally.
 
 ---
 
 ## 5. Cross-repo impact
 
-None. All three issues are self-contained in connectors:
+`EmailConnector` in the `email` module is modified (§3) to support the `format=html` attribute. This is a backward-compatible change — the default remains plain text.
+
+All other changes are self-contained in connectors:
 - **#89:** `DestinationResolver` SPI already exists in `casehub-platform-api`. Config resolver is a new implementation.
 - **#91:** `DigestSummary`, `NotificationDeliverer` already exist in `casehub-platform-api` with the right shape.
 - **#88:** `CalendarPlatform` SPI is connector-local (same as `ChatPlatform`). No platform-api changes.
@@ -246,12 +314,14 @@ None. All three issues are self-contained in connectors:
 
 | Issue | Test approach |
 |-------|-------------|
-| #89 | Unit: resolve hit/miss, empty config, multiple channels, dynamic channel type discovery. Integration: full bridge wiring with config resolver |
-| #91 | Unit: each formatter independently (email HTML, sms, whatsapp, fallback). Unit: deliverDigest flow (resolver, destination, send). Edge: groupBy variants (FLAT, CATEGORY, ENTITY warning), empty notifications list (rejected by DigestSummary constructor) |
+| #89 | Unit: resolve hit/miss, empty config, multiple channels. Integration: full bridge wiring with config resolver fallback, CDI resolver precedence |
+| #91 formatters | Unit: each formatter independently (email HTML, sms, whatsapp, fallback). Edge: groupBy variants (FLAT, CATEGORY, ENTITY warning) |
+| #91 delivery | Unit: deliverDigest flow (resolver, destination, send). Edge: no resolver, no destination, empty notifications (rejected by constructor) |
+| #91 EmailConnector | Unit: `format=html` attribute → `Mail.withHtml()`. Unit: default (no attribute) → `Mail.withText()` (backward-compatible) |
 | #88 SPI | Contract test in `calendar-spi` — same pattern as `DestinationResolverContractTest` |
 | #88 Ref | `RefCalendarPlatformContractTest` — runs the contract test against the reference impl |
-| #88 Google | Unit with WireMock — mock Google Calendar API responses. Verify model translation, pagination, all-day vs timed event mapping. |
-| #88 MCP | Unit: tool methods with mock CalendarPlatformService |
+| #88 Google | Unit with WireMock — mock Google Calendar API responses. Verify model translation, pagination, all-day vs timed event mapping |
+| #88 MCP | Unit: tool methods with mock CalendarPlatformService. Edge: timing parameter validation (both provided, missing timeZone, missing end), update merge behavior |
 
 ---
 
