@@ -13,18 +13,20 @@ Cross-repo: platform branch `issue-86-destination-resolver` adds
 
 ## Immediate Next Step
 
-Merge platform `issue-86-destination-resolver` before connectors PR #87.
-Then pick from What's Next.
+PR #87 CI green — merge it. Platform `issue-86-destination-resolver` already
+landed. Then #89 (config-based DestinationResolver) to make the bridge functional.
 
 ## What's Left
 
 - Delete overdue closed branches (issue-4, 6, 7, 9, 12, 39, 86) · XS · Low
-- Merge platform branch `issue-86-destination-resolver` · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
+| #89 | Config-based DestinationResolver implementation | S | Low | Makes bridge functional — first usable resolver |
+| #90 | Per-tenant destination deduplication | M | Med | Unblocks Slack/Teams notification bridging |
+| #91 | Digest delivery for bridged channels | S | Med | Channel-type-aware digest formatting |
 | #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
 | #58 | Responsive layout primitives for pages-runtime | L | High | Cross-module design needed |
 | #32 | Discord slash commands and interactions | M | Med | — |
