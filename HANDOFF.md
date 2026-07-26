@@ -1,3 +1,5 @@
+*Updated: #86 closed, PR #87 merged — removed from backlog.*
+
 # Handoff — connectors
 
 ## Last Session
@@ -13,8 +15,8 @@ Cross-repo: platform branch `issue-86-destination-resolver` adds
 
 ## Immediate Next Step
 
-PR #87 CI green — merge it. Platform `issue-86-destination-resolver` already
-landed. Then #89 (config-based DestinationResolver) to make the bridge functional.
+#89 (config-based DestinationResolver) — makes the notification bridge functional.
+PR #87 landed, platform resolver SPI is in place. Pick up #89 next.
 
 ## What's Left
 
