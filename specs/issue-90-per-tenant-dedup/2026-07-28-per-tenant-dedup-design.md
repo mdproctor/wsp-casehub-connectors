@@ -93,10 +93,25 @@ public record ResolvedChannel(
 ```
 
 **Modified class** `ChannelRouter` — propagate scope from descriptor to
-`ResolvedChannel`. Per-tenant channels never route to digest: `digested`
-is always `false` when `destinationScope == PER_TENANT`. Digest is a
-per-user concept (batch *my* notifications) — a shared webhook has no
-per-user schedule to respect.
+`ResolvedChannel`. Two per-tenant overrides:
+
+1. **Digest prevention**: `digested` is always `false` when
+   `destinationScope == PER_TENANT`. Digest is a per-user concept
+   (batch *my* notifications) — a shared webhook has no per-user schedule.
+
+2. **Quiet hours buffering gate**: `quietHoursBuffering` is `false` when
+   `destinationScope == PER_TENANT`. Without this, the "don't suppress
+   because we'll digest instead" logic still fires even though digest is
+   disabled, causing per-tenant channels to deliver immediately during
+   quiet hours. With the gate, per-tenant channels follow the normal
+   suppression path:
+
+   ```java
+   final boolean quietHoursBuffering = suppressionResult.quietHoursActive()
+           && quietHoursAction == QuietHoursAction.BUFFER_FOR_DIGEST
+           && effectiveDigest != null
+           && descriptor.destinationScope() != DestinationScope.PER_TENANT;
+   ```
 
 **Modified class** `NotificationDispatcher`:
 
@@ -124,6 +139,10 @@ for (final ResolvedChannel channel : channels) {
     if (channel.destinationScope() == DestinationScope.PER_TENANT) {
         DeliveryResult previous = perTenantResults.get(channel.channelId());
         if (previous != null) {
+            LOG.debugf("Per-tenant dedup: channel '%s' already delivered for tenancy '%s', "
+                    + "propagating %s to user '%s'",
+                    channel.channelId(), tenancyId,
+                    previous.success() ? "success" : "failure", userId);
             if (previous.success()) {
                 deliveryTracker.recordSuccess(channel.channelId(), notificationInput,
                         null, DeliverySourceType.NOTIFICATION);
@@ -229,6 +248,10 @@ falls back to the `Connector` default returning `id()` ("slack" / "teams").
 - `ResolvedChannel.destinationScope()` propagates from descriptor.
 - `route_perTenantChannel_neverDigested`: register `PER_TENANT` channel
   with digest schedule, assert `digested` is `false`.
+- `route_perTenantChannel_quietHoursBuffering_stillSuppressed`: register
+  `PER_TENANT` channel with digest schedule, route with quiet hours active
+  and `BUFFER_FOR_DIGEST`, assert channel is `suppressed` (not delivered
+  immediately).
 
 ### Connectors — NotificationBridgeStartupTest
 
