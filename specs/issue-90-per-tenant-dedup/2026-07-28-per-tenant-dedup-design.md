@@ -73,8 +73,9 @@ public record DeliveryChannelDescriptor(
 }
 ```
 
-Default `PER_USER` in the compact constructor ensures backward compatibility for
-existing call sites that pass `null`.
+Default `PER_USER` in the compact constructor provides a convenient default
+for callers that don't care about scope — passing `null` yields `PER_USER`.
+All existing 7-argument call sites must be updated to pass the 8th argument.
 
 ### Platform Implementation (`casehub-platform`)
 
@@ -92,38 +93,92 @@ public record ResolvedChannel(
 ```
 
 **Modified class** `ChannelRouter` — propagate scope from descriptor to
-`ResolvedChannel`.
+`ResolvedChannel`. Per-tenant channels never route to digest: `digested`
+is always `false` when `destinationScope == PER_TENANT`. Digest is a
+per-user concept (batch *my* notifications) — a shared webhook has no
+per-user schedule to respect.
 
 **Modified class** `NotificationDispatcher`:
 
-In `onMatch()`, create `Set<String> deliveredPerTenantChannels` and pass it
-through the per-user loop.
+In `onMatch()`, create `Map<String, DeliveryResult> perTenantResults` and
+pass it through the per-user loop.
 
-In `dispatchToUser()`, use `Map<String, DeliveryResult> perTenantResults`
-(passed from `onMatch()`) to track the outcome of the first delivery per
-per-tenant channel:
+In `dispatchToUser()`, the dedup check runs **after** digest/suppress
+routing but **before** delivery. This placement ensures per-user routing
+decisions (snooze, quiet hours, enabled/disabled) are respected: a user
+who has the channel suppressed skips it entirely and neither contributes
+to nor consumes from the dedup map.
 
 ```java
-if (channel.destinationScope() == DestinationScope.PER_TENANT) {
-    DeliveryResult previous = perTenantResults.get(channel.channelId());
-    if (previous != null) {
-        // Already delivered — propagate the same result for this user
-        if (previous.success()) {
-            deliveryTracker.recordSuccess(...);
-        } else {
-            deliveryTracker.recordFailure(..., previous.failureReason());
-        }
+for (final ResolvedChannel channel : channels) {
+    if (channel.digested()) {
+        digestBuffer.add(new DigestBufferKey(userId, tenancyId, channel.channelId()),
+                notificationInput);
         continue;
     }
-}
+    if (channel.suppressed()) {
+        continue;
+    }
 
-// ... deliver ...
-// After delivery, if PER_TENANT: perTenantResults.put(channelId, result)
+    // Per-tenant dedup — after routing, before delivery
+    if (channel.destinationScope() == DestinationScope.PER_TENANT) {
+        DeliveryResult previous = perTenantResults.get(channel.channelId());
+        if (previous != null) {
+            if (previous.success()) {
+                deliveryTracker.recordSuccess(channel.channelId(), notificationInput,
+                        null, DeliverySourceType.NOTIFICATION);
+            } else {
+                // null guaranteedMinSeverity → FAILED, not RETRYING
+                deliveryTracker.recordFailure(channel.channelId(), notificationInput,
+                        null, DeliverySourceType.NOTIFICATION,
+                        null, previous.failureReason());
+            }
+            continue;
+        }
+    }
+
+    try {
+        final DeliveryResult result = channel.deliverer().deliver(notificationInput);
+        if (channel.destinationScope() == DestinationScope.PER_TENANT) {
+            perTenantResults.put(channel.channelId(), result);
+        }
+        if (result.success()) {
+            deliveryTracker.recordSuccess(channel.channelId(), notificationInput,
+                    null, DeliverySourceType.NOTIFICATION);
+        } else {
+            LOG.warnf("Delivery failed for channel '%s', user '%s': %s",
+                    channel.channelId(), userId, result.failureReason());
+            deliveryTracker.recordFailure(channel.channelId(), notificationInput,
+                    null, DeliverySourceType.NOTIFICATION,
+                    channel.guaranteedMinSeverity(), result.failureReason());
+        }
+    } catch (Exception e) {
+        var failedResult = new DeliveryResult(false, e.getMessage());
+        if (channel.destinationScope() == DestinationScope.PER_TENANT) {
+            perTenantResults.put(channel.channelId(), failedResult);
+        }
+        LOG.warnf(e, "Delivery error for channel '%s', user '%s'",
+                channel.channelId(), userId);
+        deliveryTracker.recordFailure(channel.channelId(), notificationInput,
+                null, DeliverySourceType.NOTIFICATION,
+                channel.guaranteedMinSeverity(), e.getMessage());
+    }
+}
 ```
 
-First user delivers and records. Subsequent users skip delivery and record the
-same outcome (success or failure) — per-user tracking accountability preserved
-for shared channels without retrying a failed shared destination per-user.
+The dedup ensures:
+
+- **Immediate delivery**: first non-suppressed user delivers; subsequent
+  non-suppressed users get the propagated result.
+- **Digest**: per-tenant channels are never digested (enforced by
+  `ChannelRouter`), so the digest path is never reached.
+- **Retry**: only the first user's failure record is retry-eligible (has
+  `guaranteedMinSeverity`). Propagated failures pass `null` for
+  `guaranteedMinSeverity`, creating `FAILED` (not `RETRYING`) records.
+  One broken webhook produces one retry chain, not N.
+- **Exception path**: caught exceptions store the failure in
+  `perTenantResults`, preventing subsequent users from re-attempting
+  delivery to the same broken endpoint.
 
 ### Connectors (`casehub-connectors`)
 
@@ -159,10 +214,21 @@ falls back to the `Connector` default returning `id()` ("slack" / "teams").
   email delivers twice and slack delivers once.
 - `dispatch_perTenantChannel_deliveryFailure_recordsFailureForAllUsers`:
   single delivery fails → all users get failure tracking.
+- `dispatch_perTenantChannel_failurePropagation_notRetryEligible`:
+  first user's delivery fails with `guaranteedMinSeverity` → first user's
+  record is `RETRYING`, propagated users' records are `FAILED`.
+- `dispatch_perTenantChannel_exceptionCaptured_subsequentUsersSkipDelivery`:
+  first user's delivery throws → exception stored in `perTenantResults` →
+  subsequent users skip delivery and record failure.
+- `dispatch_perTenantChannel_suppressedUserSkipped_nextUserDelivers`:
+  first user has channel snoozed → skipped (no dedup entry) → second user
+  delivers normally.
 
 ### Platform — ChannelRouterTest
 
 - `ResolvedChannel.destinationScope()` propagates from descriptor.
+- `route_perTenantChannel_neverDigested`: register `PER_TENANT` channel
+  with digest schedule, assert `digested` is `false`.
 
 ### Connectors — NotificationBridgeStartupTest
 
@@ -177,4 +243,7 @@ falls back to the `Connector` default returning `id()` ("slack" / "teams").
 
 1. Platform API + implementation changes → `mvn install` to local repo
 2. Connectors changes (depend on updated platform-api SNAPSHOT)
-3. Push platform first, then connectors
+3. Blocks-UI: update TypeScript `DeliveryChannelDescriptor` interface in
+   `casehub-blocks-ui-npm` to include `destinationScope` field (additive —
+   existing UI code is unaffected, field is informational)
+4. Push platform first, then connectors, then blocks-ui
