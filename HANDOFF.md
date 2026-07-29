@@ -2,19 +2,17 @@
 
 ## Last Session
 
-Closed branch `issue-89-notification-calendar` — three issues landed:
-- **#89** config-based `DestinationResolver` fallback in `NotificationBridgeStartup`
-- **#91** `DigestFormatter` CDI SPI (email HTML, SMS, WhatsApp) + `EmailConnector` format=html attribute
-- **#88** `CalendarPlatform` SPI (`calendar-spi`, `calendar-ref`, `calendar-google`) + `CalendarMcpTool` (6 tools)
-
-Design spec adversarially reviewed (5 rounds, 20 issues, all resolved).
-Pushed directly to upstream/main. 9 commits after squash.
+Closed branch `issue-90-per-tenant-dedup` — per-tenant destination
+deduplication (#90). Cross-repo change: `DestinationScope` enum and
+dispatcher dedup logic in casehub-platform, bridge scope + Slack/Teams
+opt-in in connectors. Design spec adversarially reviewed (3 rounds, 11
+issues). Pushed to both upstream repos.
 
 ## Immediate Next Step
 
-Pick up #90 (per-tenant destination deduplication) — unblocks Slack/Teams
-notification bridging. Or #45 (Teams ChatPlatform) if messaging breadth
-is the priority.
+Pick up #45 (Teams ChatPlatform) or #32 (Discord slash commands) — both
+are independent M/Med features. Or clean up overdue branches (issue-4,
+6, 7, 9, 12, 39, 86, 89) and recover 14 unrecovered workspace artifacts.
 
 ## What's Left
 
@@ -25,7 +23,6 @@ is the priority.
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #90 | Per-tenant destination deduplication | M | Med | Unblocks Slack/Teams notification bridging |
 | #45 | Teams ChatPlatform implementation | M | Med | Requires Teams Bot API client |
 | #58 | Responsive layout primitives for pages-runtime | L | High | Cross-module design needed |
 | #32 | Discord slash commands and interactions | M | Med | — |
