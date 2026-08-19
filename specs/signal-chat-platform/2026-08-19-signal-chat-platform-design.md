@@ -26,11 +26,13 @@ connectors/
 │           ├── SignalReaction.java
 │           └── SendResponse.java
 │
-├── chat-signal/                   # ChatPlatform SPI implementation
+├── chat-signal/                   # ChatPlatform SPI implementation + inbound pipeline
 │   └── io.casehub.connectors.chat.signal
-│       └── SignalChatPlatform.java
+│       ├── SignalChatPlatform.java
+│       ├── SignalInboundConnector.java   # InboundConnector SPI — WebSocket lifecycle
+│       └── SignalInboundTranslator.java  # InboundTranslator — L7 message translation
 │
-├── core/                          # (existing) — add SignalConnector
+├── core/                          # (existing) — add SignalConnector (raw HTTP, no signal-cli dep)
 │   └── io.casehub.connectors.signal
 │       └── SignalConnector.java
 ```
@@ -38,8 +40,8 @@ connectors/
 ### Dependencies
 
 - `signal-cli` → `jackson-databind`, `java.net.http.HttpClient` (no Quarkus REST client — keeps module framework-agnostic)
-- `chat-signal` → `signal-cli`, `chat-spi`
-- `core` (SignalConnector) → `signal-cli`
+- `chat-signal` → `signal-cli`, `chat-spi` (core is transitive via chat-spi — needed for `InboundConnector`, `InboundConnectorTypes`, `InboundConnectorIds`)
+- `core` — SignalConnector uses raw HTTP via `HttpHelper.postJson()` (no dependency on `signal-cli`; follows SlackConnector pattern)
 
 ### Runtime Dependency
 
@@ -68,7 +70,7 @@ The connector talks to `signal-cli-rest-api` (a Docker container wrapping `signa
 | Messaging | Send to group or 1:1 via phone number | `POST /v2/send` |
 | Discovery | List groups + contacts as channels | `GET /v1/groups/{n}`, `GET /v1/contacts/{n}` |
 | Members | Group member list from group details | `GET /v1/groups/{n}/{gid}` |
-| Reactions | Add/remove emoji reactions | `POST/DELETE /v1/reactions/{n}` |
+| Reactions | Add/remove emoji reactions; `list()` returns empty (see below) | `POST/DELETE /v1/reactions/{n}` |
 | ChannelManagement | Create/delete/find groups | `POST/GET/DELETE /v1/groups/{n}/{gid}` |
 | MemberManagement | Add/remove group members | `POST/DELETE /v1/groups/{n}/{gid}/members` |
 
@@ -79,6 +81,26 @@ The connector talks to `signal-cli-rest-api` (a Docker container wrapping `signa
 | Threading | `ChannelFallbackThreading` | Signal has quote-replies but no true threads |
 | Presence | `UnknownPresence` | No online status API |
 | MessageHistory | `EmptyMessageHistory` | E2E encrypted, no server-side history |
+
+### Reactions — Partial Native Support
+
+`Reactions.add()` and `Reactions.remove()` are fully native via signal-cli-rest-api endpoints. `Reactions.list()` returns `Collections.emptyList()` because Signal uses E2E encryption — reactions are delivered peer-to-peer and not stored server-side. There is no endpoint to query existing reactions on a message.
+
+This is a known contract gap: `supports(Reactions.class)` returns `true`, but `list()` always returns empty. The alternative — demoting to `NoOpReactions` — would sacrifice working `add()`/`remove()` functionality. Callers that depend on `list()` should check the platform identity (`"signal"`) and handle accordingly.
+
+### ChannelManagement — Group-Only Mutations
+
+`ChannelManagement` operations behave differently for group channels vs contact channels:
+
+| Method | Group channel (base64 ID) | Contact channel (phone number) |
+|---|---|---|
+| `find(channelId)` | Returns group-as-channel from `GET /v1/groups/{n}/{gid}` | Returns contact-as-channel from contacts list |
+| `create(name, ...)` | Creates Signal group via `POST /v1/groups/{n}` | Throws `IllegalArgumentException` — contacts are not creatable |
+| `delete(channelId)` | Leaves group via `DELETE /v1/groups/{n}/{gid}` | Throws `IllegalArgumentException` — contacts are not deletable |
+
+The same `+`-prefix format detection used in `Messaging.send()` routing applies here. Contact channel IDs (phone numbers) are discovery-only — `create()` and `delete()` are group-only operations.
+
+**`delete()` semantics:** Signal's `DELETE /v1/groups/{n}/{gid}` means "leave the group" from the bot's perspective. The group continues to exist for other members. This is a third semantic variant of the §12 risk #7 gap: Slack archives (reversible), Discord deletes (irreversible), Signal leaves (group persists). Documented in caller-facing Javadoc.
 
 ### Graceful Degradation
 
@@ -146,6 +168,7 @@ REST client using `java.net.http.HttpClient` with Jackson serialization.
 
 WebSocket client connecting to signal-cli-rest-api for real-time inbound events.
 
+- **Client implementation:** JDK `java.net.http.WebSocket` — no additional dependency. The Discord Gateway required Vert.x `WebSocketClient` due to an RFC 6455 `Sec-WebSocket-Accept` validation issue in the JDK client (#35). This does not apply to signal-cli-rest-api: it runs locally as a Docker container using a standard Go WebSocket server (gorilla/websocket or equivalent), which provides compliant RFC 6455 handshakes. If JDK compatibility issues arise during implementation, Vert.x is the proven fallback.
 - Parses JSON events, dispatches to `SignalEventListener` callback interface
 - Reconnection: exponential backoff with jitter
 - Container health: detect WebSocket closure, fall back to health endpoint polling
@@ -172,17 +195,72 @@ Plain Java records mapping the API's JSON structures: `SignalGroup`, `SignalCont
 
 **Member mapping:** `MemberRef.id` = phone number, `displayName` = profile name (fallback: phone number).
 
-**Inbound path:**
-1. `SignalWebSocket` delivers events via `SignalEventListener` callback
-2. On message received → fire CDI `Event<ReceivedMessage>`
-3. `ReceivedMessage` carries: platform `"signal"`, channel ref, message ref (`sender:timestamp`), sender ref, content, timestamp
+### Inbound Pipeline (L2 → L7)
+
+Follows the established two-stage inbound architecture (Discord, IRC, Slack pattern).
+
+**Required additions to `core`:**
+- `InboundConnectorTypes.SIGNAL = "signal"` — semantic type constant for CloudEvent routing and `ChatInboundAdapter` translator lookup
+- `InboundConnectorIds.SIGNAL_INBOUND = "signal-inbound"` — connector instance ID
+
+**Stage 1 — `SignalInboundConnector` (L2, in `chat-signal`):**
+
+Implements `InboundConnector`. Manages `SignalWebSocket` lifecycle.
+
+```
+start(sink):
+  create SignalWebSocket with SignalEventListener callback
+  on message received →
+    construct InboundMessage(
+      connectorId = SIGNAL_INBOUND,
+      connectorType = SIGNAL,
+      externalSenderId = sender phone number,
+      externalChannelRef = group ID or sender phone number,
+      content = message text,
+      attachments = [],
+      receivedAt = Instant.now(),
+      metadata = {"signal-sender": sender, "signal-timestamp": timestamp}
+    )
+    sink.receive(msg)
+
+stop():
+  disconnect SignalWebSocket
+
+id() → "signal-inbound"
+```
+
+`InboundConnectorService` discovers this bean at startup, calls `start(sink)`, and fires `Event<InboundMessage>.fireAsync()` on each received message. This delivers to:
+- `ConnectorsCloudEventAdapter` — creates CloudEvent with type `io.casehub.connectors.inbound.signal`
+- `ChatInboundAdapter` — routes to `SignalInboundTranslator` by `connectorType()`
+- Any other `@ObservesAsync InboundMessage` observers
+
+**Stage 2 — `SignalInboundTranslator` (L7, in `chat-signal`):**
+
+Implements `InboundTranslator`. Translates `InboundMessage` → `ReceivedMessage`.
+
+```
+connectorType() → "signal"
+
+translate(msg):
+  channel = ChatChannelRef(msg.externalChannelRef())
+  messageRef = ChatMessageRef(channel, msg.metadata("signal-sender") + ":" + msg.metadata("signal-timestamp"))
+  sender = MemberRef(msg.externalSenderId())
+  return ReceivedMessage("signal", channel, messageRef, null, sender, content, receivedAt)
+```
+
+`ChatInboundAdapter` fires `Event<ReceivedMessage>.fireAsync()` after translation.
 
 ## SignalConnector (in `core` module)
 
-Simple `Connector` SPI bean for notification-bridge integration:
+Simple `Connector` SPI bean for notification-bridge integration, using raw HTTP via `HttpHelper.postJson()` — no dependency on the `signal-cli` module. Follows the `SlackConnector` pattern: inline JSON construction with `HttpHelper.jsonQuote()`.
+
 - `id()` → `"signal"`
 - `channelType()` → `"signal"` (auto-registers with `DeliveryChannelRegistry`)
-- `send(ConnectorMessage)` → delegates to `SignalClient.send()`
+- `send(ConnectorMessage)` → `POST /v2/send` to signal-cli-rest-api via `HttpHelper.postJson()`
+  - `message.destination()` is the recipient: phone number (1:1) or base64 group ID
+  - Format detection: `+` prefix → `"recipients"` JSON field; otherwise → `"base64_group_id"` JSON field
+  - `message.body()` → `"message"` JSON field
+- Config: `@ConfigProperty(name = "casehub.signal.api-url")`, `@ConfigProperty(name = "casehub.signal.number")`
 - Follows the Slack dual-implementation pattern (`SlackConnector` + `SlackChatPlatform`)
 
 ## Testing Strategy
@@ -190,7 +268,10 @@ Simple `Connector` SPI bean for notification-bridge integration:
 - **SignalClient:** Unit tests with mock HTTP server (WireMock or similar) verifying request serialization and response deserialization for each endpoint
 - **SignalChatPlatform:** Unit tests verifying capability mapping — group→Channel, contact→Channel, message identity encoding/decoding, graceful degradation when unconfigured
 - **SignalWebSocket:** Unit tests for event parsing and filtering, reconnection backoff logic
-- **Integration:** `@QuarkusTest` verifying CDI wiring — `SignalChatPlatform` registers with `ChatPlatformService`, `SignalConnector` registers with notification-bridge
+- **SignalInboundConnector:** Unit tests verifying `start(sink)` delivers `InboundMessage` with correct `connectorId`, `connectorType`, and metadata; `stop()` disconnects WebSocket
+- **SignalInboundTranslator:** Unit tests verifying `InboundMessage` → `ReceivedMessage` translation, `sender:timestamp` message identity encoding/decoding, `connectorType()` returns `InboundConnectorTypes.SIGNAL`
+- **SignalConnector:** Unit tests for raw HTTP JSON construction — group vs 1:1 format detection, payload serialization
+- **Integration:** `@QuarkusTest` verifying CDI wiring — `SignalChatPlatform` registers with `ChatPlatformService`, `SignalConnector` registers with notification-bridge, `SignalInboundConnector` discovered by `InboundConnectorService`
 - **No live Signal dependency in tests:** All tests use mocked HTTP/WebSocket endpoints
 
 ## References
