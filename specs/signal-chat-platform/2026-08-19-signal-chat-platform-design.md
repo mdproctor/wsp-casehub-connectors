@@ -114,6 +114,10 @@ Discovery returns both Signal groups and contacts as channels.
 
 Signal's primary interaction paradigm is 1:1 encrypted messaging. Groups are secondary. Excluding contacts from Discovery would marginalise Signal's primary use case and prevent agent discovery of messaging targets.
 
+### Routing by ChatChannelRef.id Format
+
+`Messaging.send()` must distinguish group vs 1:1 targets because signal-cli-rest-api uses different JSON fields. Detection is by format: phone numbers start with `+` (e.g. `+15551234567`), group IDs are base64-encoded strings. The `SignalClient.send()` method inspects the recipient and serializes to the appropriate JSON field.
+
 ## Message Identity
 
 Signal identifies messages by a `(sender, timestamp)` pair, not a single opaque ID. `ChatMessageRef.messageId` encodes both as `sender:timestamp` (e.g. `+15551234567:1724025600000`). This compound encoding is necessary because reactions and quote-replies both require the target author and timestamp.
