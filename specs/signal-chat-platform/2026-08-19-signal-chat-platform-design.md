@@ -162,6 +162,7 @@ REST client using `java.net.http.HttpClient` with Jackson serialization.
 | `addReaction(number, recipient, emoji, targetAuthor, timestamp)` | `POST /v1/reactions/{n}` | React to message |
 | `removeReaction(number, recipient, emoji, targetAuthor, timestamp)` | `DELETE /v1/reactions/{n}` | Remove reaction |
 | `listContacts(number)` | `GET /v1/contacts/{n}` | List contacts |
+| `downloadAttachment(attachmentId)` | `GET /v1/attachments/{id}` | Download attachment content |
 | `health()` | `GET /v1/health` | Container health check |
 
 ### SignalWebSocket
@@ -211,15 +212,19 @@ Implements `InboundConnector`. Manages `SignalWebSocket` lifecycle.
 start(sink):
   create SignalWebSocket with SignalEventListener callback
   on message received →
+    attachments = parseAttachments(event)  // download via SignalClient.downloadAttachment()
+    metadata = {"signal-sender": sender, "signal-timestamp": timestamp}
+    if event has quote →
+      metadata += {"signal-quote-sender": quote.sender, "signal-quote-timestamp": quote.timestamp}
     construct InboundMessage(
       connectorId = SIGNAL_INBOUND,
       connectorType = SIGNAL,
       externalSenderId = sender phone number,
       externalChannelRef = group ID or sender phone number,
       content = message text,
-      attachments = [],
+      attachments = attachments,
       receivedAt = Instant.now(),
-      metadata = {"signal-sender": sender, "signal-timestamp": timestamp}
+      metadata = metadata
     )
     sink.receive(msg)
 
@@ -228,6 +233,8 @@ stop():
 
 id() → "signal-inbound"
 ```
+
+**Attachment handling:** signal-cli-rest-api WebSocket events include attachment IDs for received messages. `SignalInboundConnector` fetches attachment content via `SignalClient.downloadAttachment(attachmentId)` and constructs `Attachment` records (filename, contentType, byte content). Following the `DiscordInboundConnector` pattern, download failures are tracked in metadata (`signal-attachment-count`, `signal-attachment-download-failures`) and the message is delivered with successfully downloaded attachments only.
 
 `InboundConnectorService` discovers this bean at startup, calls `start(sink)`, and fires `Event<InboundMessage>.fireAsync()` on each received message. This delivers to:
 - `ConnectorsCloudEventAdapter` — creates CloudEvent with type `io.casehub.connectors.inbound.signal`
@@ -244,8 +251,14 @@ connectorType() → "signal"
 translate(msg):
   channel = ChatChannelRef(msg.externalChannelRef())
   messageRef = ChatMessageRef(channel, msg.metadata("signal-sender") + ":" + msg.metadata("signal-timestamp"))
+  quoteSender = msg.metadata("signal-quote-sender")
+  quoteTs = msg.metadata("signal-quote-timestamp")
+  parentRef = (quoteSender != null && quoteTs != null)
+      ? ChatMessageRef(channel, quoteSender + ":" + quoteTs)
+      : null
   sender = MemberRef(msg.externalSenderId())
-  return ReceivedMessage("signal", channel, messageRef, null, sender, content, receivedAt)
+  content = ChatContent(msg.content(), null, msg.attachments(), List.of())
+  return ReceivedMessage("signal", channel, messageRef, parentRef, sender, content, msg.receivedAt())
 ```
 
 `ChatInboundAdapter` fires `Event<ReceivedMessage>.fireAsync()` after translation.
