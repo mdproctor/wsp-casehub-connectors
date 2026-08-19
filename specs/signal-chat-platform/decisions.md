@@ -23,3 +23,28 @@
 **Sources:** slack-bot module, chat-slack module, discord module, chat-discord module
 **Exploration:** quick
 **Status:** captured
+
+## D3: Channel model
+
+**Choice:** Discovery.listChannels() returns Signal groups only. 1:1 conversations are reachable via Messaging.send() with a phone-number ChatChannelRef but are not surfaced through Discovery.
+**Alternatives:**
+- Groups + 1:1 contacts — Discovery returns both, contacts as synthetic channels with phone number or profile name. Full visibility but blurs the channel abstraction.
+**Rationale:** Matches how Slack and Discord handle DMs — they're reachable for messaging but don't appear in channel listings. Groups have names, topics, descriptions, and member counts that map cleanly to the Channel model. 1:1 conversations have none of these.
+**Trade-offs:** Callers must know a phone number to message a 1:1 contact — they can't discover contacts through the ChatPlatform SPI.
+**Depends on:** D1 (signal-cli-rest-api provides separate group and contact endpoints)
+**Sources:** ChatPlatform SPI Channel model, Discord/Slack Discovery implementations, signal-cli-rest-api group endpoints
+**Exploration:** quick
+**Status:** captured
+
+## D4: Inbound message reception
+
+**Choice:** WebSocket-based real-time event stream from signal-cli-rest-api
+**Alternatives:**
+- Polling via GET /v1/receive/{number} — simpler but adds latency and wastes resources
+- Outbound only — skip inbound, add later
+**Rationale:** Real-time push matches the Discord Gateway pattern already established in this repo. WebSocket receives messages, reactions, typing indicators as they happen. signal-cli-rest-api documents WebSocket as the recommended approach for receiving.
+**Trade-offs:** WebSocket connection must be maintained (reconnection logic needed). More complex than polling.
+**Depends on:** D1 (signal-cli-rest-api provides the WebSocket endpoint)
+**Sources:** signal-cli-rest-api WebSocket documentation, Discord Gateway pattern (DiscordGateway.java)
+**Exploration:** quick
+**Status:** captured
