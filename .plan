@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-97-signal-chat-platform
-state: scaffolded
+state: active
 project-sha: d814d3fd314a1b0523baa455056ca0d0d26164a2
 date: 2026-08-20
 issue-repo: casehubio/connectors
