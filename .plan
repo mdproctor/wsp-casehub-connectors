@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-97-signal-chat-platform
-state: scaffolded
+state: closing:promoted
 project-sha: d814d3fd314a1b0523baa455056ca0d0d26164a2
 date: 2026-08-20
 issue-repo: casehubio/connectors
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: 4d2cc5ab:##
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/connectors#97 — feat: add Signal chat platform connector ← active
