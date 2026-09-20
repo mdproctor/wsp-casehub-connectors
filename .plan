@@ -1,0 +1,17 @@
+# Work Plan — issue-104-simulation-integration-test
+
+## State
+branch: issue-104-simulation-integration-test
+state: scaffolded
+project-sha: d48285afd2ddec044f2bd207c48b2b859d8957a2
+date: 2026-09-20
+issue-repo: casehubio/connectors
+covers: 104,105,106
+design-repo: project
+design-section-hashes: 
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/connectors#104 — Issue #104 ← active
+- [ ] casehubio/connectors#105 — Adopt @SimulationEligible on CalendarPlatform and ChatPlatform
+- [ ] casehubio/connectors#106 — First real provider — TrueLayer BankFeedPlatform
