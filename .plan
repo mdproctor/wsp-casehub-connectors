@@ -13,3 +13,4 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/connectors#98 — Issue #98 ← active
+- [ ] casehubio/connectors#92 — Remove unnecessary CDI from 20 classes
