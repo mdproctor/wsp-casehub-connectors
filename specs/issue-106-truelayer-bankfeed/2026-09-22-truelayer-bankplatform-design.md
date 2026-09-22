@@ -295,8 +295,9 @@ lifecycle.
 @ApplicationScoped
 public class TrueLayerConsentService {
 
-    public AuthLink generateAuthLink(List<ConsentScope> scopes,
-                                     String redirectUri, String state) { ... }
+    public AuthLink generateAuthLink(String userId,
+                                     List<ConsentScope> scopes,
+                                     String redirectUri) { ... }
 
     public ConsentInfo exchangeCode(String code, String state) { ... }
 
@@ -504,7 +505,8 @@ quarkus.oidc-client.truelayer.grant.type=client_credentials
 - Data mapping (TrueLayer DTOs → SPI model records)
 
 `TrueLayerConsentServiceTest` — consent lifecycle:
-- Auth link generation with correct scopes and state storage
+- Auth link generation with userId, correct scopes, and internal state
+  storage (`state → {userId, scopes, expiry}`)
 - State validation on code exchange (correct state, expired state,
   unknown state, userId resolution from state)
 - Code exchange and token storage
