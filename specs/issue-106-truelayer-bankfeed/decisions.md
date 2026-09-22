@@ -48,3 +48,16 @@
 **Exploration:** quick
 **Depends on:** D3 (consent as capability)
 **Status:** captured
+
+## D5: Request-scoped BankContext for per-user consent tokens
+
+**Choice:** A request-scoped `BankContext` CDI bean holds the current user's consent token. `TrueLayerBankPlatform` reads it implicitly — no token in SPI method signatures. The client (`TrueLayerClient`) still takes the token as a parameter per credential-config-ownership; the platform impl bridges BankContext → client call.
+**Alternatives:**
+- Token parameter on each SPI method — explicit but clutters every `Accounts` method signature; SPI surface becomes noisy and tied to OAuth2 implementation detail
+- Consent store internal to client — TrueLayerClient queries a platform-level consent store by userId; tighter coupling to storage, harder to test
+**Rationale:** TrueLayer has two token layers: client credentials (machine-to-machine, shared, managed by D2) and user consent tokens (per-user, per-bank, obtained via consent flow). User tokens can't live in the singleton client. A request-scoped context holder keeps the SPI clean while making the token available where needed. The platform (caller) sets the context; the provider reads it.
+**Trade-offs:** Implicit state — the caller must set BankContext before calling accounts(). If forgotten, the platform gets a null token and fails at runtime. Mitigated by clear error messages and test fixtures that set up context.
+**Sources:** ChatPlatform (implicit context patterns), PP-20260609-0c3e24 (credential-config-ownership — token at call time on the client, implicit on the SPI)
+**Exploration:** quick
+**Depends on:** D2 (managed token holder), D3 (consent capability)
+**Status:** captured
