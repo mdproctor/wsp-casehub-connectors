@@ -12,8 +12,9 @@ First real provider implementation for the banking SPI. Renames
 following the ChatPlatform pattern, adds payment initiation alongside
 account information, and implements TrueLayer as the first provider.
 
-Two modules are affected: `bank-spi` (SPI evolution) and `bank-truelayer`
-(new provider module). The SPI changes are breaking relative to the
+Three modules are affected: `bank-spi` (SPI evolution), `bank-truelayer`
+(new provider module), and `graphql` (migration to capability accessors
+and updated MCP domain). The SPI changes are breaking relative to the
 current `BankFeedPlatform` but pre-release — no external consumers.
 
 ## Module changes
@@ -24,9 +25,11 @@ current `BankFeedPlatform` but pre-release — no external consumers.
 |--------|--------|
 | Rename `BankFeedPlatform` → `BankPlatform` | Interface, `@SimulationEligible(name)`, NoOp, service class |
 | Add capability sub-interfaces | `AccountInformation`, `PaymentInitiation` |
-| Add payment model records | `PaymentRequest`, `InitiatedPayment`, `PaymentStatus` |
+| Add `supports(Class<?>)` | Runtime capability introspection (ChatPlatform pattern) |
+| User-scoped capability accessors | `accountInformation(userId)`, `paymentInitiation(userId)` |
+| Add payment model records | `PaymentRequest`, `InitiatedPayment`, `PaymentStatus`, `PaymentDestination` |
 | Move existing methods | `listAccounts()`, `balance()`, `listTransactions()`, `getTransaction()` → `AccountInformation` |
-| Update `@SimulationEligible` | `name = "bank-platform"` (was `"bank-feed-platform"`) |
+| Update `@SimulationEligible` | `name = "bank-platform"`, `capabilities = {"accountInformation", "paymentInitiation"}` |
 
 ### bank-truelayer — new module
 
@@ -35,24 +38,50 @@ current `BankFeedPlatform` but pre-release — no external consumers.
 | Package | `io.casehub.connectors.bank.truelayer` |
 | Dependencies | `bank-spi`, `connectors-api`, `quarkus-oidc-client`, `quarkus-rest` |
 
+### graphql — migration
+
+| Change | Detail |
+|--------|--------|
+| Rename `ConnectorBankFeedApi` → `ConnectorBankApi` | Class name, `@McpDomain` value and basePath |
+| Update imports | `BankFeedPlatform` → `BankPlatform`, `BankFeedPlatformService` → `BankPlatformService` |
+| Route through capability accessors | `p.listAccounts()` → `p.accountInformation(userId).listAccounts()` etc. |
+| Add user identity | Inject `SecurityIdentity`, extract userId for capability accessor calls |
+| Update `@McpDomain` | `value = "connectors/bank"`, `basePath = "/api/connectors/bank"` |
+| Add payment endpoints | Expose `paymentInitiation` operations if PISP is available |
+
 ## BankPlatform SPI
 
 ```java
-@SimulationEligible(name = "bank-platform")
+@SimulationEligible(name = "bank-platform",
+    capabilities = {"accountInformation", "paymentInitiation"})
 public interface BankPlatform {
 
     String id();
 
-    AccountInformation accountInformation();
+    AccountInformation accountInformation(String userId);
 
-    PaymentInitiation paymentInitiation();
+    PaymentInitiation paymentInitiation(String userId);
+
+    boolean supports(Class<?> capability);
 }
 ```
 
 Capability sub-interfaces follow the ChatPlatform pattern. Providers
 declare which capabilities they support. The simulation framework's
 recursive wrapper generation (platform#375) intercepts methods on
-returned capability interfaces.
+returned capability interfaces. The `capabilities` attribute lists
+sub-interface accessor methods for recursive wrapper generation.
+
+Banking operations are inherently per-user under PSD2 — each user
+grants their own consent. Capability accessors take a `userId` parameter
+so the provider can resolve user-specific state (consent tokens, scope
+checks) when constructing the capability instance. This is a domain
+concern, not an OAuth2 concern: the question "whose accounts?" is
+fundamental to banking, unlike chat where operations are per-platform.
+
+`supports(Class<?> capability)` enables runtime capability introspection
+without discovery-by-exception. Providers implement it directly (no
+Builder needed for 2 capabilities — see §Design rationale).
 
 ### AccountInformation (AISP)
 
@@ -91,12 +120,29 @@ Payment initiation is asynchronous — `initiatePayment()` returns an
 Strong Customer Authentication (SCA) at their bank via the hosted page.
 `paymentStatus()` polls the result.
 
+**Payment webhooks** — TrueLayer sends webhook notifications for payment
+lifecycle events (authorized → executed → settled, or → failed). This
+initial implementation supports polling only via `paymentStatus()`.
+Webhook-based real-time status updates are deferred to
+**casehubio/connectors#108** — adding a webhook
+receiver (JAX-RS endpoint, TrueLayer signature validation, CDI event
+firing) is a natural follow-up that does not affect the SPI surface.
+
 ### Payment model records
 
 ```java
-public record PaymentRequest(BigDecimal amount, String currency,
-                             String beneficiaryName, String sortCode,
-                             String accountNumber, String reference) {}
+public record PaymentRequest(String idempotencyKey,
+                             BigDecimal amount, String currency,
+                             String beneficiaryName,
+                             PaymentDestination destination,
+                             String reference) {}
+
+public sealed interface PaymentDestination {
+    record UkAccount(String sortCode, String accountNumber)
+            implements PaymentDestination {}
+    record IbanAccount(String iban, String bic)
+            implements PaymentDestination {}
+}
 
 public record InitiatedPayment(String paymentId,
                                 String hostedPaymentPageLink,
@@ -110,9 +156,23 @@ public enum PaymentStatus {
 
 `PaymentRequest.amount` is always positive, consistent with
 `Transaction.amount`. `BigDecimal` for monetary amounts — never
-floating point. `sortCode` and `accountNumber` are UK-specific;
-future providers may need IBAN. Pre-release, evolving the record
-is non-breaking.
+floating point.
+
+`idempotencyKey` is caller-generated (UUID recommended) and must be
+unique per logical payment attempt. Providers pass it as-is to the
+upstream API (TrueLayer: `Idempotency-Key` header). Callers that
+retry a failed `initiatePayment()` reuse the same key — the provider
+returns the original result rather than creating a duplicate payment.
+This is an SPI concern, not a provider detail: callers must generate
+and track the key to retry safely.
+
+`PaymentDestination` is a sealed hierarchy for payment rail types.
+`UkAccount` covers UK Faster Payments (sort code + account number);
+`IbanAccount` covers SEPA/international (IBAN + BIC). Additional
+payment rail types (e.g., `UsAccount(routingNumber, accountNumber)`)
+are added as new sealed permits — existing exhaustive switches catch
+the compile error. This avoids nullable fields and preserves type
+safety as providers for other payment rails are added.
 
 ### NoOp fallback
 
@@ -121,19 +181,40 @@ is non-breaking.
 @ApplicationScoped
 public class NoOpBankPlatform implements BankPlatform {
     @Override public String id() { return "none"; }
-    @Override public AccountInformation accountInformation() {
+    @Override public AccountInformation accountInformation(String userId) {
         return NoOpAccountInformation.INSTANCE;
     }
-    @Override public PaymentInitiation paymentInitiation() {
-        throw new UnsupportedOperationException("No bank platform configured");
+    @Override public PaymentInitiation paymentInitiation(String userId) {
+        return NoOpPaymentInitiation.INSTANCE;
     }
+    @Override public boolean supports(Class<?> capability) { return false; }
 }
 ```
 
 `NoOpAccountInformation` returns empty lists for list operations and
 throws `UnsupportedOperationException` for single-item lookups (same
-as current `NoOpBankFeedPlatform`). `paymentInitiation()` throws
-directly — no-op payment initiation is meaningless.
+as current `NoOpBankFeedPlatform`). `NoOpPaymentInitiation` throws
+`UnsupportedOperationException` from its operation methods
+(`initiatePayment()`, `paymentStatus()`), not from the accessor.
+This follows the ChatPlatform pattern: capability accessors never
+throw — callers can safely obtain a reference and check
+`supports(PaymentInitiation.class)` before invoking operations.
+
+### Design rationale — no Builder pattern
+
+ChatPlatform uses a Builder to manage 9 optional capabilities with
+degradation defaults and native capability tracking. BankPlatform has
+2 capabilities — the construction complexity that justifies a Builder
+does not exist here:
+
+- `AccountInformation` is fundamental — every bank provider supports it
+- `PaymentInitiation` is optional — AISP-only providers omit it
+- `supports()` is implemented directly by each provider (trivial for 2 capabilities)
+- `NoOpBankPlatform` returns `NoOpPaymentInitiation` (per ChatPlatform pattern)
+
+If the capability count grows beyond 3–4, a Builder should be introduced
+(the refactoring is mechanical). Until then, direct construction is
+simpler without sacrificing correctness.
 
 ## TrueLayer HTTP client
 
@@ -237,7 +318,11 @@ In-memory `ConcurrentHashMap<String, StoredConsent>` for initial
 implementation. `StoredConsent` holds the access token, refresh token,
 expiry timestamp, and granted scopes. Sufficient for dev and test.
 
-Production persistence (database-backed) is a follow-up concern — the
+Production persistence (database-backed) is deferred to
+**casehubio/connectors#107** — a JVM restart
+loses all consent tokens, forcing re-consent (bank redirect, SCA)
+for every user. With PSD2's 90-day AISP consent window, this is
+significant operational friction in production. The
 `TrueLayerConsentService` interface is stable; only the storage
 implementation changes.
 
@@ -265,6 +350,24 @@ tokens, stores the consent, and returns 302 redirect to the
 application's consent-confirmation page. Standard OAuth2 callback
 pattern.
 
+### State parameter — CSRF protection
+
+The OAuth2 `state` parameter prevents CSRF attacks where an attacker
+crafts a redirect that associates their TrueLayer consent with a
+victim's account (RFC 6749 §10.12).
+
+**Generation:** `generateAuthLink()` creates a cryptographically random
+opaque state value (128-bit `SecureRandom`, hex-encoded) and stores it
+in the consent service keyed by user ID with a short TTL (10 minutes).
+The state is included in the authorization URL's `state` query parameter.
+
+**Validation:** `exchangeCode(code, state)` looks up the stored state
+for the originating user, compares it with the received `state` using
+constant-time comparison (`MessageDigest.isEqual()`), and rejects the
+callback with `InvalidStateException` if the values don't match or the
+state has expired. On successful validation, the stored state is deleted
+(single-use).
+
 ### Consent scopes
 
 PSD2 mandates separate consent for AISP and PISP:
@@ -286,20 +389,25 @@ public class TrueLayerBankPlatform implements BankPlatform {
 
     @Override public String id() { return "truelayer"; }
 
-    @Override public AccountInformation accountInformation() {
-        return new TrueLayerAccountInformation(client, consentService);
+    @Override public AccountInformation accountInformation(String userId) {
+        return new TrueLayerAccountInformation(client, consentService, userId);
     }
 
-    @Override public PaymentInitiation paymentInitiation() {
-        return new TrueLayerPaymentInitiation(client, consentService);
+    @Override public PaymentInitiation paymentInitiation(String userId) {
+        return new TrueLayerPaymentInitiation(client, consentService, userId);
+    }
+
+    @Override public boolean supports(Class<?> capability) {
+        return capability == AccountInformation.class
+            || capability == PaymentInitiation.class;
     }
 }
 ```
 
-`TrueLayerAccountInformation` reads the user's consent token from
-`TrueLayerConsentService` and passes it to `TrueLayerClient` on each
-call. If consent is missing or expired, throws
-`ConsentExpiredException`.
+`TrueLayerAccountInformation` captures the `userId` at construction,
+resolves the user's consent token from `TrueLayerConsentService`, and
+passes it to `TrueLayerClient` on each call. If consent is missing or
+expired, throws `ConsentExpiredException`.
 
 `TrueLayerPaymentInitiation` uses client credentials (via `OidcClient`)
 for payment creation. SCA is handled by the hosted payment page — the
@@ -315,6 +423,11 @@ user authenticates at their bank, not through the SPI.
 - `TrueLayerTransactionPage` → `Page<Transaction>` (cursor mapping)
 
 `TrueLayerPaymentInitiation` maps:
+- `PaymentRequest.destination` → TrueLayer sort code/account number
+  fields (switches on `PaymentDestination` sealed type — TrueLayer
+  supports `UkAccount` only; `IbanAccount` throws
+  `UnsupportedOperationException` until SEPA support is added)
+- `PaymentRequest.idempotencyKey` → `Idempotency-Key` HTTP header
 - `TrueLayerPaymentResult` → `InitiatedPayment`
 - `TrueLayerPaymentStatus` → `PaymentStatus` enum
 
@@ -373,17 +486,22 @@ all capability methods. Qualified names:
 | Qualified name | Method |
 |---------------|--------|
 | `bank-platform.id` | `BankPlatform.id()` |
+| `bank-platform.accountInformation` | `BankPlatform.accountInformation(userId)` |
 | `bank-platform.accountInformation.listAccounts` | `AccountInformation.listAccounts()` |
 | `bank-platform.accountInformation.balance` | `AccountInformation.balance(accountId)` |
 | `bank-platform.accountInformation.listTransactions` | `AccountInformation.listTransactions(...)` |
 | `bank-platform.accountInformation.getTransaction` | `AccountInformation.getTransaction(...)` |
+| `bank-platform.paymentInitiation` | `BankPlatform.paymentInitiation(userId)` |
 | `bank-platform.paymentInitiation.initiatePayment` | `PaymentInitiation.initiatePayment(...)` |
 | `bank-platform.paymentInitiation.paymentStatus` | `PaymentInitiation.paymentStatus(...)` |
 
-**Note:** Qualified name format for capability methods depends on how
-platform#375's recursive wrapper generator names nested interface
-methods. The dot-separated paths above (`bank-platform.accountInformation.listAccounts`)
-are the expected pattern — verify against the generator during implementation.
+**Note:** The `capabilities = {"accountInformation", "paymentInitiation"}`
+attribute on `@SimulationEligible` tells the `SimulationDecoratorProcessor`
+which methods return capability sub-interfaces. The processor generates
+wrappers for both the accessor methods and their returned interfaces.
+The userId parameter on capability accessors is passed through by the
+decorator — simulation stubs at the leaf method level
+(`bank-platform.accountInformation.listAccounts`) ignore it.
 
 Test fixtures via `Simulation.forTest()`:
 
@@ -400,9 +518,25 @@ var sim = Simulation.forTest()
 
 ### ARC42STORIES.MD update
 
-- Update existing bank-spi layer entry with capability architecture
-- Add new layer for TrueLayer provider
-- Update module structure table with `bank-truelayer`
+- **L12 rename:** "Bank Feed Platform SPI" → "Bank Platform SPI". Update
+  description to reflect capability architecture (`AccountInformation`,
+  `PaymentInitiation`), `supports()`, user-scoped capability accessors,
+  `PaymentDestination` sealed hierarchy, and `BankPlatformService`. Update
+  key files list (interface, model records, NoOp, service class). Update
+  `@SimulationEligible(name)` reference from `bank-feed-platform` to
+  `bank-platform`.
+- **L14 (new):** "TrueLayer Bank Provider" — `TrueLayerBankPlatform`
+  (AISP + PISP), `TrueLayerClient` (Data API + Payments API),
+  `TrueLayerConsentService` (PSD2 consent lifecycle), OAuth2 callback
+  endpoint, `quarkus-oidc-client` for client credentials. Key files:
+  `TrueLayerBankPlatform.java`, `TrueLayerClient.java`,
+  `TrueLayerConsentService.java`, `TrueLayerAuthCallback.java`,
+  `TrueLayerBeans.java`.
+- **§5 Module structure table:** Add `bank-truelayer` row:
+  `casehub-connectors-bank-truelayer` depends on `bank-spi`,
+  `connectors-api`, `quarkus-oidc-client`, `quarkus-rest`.
+- **§5 Container diagram:** Add L14 container boundary with
+  TrueLayer-specific containers.
 
 ### Guides update
 
