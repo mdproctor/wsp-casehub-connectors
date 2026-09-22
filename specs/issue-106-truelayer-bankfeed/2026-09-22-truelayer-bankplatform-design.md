@@ -308,9 +308,31 @@ public class TrueLayerConsentService {
 }
 ```
 
-`getUserToken()` retrieves the stored consent token for a user. Returns
-null if no consent exists or consent has expired. Called by
-`TrueLayerBankPlatform` before data API operations.
+`getUserToken()` retrieves a valid access token for a user. Called by
+`TrueLayerAccountInformation` and `TrueLayerPaymentInitiation` before
+data API operations. The method implements a three-step resolution:
+
+1. **Valid access token** — if the stored access token has not expired,
+   return it immediately.
+2. **Refresh** — if the access token has expired but a refresh token is
+   available, call TrueLayer's token endpoint with the refresh token to
+   obtain a new access token. Store the new access token (and updated
+   refresh token if rotated) in `StoredConsent`. Return the new access
+   token.
+3. **No refresh possible** — if no consent exists, or the refresh token
+   is also expired/revoked (TrueLayer returns 401), return null. The
+   caller throws `ConsentExpiredException` to trigger re-consent.
+
+This ensures that the PSD2 90-day AISP consent window is honoured.
+Without refresh, access tokens expire in ~1 hour, forcing hourly
+re-consent despite the 90-day consent grant. The refresh call uses
+`HttpHelper.CLIENT` with the client credentials (via `OidcClient`) and
+the stored refresh token — no user interaction required.
+
+Thread safety: refresh is synchronized per-userId to prevent concurrent
+calls from triggering duplicate refresh requests. A double-check pattern
+(re-read after acquiring the lock) handles the race where another thread
+already refreshed.
 
 ### Consent token persistence
 
@@ -358,15 +380,22 @@ victim's account (RFC 6749 §10.12).
 
 **Generation:** `generateAuthLink()` creates a cryptographically random
 opaque state value (128-bit `SecureRandom`, hex-encoded) and stores it
-in the consent service keyed by user ID with a short TTL (10 minutes).
-The state is included in the authorization URL's `state` query parameter.
+as `stateValue → {userId, scopes, expiry}` — the state IS the key,
+mapping TO the userId. The state is included in the authorization URL's
+`state` query parameter. TTL: 10 minutes.
 
-**Validation:** `exchangeCode(code, state)` looks up the stored state
-for the originating user, compares it with the received `state` using
-constant-time comparison (`MessageDigest.isEqual()`), and rejects the
-callback with `InvalidStateException` if the values don't match or the
-state has expired. On successful validation, the stored state is deleted
-(single-use).
+**Validation:** `exchangeCode(code, state)` looks up `state` in the
+pending-consent map → retrieves the associated userId and scopes. If the
+state doesn't exist or has expired → `InvalidStateException`. On
+successful lookup the entry is deleted (single-use). The resolved userId
+is used to store the exchanged consent tokens — this is how the callback
+(which has no authenticated user context) associates the consent with the
+correct user.
+
+This keying model (`state → userId`) is standard OAuth2: the callback
+endpoint receives only `code` and `state` from the redirect — no session,
+no JWT, no `SecurityIdentity`. The state is the only link back to the
+originating user.
 
 ### Consent scopes
 
@@ -404,10 +433,12 @@ public class TrueLayerBankPlatform implements BankPlatform {
 }
 ```
 
-`TrueLayerAccountInformation` captures the `userId` at construction,
-resolves the user's consent token from `TrueLayerConsentService`, and
-passes it to `TrueLayerClient` on each call. If consent is missing or
-expired, throws `ConsentExpiredException`.
+`TrueLayerAccountInformation` captures the `userId` at construction.
+On each data API call, it calls `consentService.getUserToken(userId)` —
+which returns a valid access token (refreshing automatically if the
+current token has expired). If `getUserToken()` returns null (no consent
+or refresh token revoked), throws `ConsentExpiredException` to signal
+that the user must re-consent via the browser redirect flow.
 
 `TrueLayerPaymentInitiation` uses client credentials (via `OidcClient`)
 for payment creation. SCA is handled by the hosted payment page — the
@@ -439,7 +470,7 @@ public class TrueLayerBeans {
 
     @Produces @ApplicationScoped
     public TrueLayerClient trueLayerClient(
-            OidcClient oidcClient,
+            @NamedOidcClient("truelayer") OidcClient oidcClient,
             @ConfigProperty(name = "casehub.connectors.bank.truelayer.base-url",
                             defaultValue = "https://api.truelayer.com") String baseUrl) {
         return new TrueLayerClient(oidcClient, baseUrl);
@@ -473,10 +504,15 @@ quarkus.oidc-client.truelayer.grant.type=client_credentials
 - Data mapping (TrueLayer DTOs → SPI model records)
 
 `TrueLayerConsentServiceTest` — consent lifecycle:
-- Auth link generation with correct scopes
+- Auth link generation with correct scopes and state storage
+- State validation on code exchange (correct state, expired state,
+  unknown state, userId resolution from state)
 - Code exchange and token storage
-- Token retrieval by user ID
-- Consent expiry and revocation
+- Access token refresh on expiry (valid refresh token → new access token)
+- Refresh token rotation (new refresh token stored when returned)
+- Refresh failure (revoked refresh token → null → re-consent)
+- Thread-safe refresh (concurrent calls share a single refresh)
+- Consent revocation
 
 ### Simulation integration
 
