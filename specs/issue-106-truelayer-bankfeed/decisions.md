@@ -22,3 +22,29 @@
 **Sources:** `slack-bot/SlackBotClient.java` (token-per-call pattern), `calendar-google/GoogleCalendarPlatform.java` (constructor credentials), PP-20260609-0c3e24 (credential-config-ownership protocol)
 **Exploration:** quick
 **Status:** captured
+
+## D3: Consent management as a BankPlatform capability
+
+**Choice:** PSD2 consent management is a `ConsentManagement` capability sub-interface on `BankPlatform` — `generateAuthLink()`, `exchangeCode()`, `getConsentStatus()`, `revokeConsent()`. Each provider implements its own consent flow mechanics.
+**Alternatives:**
+- Separate cross-cutting `ConsentPlatform` SPI — could serve other regulated domains (insurance, health), but speculative; no second regulated SPI exists yet
+- Internal to TrueLayerClient (no SPI surface) — callers get errors when consent is missing/expired and handle it ad-hoc; no platform-level consent visibility
+**Rationale:** Consent is intrinsic to banking operations — you can't list accounts or initiate payments without it. Making it a capability keeps the consent lifecycle visible at the SPI level (callers can check consent status, initiate consent flows) while keeping it provider-specific (TrueLayer's redirect URLs differ from Yapily's). D7 from #94 explicitly deferred this to "when a real PSD2 provider is implemented" — this is that moment.
+**Trade-offs:** Ties consent to BankPlatform rather than a reusable cross-cutting concern. If a second regulated SPI needs consent, we may extract a shared interface. Pre-release, this refactoring is cheap.
+**Sources:** D7 from #94 decisions (consent deferred), PSD2 regulation (AISP/PISP consent requirements), TrueLayer auth documentation
+**Exploration:** quick
+**Depends on:** D1 (capability sub-interfaces)
+**Status:** captured
+
+## D4: Consent callback via WebhookInboundConnector
+
+**Choice:** TrueLayer's consent redirect callback (after user authorizes at their bank) is handled via the existing `WebhookInboundConnector` SPI. The callback is just another inbound webhook — consistent with how other external callbacks work in the platform.
+**Alternatives:**
+- Dedicated REST endpoint in bank-truelayer — tighter coupling but simpler; no routing through generic webhook system
+- No callback endpoint (polling only) — `generateAuthLink()` returns a link, consumer calls `exchangeCode()` after redirect; consumer owns the HTTP endpoint
+**Rationale:** WebhookInboundConnector already handles inbound callbacks from external systems. TrueLayer's consent redirect is the same pattern — an external system redirecting back with an authorization code. Reusing the existing SPI avoids duplicating endpoint infrastructure and keeps the inbound flow consistent across all connectors.
+**Trade-offs:** Adds a dependency on the webhook module. The webhook system's generic routing must map the TrueLayer callback path to the bank-truelayer handler.
+**Sources:** `webhook/WebhookInboundConnector.java` (existing SPI), `core/InboundConnector.java` (inbound pattern), TrueLayer auth redirect documentation
+**Exploration:** quick
+**Depends on:** D3 (consent as capability)
+**Status:** captured
