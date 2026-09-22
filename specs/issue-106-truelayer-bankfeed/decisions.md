@@ -1,63 +1,63 @@
 ## D1: Unified BankPlatform SPI with capability sub-interfaces
 
-**Choice:** Rename `BankFeedPlatform` → `BankPlatform` with capability sub-interfaces: `AccountInformation` (reads) and `PaymentInitiation` (writes). Single SPI, single `@SimulationEligible` annotation, capability pattern like ChatPlatform.
+**Choice:** Rename `BankFeedPlatform` → `BankPlatform` with capability sub-interfaces: `AccountInformation` (AISP) and `PaymentInitiation` (PISP). Single SPI, single `@SimulationEligible` annotation, capability pattern like ChatPlatform.
 **Alternatives:**
-- Separate flat SPIs (`BankAccountPlatform` + `BankPaymentPlatform`) — artificial read/write split at the SPI level; "account" naturally includes payments
+- Separate flat SPIs (`BankAccountPlatform` + `BankPaymentPlatform`) — clean separation but forces callers to juggle two services for one domain entity; providers that support both must register as two separate beans
 - Single flat interface with all methods — no capability degradation model; forces all providers to implement everything
-- Keep `BankFeedPlatform` read-only, add `BankPaymentPlatform` separately — mirrors PSD2 regulatory distinction (AISP/PISP) but leaks regulatory concern into domain model
-**Rationale:** From the domain perspective, bank accounts both hold data and execute payments. Splitting by read/write is an API design artifact, not a domain truth. Capability sub-interfaces allow providers to declare what they support (TrueLayer supports both; a read-only provider only wires accounts). The simulation framework's recursive wrapper generation (platform#375) now supports capability interception, removing the flat-interface constraint from D4 (#94).
+- Keep `BankFeedPlatform` read-only, add `BankPaymentPlatform` separately — maps to PSD2 AISP/PISP but at the wrong abstraction level; regulatory licensing is a provider concern, not an SPI concern
+**Rationale:** PSD2's AISP/PISP distinction is real and domain-significant — these are separately licensed capabilities with different consent scopes and durations. The capability sub-interface pattern honours this: `AccountInformation` maps to AISP, `PaymentInitiation` maps to PISP. A provider with only AISP authorization implements `AccountInformation` only. The unified `BankPlatform` wrapper reflects the domain truth that banking is one domain with multiple regulated capabilities — not separate domains. The simulation framework's recursive wrapper generation (platform#375) supports capability interception.
 **Trade-offs:** Requires renaming existing `BankFeedPlatform` and updating `@SimulationEligible(name)`, NoOp, service class, and all test references. Pre-release, this is non-breaking.
-**Sources:** `chat-spi/ChatPlatform.java` (capability pattern), `bank-spi/BankFeedPlatform.java` (current flat), platform#375 (recursive wrapper generation), D4 from #94 decisions (flat interface — superseded)
+**Sources:** `chat-spi/ChatPlatform.java` (capability pattern), `bank-spi/BankFeedPlatform.java` (current flat), platform#375 (recursive wrapper generation), D4 from #94 decisions (flat interface — superseded), PSD2 regulation (AISP/PISP as separately licensed capabilities)
 **Exploration:** deep-analysis (evolved through naming discussion → domain modeling → capability architecture)
-**Status:** captured
+**Status:** revised (R1-02: rationale reframed to acknowledge PSD2 AISP/PISP as domain-significant; capability names aligned to PSD2 vocabulary)
 
-## D2: Managed token holder for TrueLayer OAuth2
+## D2: Quarkus OIDC client for TrueLayer client credentials
 
-**Choice:** `TrueLayerClient` manages OAuth2 access token lifecycle internally — checks expiry before each request, refreshes automatically. Callers pass client credentials (client ID, client secret) at construction time only; they never handle tokens directly.
+**Choice:** Use `quarkus-oidc-client` (`OidcClient`) for the OAuth2 client credentials grant that authenticates `TrueLayerClient` to TrueLayer's API. Quarkus manages token caching, automatic refresh, and thread-safe access. `TrueLayerClient` injects `OidcClient`, calls `getTokens()` before each request, and uses the returned access token. No custom token management code.
 **Alternatives:**
+- Custom managed token holder — hand-written token caching, expiry checking, refresh logic, thread-safety (double-checked locking or CompletableFuture dedup); reimplements what Quarkus provides
 - Token-per-call (SlackBotClient pattern) — caller passes token on every method; pushes refresh complexity to every caller
 - Constructor-injected static credentials (GoogleCalendarPlatform pattern) — works for Google SDK which handles refresh internally; doesn't work with HttpHelper.CLIENT
-**Rationale:** TrueLayer access tokens expire (~60 min). Token-per-call would force every caller to implement refresh logic — unnecessary duplication since all callers share the same client credentials. The managed holder encapsulates the token lifecycle. Consistent with credential-config-ownership protocol: CDI factory (Beans class) holds `@ConfigProperty` for credentials and passes them at construction.
-**Trade-offs:** Client is stateful (holds mutable token + expiry). Thread-safety needed for concurrent token refresh. Slightly more complex than stateless token-per-call.
-**Sources:** `slack-bot/SlackBotClient.java` (token-per-call pattern), `calendar-google/GoogleCalendarPlatform.java` (constructor credentials), PP-20260609-0c3e24 (credential-config-ownership protocol)
-**Exploration:** quick
-**Status:** captured
+**Rationale:** TrueLayer's auth endpoint is a standard OAuth2 client_credentials grant. Quarkus provides `quarkus-oidc-client` which handles this natively — token caching, automatic refresh, thread-safe access, and configurable retry. Building a custom managed holder reimplements framework-provided functionality, requires solving the thundering-herd problem for concurrent refresh, and needs explicit error handling for refresh failures. `OidcClient` is already CDI-managed and battle-tested.
+**Trade-offs:** Adds `quarkus-oidc-client` dependency to `bank-truelayer`. Configuration is via `application.properties` (`quarkus.oidc-client.*`), which is standard Quarkus convention but less visible than constructor parameters. If TrueLayer's auth endpoint deviates from standard OAuth2, may need custom `OidcClientConfig`.
+**Sources:** Quarkus OIDC Client documentation, PP-20260609-0c3e24 (credential-config-ownership protocol), R1-06 (reviewer finding: unconsidered alternative)
+**Exploration:** quick (revised after review)
+**Status:** revised (R1-06: replaced custom managed token holder with quarkus-oidc-client; addresses thread-safety and refresh failure gaps)
 
-## D3: Consent management as a BankPlatform capability
+## D3: Consent as provider-internal infrastructure, not on BankPlatform SPI
 
-**Choice:** PSD2 consent management is a `ConsentManagement` capability sub-interface on `BankPlatform` — `generateAuthLink()`, `exchangeCode()`, `getConsentStatus()`, `revokeConsent()`. Each provider implements its own consent flow mechanics.
+**Choice:** Consent management is internal to `bank-truelayer` — a `TrueLayerConsentService` CDI bean handles auth link generation, code exchange, token storage, and consent status. `BankPlatform` SPI has no consent methods. Callers that need to check or initiate consent inject `TrueLayerConsentService` directly (or a provider-neutral `ConsentService` interface if a second provider arrives).
 **Alternatives:**
-- Separate cross-cutting `ConsentPlatform` SPI — could serve other regulated domains (insurance, health), but speculative; no second regulated SPI exists yet
-- Internal to TrueLayerClient (no SPI surface) — callers get errors when consent is missing/expired and handle it ad-hoc; no platform-level consent visibility
-**Rationale:** Consent is intrinsic to banking operations — you can't list accounts or initiate payments without it. Making it a capability keeps the consent lifecycle visible at the SPI level (callers can check consent status, initiate consent flows) while keeping it provider-specific (TrueLayer's redirect URLs differ from Yapily's). D7 from #94 explicitly deferred this to "when a real PSD2 provider is implemented" — this is that moment.
-**Trade-offs:** Ties consent to BankPlatform rather than a reusable cross-cutting concern. If a second regulated SPI needs consent, we may extract a shared interface. Pre-release, this refactoring is cheap.
-**Sources:** D7 from #94 decisions (consent deferred), PSD2 regulation (AISP/PISP consent requirements), TrueLayer auth documentation
-**Exploration:** quick
+- Consent as BankPlatform capability (original D3) — mixes authorization flow mechanics (URL generation, code exchange) with banking domain operations; `generateAuthLink()` is OAuth2 infrastructure, not a banking operation
+- Separate cross-cutting `ConsentPlatform` SPI — reusable across regulated domains but speculative; no second regulated SPI exists yet
+**Rationale:** Consent is a precondition for banking operations, not a banking operation itself. Putting `generateAuthLink()` on BankPlatform is analogous to putting `login()` on every domain service. The consent flow involves the user's browser, OAuth2 code exchange, and token storage — none of which are banking domain concerns. Keeping consent as provider infrastructure lets `BankPlatform` stay focused on account information and payment initiation. The platform orchestration layer (e.g., casehub-life) injects the consent service alongside the bank platform service, checking consent status before initiating banking operations.
+**Trade-offs:** Consent management is not visible at the SPI level — callers must know to inject the consent service separately. No SPI-level `supports(Consent)` check. If a second provider needs consent, we'll need to extract a shared `ConsentService` interface.
+**Sources:** R1-03 (reviewer finding: consent is precondition, not domain operation), D7 from #94 decisions (consent deferred), PSD2 regulation
+**Exploration:** quick (revised after review)
 **Depends on:** D1 (capability sub-interfaces)
-**Status:** captured
+**Status:** revised (R1-03: consent removed from BankPlatform SPI; moved to provider-internal infrastructure)
 
-## D4: Consent callback via WebhookInboundConnector
+## D4: Dedicated JAX-RS endpoint for consent callback
 
-**Choice:** TrueLayer's consent redirect callback (after user authorizes at their bank) is handled via the existing `WebhookInboundConnector` SPI. The callback is just another inbound webhook — consistent with how other external callbacks work in the platform.
+**Choice:** TrueLayer's consent redirect callback is handled by a dedicated JAX-RS resource (`@Path("/auth/truelayer/callback")`) in `bank-truelayer`. It receives the authorization code via query parameters, calls `TrueLayerConsentService.exchangeCode()`, stores the consent token, and returns a 302 redirect to the application's consent-confirmation page.
 **Alternatives:**
-- Dedicated REST endpoint in bank-truelayer — tighter coupling but simpler; no routing through generic webhook system
-- No callback endpoint (polling only) — `generateAuthLink()` returns a link, consumer calls `exchangeCode()` after redirect; consumer owns the HTTP endpoint
-**Rationale:** WebhookInboundConnector already handles inbound callbacks from external systems. TrueLayer's consent redirect is the same pattern — an external system redirecting back with an authorization code. Reusing the existing SPI avoids duplicating endpoint infrastructure and keeps the inbound flow consistent across all connectors.
-**Trade-offs:** Adds a dependency on the webhook module. The webhook system's generic routing must map the TrueLayer callback path to the bank-truelayer handler.
-**Sources:** `webhook/WebhookInboundConnector.java` (existing SPI), `core/InboundConnector.java` (inbound pattern), TrueLayer auth redirect documentation
-**Exploration:** quick
-**Depends on:** D3 (consent as capability)
-**Status:** captured
+- WebhookInboundConnector (original D4) — pattern mismatch: webhooks are server-to-server HTTPS POST with HMAC, returning 200 OK; OAuth2 callbacks are browser GET with query params, requiring 302 redirect. `WebhookRouter` has no redirect result type.
+- No callback endpoint (polling only) — consumer owns the HTTP endpoint and calls exchangeCode() after redirect; defers infrastructure to each consumer
+**Rationale:** OAuth2 consent redirects and server-to-server webhooks are fundamentally different patterns. The consent callback is a browser redirect (GET, query params, expects 302 back to app). `WebhookRouter.dispatch()` returns 200 OK for all result types — it cannot redirect the user. A dedicated JAX-RS endpoint is the standard OAuth2 callback pattern: simple, correct, well-understood, no modification to existing webhook infrastructure.
+**Trade-offs:** Adds a JAX-RS resource to `bank-truelayer` — the module needs `quarkus-rest` (or equivalent) dependency. The callback URL must be registered with TrueLayer as an allowed redirect URI.
+**Sources:** R1-04 (reviewer finding: webhook/redirect pattern mismatch), TrueLayer OAuth2 documentation, `webhook/WebhookRouter.java` (verified: no redirect result type)
+**Exploration:** quick (revised after review)
+**Depends on:** D3 (consent as provider infrastructure)
+**Status:** revised (R1-04: replaced WebhookInboundConnector with dedicated JAX-RS endpoint; webhooks can't return 302 redirects)
 
-## D5: Request-scoped BankContext for per-user consent tokens
+## D5: Explicit user token on TrueLayerClient, consent token store as provider concern
 
-**Choice:** A request-scoped `BankContext` CDI bean holds the current user's consent token. `TrueLayerBankPlatform` reads it implicitly — no token in SPI method signatures. The client (`TrueLayerClient`) still takes the token as a parameter per credential-config-ownership; the platform impl bridges BankContext → client call.
+**Choice:** `TrueLayerClient` takes the user consent token as an explicit parameter on data API methods (same credential-at-call-time pattern as `SlackBotClient`). `TrueLayerConsentService` owns consent token persistence — stores tokens keyed by user ID, retrieves them when `TrueLayerBankPlatform` needs to call the client. No implicit CDI context. `TrueLayerBankPlatform` injects `TrueLayerConsentService`, reads the token for the current user, and passes it to `TrueLayerClient`.
 **Alternatives:**
-- Token parameter on each SPI method — explicit but clutters every `Accounts` method signature; SPI surface becomes noisy and tied to OAuth2 implementation detail
-- Consent store internal to client — TrueLayerClient queries a platform-level consent store by userId; tighter coupling to storage, harder to test
-**Rationale:** TrueLayer has two token layers: client credentials (machine-to-machine, shared, managed by D2) and user consent tokens (per-user, per-bank, obtained via consent flow). User tokens can't live in the singleton client. A request-scoped context holder keeps the SPI clean while making the token available where needed. The platform (caller) sets the context; the provider reads it.
-**Trade-offs:** Implicit state — the caller must set BankContext before calling accounts(). If forgotten, the platform gets a null token and fails at runtime. Mitigated by clear error messages and test fixtures that set up context.
-**Sources:** ChatPlatform (implicit context patterns), PP-20260609-0c3e24 (credential-config-ownership — token at call time on the client, implicit on the SPI)
-**Exploration:** quick
-**Depends on:** D2 (managed token holder), D3 (consent capability)
-**Status:** captured
+- Request-scoped BankContext (original D5) — no platform precedent for implicit-state CDI context; breaks in non-HTTP contexts (`@Scheduled`, `@ObservesAsync`); ChatPlatform citation was inaccurate (ChatPlatform has no implicit context)
+- Token parameter on SPI methods — clutters SPI surface with OAuth2 implementation detail
+**Rationale:** The SPI stays clean (no token parameters). The provider implementation bridges between the consent store and the HTTP client. The client follows credential-at-call-time (PP-20260609-0c3e24). No implicit state, no request-scope limitation, no invisible ordering contract. Token persistence is a provider concern — `TrueLayerConsentService` can use in-memory (dev), database (prod), or any storage mechanism without affecting the SPI or the client.
+**Trade-offs:** Token storage strategy is deferred to implementation (in-memory for now, database later). `TrueLayerBankPlatform` must resolve the current user's identity to look up their consent token — this requires a user-identity mechanism (platform concern, not connector concern).
+**Sources:** R1-05 (reviewer finding: no implicit-state precedent; request-scope limitations), `slack-bot/SlackBotClient.java` (explicit token-per-call), PP-20260609-0c3e24 (credential-config-ownership)
+**Exploration:** quick (revised after review)
+**Status:** revised (R1-05: replaced implicit BankContext with explicit token passing; consent store is provider-internal)
