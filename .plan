@@ -13,3 +13,12 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/connectors#106 — Issue #106 ← active
+  - [ ] Batch 1: SPI Evolution
+    - [ ] Task 1: Rename BankFeedPlatform to BankPlatform with capabilities
+    - [ ] Task 2: Migrate GraphQL to capability accessors
+  - [ ] Batch 2: TrueLayer Foundation
+    - [ ] Task 3: Create bank-truelayer module with TrueLayerClient
+    - [ ] Task 4: TrueLayerConsentService with CSRF protection
+  - [ ] Batch 3: Platform Integration
+    - [ ] Task 5: TrueLayerBankPlatform and CDI wiring
+    - [ ] Task 6: Full build and documentation
