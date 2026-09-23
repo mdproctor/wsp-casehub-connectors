@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-106-truelayer-bankfeed
-state: scaffolded
+state: active
 project-sha: 5feaea1e57e9bfd710b3401e0a40cbe0d79293e2
 date: 2026-09-22
 issue-repo: casehubio/connectors
@@ -13,12 +13,12 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/connectors#106 — Issue #106 ← active
-  - [ ] Batch 1: SPI Evolution
-    - [ ] Task 1: Rename BankFeedPlatform to BankPlatform with capabilities
-    - [ ] Task 2: Migrate GraphQL to capability accessors
-  - [ ] Batch 2: TrueLayer Foundation
-    - [ ] Task 3: Create bank-truelayer module with TrueLayerClient
-    - [ ] Task 4: TrueLayerConsentService with CSRF protection
-  - [ ] Batch 3: Platform Integration
-    - [ ] Task 5: TrueLayerBankPlatform and CDI wiring
-    - [ ] Task 6: Full build and documentation
+  - [x] Batch 1: SPI Evolution
+    - [x] Task 1: Rename BankFeedPlatform to BankPlatform with capabilities
+    - [x] Task 2: Migrate GraphQL to capability accessors
+  - [x] Batch 2: TrueLayer Foundation
+    - [x] Task 3: Create bank-truelayer module with TrueLayerClient
+    - [x] Task 4: TrueLayerConsentService with CSRF protection
+  - [x] Batch 3: Platform Integration
+    - [x] Task 5: TrueLayerBankPlatform and CDI wiring
+    - [x] Task 6: Full build and documentation

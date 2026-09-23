@@ -1,13 +1,13 @@
 ## D1: Unified BankPlatform SPI with capability sub-interfaces
 
-**Choice:** Rename `BankFeedPlatform` → `BankPlatform` with capability sub-interfaces: `AccountInformation` (AISP) and `PaymentInitiation` (PISP). Single SPI, single `@SimulationEligible` annotation, capability pattern like ChatPlatform.
+**Choice:** Rename `BankPlatform` → `BankPlatform` with capability sub-interfaces: `AccountInformation` (AISP) and `PaymentInitiation` (PISP). Single SPI, single `@SimulationEligible` annotation, capability pattern like ChatPlatform.
 **Alternatives:**
 - Separate flat SPIs (`BankAccountPlatform` + `BankPaymentPlatform`) — clean separation but forces callers to juggle two services for one domain entity; providers that support both must register as two separate beans
 - Single flat interface with all methods — no capability degradation model; forces all providers to implement everything
-- Keep `BankFeedPlatform` read-only, add `BankPaymentPlatform` separately — maps to PSD2 AISP/PISP but at the wrong abstraction level; regulatory licensing is a provider concern, not an SPI concern
-**Rationale:** PSD2's AISP/PISP distinction is real and domain-significant — these are separately licensed capabilities with different consent scopes and durations. The capability sub-interface pattern honours this: `AccountInformation` maps to AISP, `PaymentInitiation` maps to PISP. A provider with only AISP authorization implements `AccountInformation` only. The unified `BankPlatform` wrapper reflects the domain truth that banking is one domain with multiple regulated capabilities — not separate domains. The simulation framework's recursive wrapper generation (platform#375) supports capability interception.
-**Trade-offs:** Requires renaming existing `BankFeedPlatform` and updating `@SimulationEligible(name)`, NoOp, service class, and all test references. Pre-release, this is non-breaking.
-**Sources:** `chat-spi/ChatPlatform.java` (capability pattern), `bank-spi/BankFeedPlatform.java` (current flat), platform#375 (recursive wrapper generation), D4 from #94 decisions (flat interface — superseded), PSD2 regulation (AISP/PISP as separately licensed capabilities)
+- Keep `BankPlatform` read-only, add `BankPaymentPlatform` separately — maps to PSD2 AISP/PISP but at the wrong abstraction level; regulatory licensing is a provider concern, not an SPI concern
+  **Rationale:** PSD2's AISP/PISP distinction is real and domain-significant — these are separately licensed capabilities with different consent scopes and durations. The capability sub-interface pattern honours this: `AccountInformation` maps to AISP, `PaymentInitiation` maps to PISP. A provider with only AISP authorization implements `AccountInformation` only. The unified `BankPlatform` wrapper reflects the domain truth that banking is one domain with multiple regulated capabilities — not separate domains. The simulation framework's recursive wrapper generation (platform#375) supports capability interception.
+  **Trade-offs:** Requires renaming existing `BankPlatform` and updating `@SimulationEligible(name)`, NoOp, service class, and all test references. Pre-release, this is non-breaking.
+  **Sources:** `chat-spi/ChatPlatform.java` (capability pattern), `bank-spi/BankFeedPlatform.java` (current flat), platform#375 (recursive wrapper generation), D4 from #94 decisions (flat interface — superseded), PSD2 regulation (AISP/PISP as separately licensed capabilities)
 **Exploration:** deep-analysis (evolved through naming discussion → domain modeling → capability architecture)
 **Status:** revised (R1-02: rationale reframed to acknowledge PSD2 AISP/PISP as domain-significant; capability names aligned to PSD2 vocabulary)
 

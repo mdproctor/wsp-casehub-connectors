@@ -11,7 +11,7 @@
 
 **Goal:** Evolve BankFeedPlatform into a capability-based BankPlatform SPI and implement TrueLayer as the first real provider with AISP + PISP support.
 
-**Architecture:** Rename `BankFeedPlatform` → `BankPlatform` with `AccountInformation` and `PaymentInitiation` capability sub-interfaces (ChatPlatform pattern). New `bank-truelayer` module provides `TrueLayerClient` (HttpHelper.CLIENT + quarkus-oidc-client), `TrueLayerConsentService` (PSD2 consent lifecycle), and `TrueLayerBankPlatform`. GraphQL module migrated to capability accessors.
+**Architecture:** Rename `BankPlatform` → `BankPlatform` with `AccountInformation` and `PaymentInitiation` capability sub-interfaces (ChatPlatform pattern). New `bank-truelayer` module provides `TrueLayerClient` (HttpHelper.CLIENT + quarkus-oidc-client), `TrueLayerConsentService` (PSD2 consent lifecycle), and `TrueLayerBankPlatform`. GraphQL module migrated to capability accessors.
 
 **Tech Stack:** Java 21, Quarkus 3.32.2, quarkus-oidc-client, quarkus-rest, WireMock, HttpHelper.CLIENT
 
@@ -33,13 +33,13 @@
 ### Task 1: Rename BankFeedPlatform → BankPlatform with capability sub-interfaces
 
 **Files:**
-- Rename: `BankFeedPlatform` → `BankPlatform` (use `ide_refactor_rename`)
+- Rename: `BankPlatform` → `BankPlatform` (use `ide_refactor_rename`)
 - Create: `bank-spi/src/main/java/io/casehub/connectors/bank/spi/AccountInformation.java`
 - Create: `bank-spi/src/main/java/io/casehub/connectors/bank/spi/PaymentInitiation.java`
 - Modify: `bank-spi/src/main/java/io/casehub/connectors/bank/spi/BankPlatform.java` (after rename)
-- Rename: `BankFeedPlatformService` → `BankPlatformService` (use `ide_refactor_rename`)
-- Rename: `NoOpBankFeedPlatform` → `NoOpBankPlatform` (use `ide_refactor_rename`)
-- Rename: `BankFeedPlatformServiceTest` → `BankPlatformServiceTest` (use `ide_refactor_rename`)
+- Rename: `BankPlatformService` → `BankPlatformService` (use `ide_refactor_rename`)
+- Rename: `NoOpBankPlatform` → `NoOpBankPlatform` (use `ide_refactor_rename`)
+- Rename: `BankPlatformServiceTest` → `BankPlatformServiceTest` (use `ide_refactor_rename`)
 - Create: `bank-spi/src/main/java/io/casehub/connectors/bank/NoOpAccountInformation.java`
 - Create: `bank-spi/src/main/java/io/casehub/connectors/bank/NoOpPaymentInitiation.java`
 - Modify: `bank-spi/pom.xml` (update name/description)
@@ -51,15 +51,15 @@
 - Produces: `PaymentInitiation` interface with `initiatePayment(PaymentRequest)`, `paymentStatus(String)`
 - Produces: `BankPlatformService` with `platform(String)`, `supports(String)`, `ids()`
 
-- [ ] **Step 1: Use `ide_refactor_rename` to rename `BankFeedPlatform` → `BankPlatform`**
+- [ ] **Step 1: Use `ide_refactor_rename` to rename `BankPlatform` → `BankPlatform`**
 
-Use `ide_refactor_rename` on `BankFeedPlatform.java`. This updates all references across the project (imports in `NoOpBankFeedPlatform`, `BankFeedPlatformService`, `BankBeans`, `ConnectorBankFeedApi`, and the test).
+Use `ide_refactor_rename` on `BankFeedPlatform.java`. This updates all references across the project (imports in `NoOpBankPlatform`, `BankPlatformService`, `BankBeans`, `ConnectorBankApi`, and the test).
 
-- [ ] **Step 2: Use `ide_refactor_rename` to rename `BankFeedPlatformService` → `BankPlatformService`**
+- [ ] **Step 2: Use `ide_refactor_rename` to rename `BankPlatformService` → `BankPlatformService`**
 
-- [ ] **Step 3: Use `ide_refactor_rename` to rename `NoOpBankFeedPlatform` → `NoOpBankPlatform`**
+- [ ] **Step 3: Use `ide_refactor_rename` to rename `NoOpBankPlatform` → `NoOpBankPlatform`**
 
-- [ ] **Step 4: Use `ide_refactor_rename` to rename `BankFeedPlatformServiceTest` → `BankPlatformServiceTest`**
+- [ ] **Step 4: Use `ide_refactor_rename` to rename `BankPlatformServiceTest` → `BankPlatformServiceTest`**
 
 - [ ] **Step 5: Create `AccountInformation` interface**
 
@@ -466,7 +466,7 @@ Refs #106"
 ### Task 2: Migrate GraphQL module to capability accessors
 
 **Files:**
-- Rename: `ConnectorBankFeedApi` → `ConnectorBankApi` (use `ide_refactor_rename`)
+- Rename: `ConnectorBankApi` → `ConnectorBankApi` (use `ide_refactor_rename`)
 - Modify: `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorBankApi.java` (after rename)
 - Test: build the graphql module
 
@@ -474,7 +474,7 @@ Refs #106"
 - Consumes: `BankPlatform.accountInformation(String userId)` → `AccountInformation`
 - Consumes: `BankPlatformService.platform(String)` → `BankPlatform`
 
-- [ ] **Step 1: Use `ide_refactor_rename` to rename `ConnectorBankFeedApi` → `ConnectorBankApi`**
+- [ ] **Step 1: Use `ide_refactor_rename` to rename `ConnectorBankApi` → `ConnectorBankApi`**
 
 - [ ] **Step 2: Rewrite `ConnectorBankApi` for capability accessors**
 

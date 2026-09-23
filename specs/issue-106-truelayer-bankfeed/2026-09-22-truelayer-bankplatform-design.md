@@ -8,14 +8,14 @@
 ## Overview
 
 First real provider implementation for the banking SPI. Renames
-`BankFeedPlatform` → `BankPlatform` with capability sub-interfaces
+`BankPlatform` → `BankPlatform` with capability sub-interfaces
 following the ChatPlatform pattern, adds payment initiation alongside
 account information, and implements TrueLayer as the first provider.
 
 Three modules are affected: `bank-spi` (SPI evolution), `bank-truelayer`
 (new provider module), and `graphql` (migration to capability accessors
 and updated MCP domain). The SPI changes are breaking relative to the
-current `BankFeedPlatform` but pre-release — no external consumers.
+current `BankPlatform` but pre-release — no external consumers.
 
 ## Module changes
 
@@ -23,7 +23,7 @@ current `BankFeedPlatform` but pre-release — no external consumers.
 
 | Change | Detail |
 |--------|--------|
-| Rename `BankFeedPlatform` → `BankPlatform` | Interface, `@SimulationEligible(name)`, NoOp, service class |
+| Rename `BankPlatform` → `BankPlatform` | Interface, `@SimulationEligible(name)`, NoOp, service class |
 | Add capability sub-interfaces | `AccountInformation`, `PaymentInitiation` |
 | Add `supports(Class<?>)` | Runtime capability introspection (ChatPlatform pattern) |
 | User-scoped capability accessors | `accountInformation(userId)`, `paymentInitiation(userId)` |
@@ -42,8 +42,8 @@ current `BankFeedPlatform` but pre-release — no external consumers.
 
 | Change | Detail |
 |--------|--------|
-| Rename `ConnectorBankFeedApi` → `ConnectorBankApi` | Class name, `@McpDomain` value and basePath |
-| Update imports | `BankFeedPlatform` → `BankPlatform`, `BankFeedPlatformService` → `BankPlatformService` |
+| Rename `ConnectorBankApi` → `ConnectorBankApi` | Class name, `@McpDomain` value and basePath |
+| Update imports | `BankPlatform` → `BankPlatform`, `BankPlatformService` → `BankPlatformService` |
 | Route through capability accessors | `p.listAccounts()` → `p.accountInformation(userId).listAccounts()` etc. |
 | Add user identity | Inject `SecurityIdentity`, extract userId for capability accessor calls |
 | Update `@McpDomain` | `value = "connectors/bank"`, `basePath = "/api/connectors/bank"` |
@@ -100,7 +100,7 @@ public interface AccountInformation {
 }
 ```
 
-Methods are unchanged from the current `BankFeedPlatform`. Error contract
+Methods are unchanged from the current `BankPlatform`. Error contract
 unchanged: `NoSuchElementException` for unknown entities, unchecked
 provider-specific exceptions for transport errors.
 
@@ -193,7 +193,7 @@ public class NoOpBankPlatform implements BankPlatform {
 
 `NoOpAccountInformation` returns empty lists for list operations and
 throws `UnsupportedOperationException` for single-item lookups (same
-as current `NoOpBankFeedPlatform`). `NoOpPaymentInitiation` throws
+as current `NoOpBankPlatform`). `NoOpPaymentInitiation` throws
 `UnsupportedOperationException` from its operation methods
 (`initiatePayment()`, `paymentStatus()`), not from the accessor.
 This follows the ChatPlatform pattern: capability accessors never

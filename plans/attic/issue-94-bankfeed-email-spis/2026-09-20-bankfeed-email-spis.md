@@ -148,7 +148,7 @@ git -C /Users/mdproctor/claude/casehub/connectors commit -m "feat(api): add Page
 
 **Interfaces:**
 - Consumes: `Page<T>`, `PageRequest` from connectors-api (Task 1)
-- Produces: `BankFeedPlatform` SPI interface, `BankFeedPlatformService.platform(id)`, all model records
+- Produces: `BankPlatform` SPI interface, `BankFeedPlatformService.platform(id)`, all model records
 
 - [ ] **Step 1: Create bank-spi/pom.xml and add to parent**
 
@@ -403,7 +403,7 @@ class BankFeedPlatformServiceTest {
 - [ ] **Step 5: Run tests to verify they fail**
 
 Run: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn test -pl bank-spi -Dtest=BankFeedPlatformServiceTest -f /Users/mdproctor/claude/casehub/connectors/pom.xml`
-Expected: FAIL — `BankFeedPlatformService` not found
+Expected: FAIL — `BankPlatformService` not found
 
 - [ ] **Step 6: Implement BankFeedPlatformService, BankBeans, NoOpBankFeedPlatform**
 
@@ -966,7 +966,7 @@ Add two rows to the `## Modules` table in `CLAUDE.md`:
 | `email-spi` | EmailPlatform SPI |
 ```
 
-Update the project description paragraph to mention `BankFeedPlatform` and `EmailPlatform` SPIs.
+Update the project description paragraph to mention `BankPlatform` and `EmailPlatform` SPIs.
 
 - [ ] **Step 2: Update consumer guide**
 
