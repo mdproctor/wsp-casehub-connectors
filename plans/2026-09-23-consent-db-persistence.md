@@ -807,31 +807,16 @@ Add before the `<!-- Testing -->` comment in `bank-truelayer/pom.xml`:
 
 Add to `TrueLayerBeans.java`:
 
+Producer method:
 ```java
 @Produces
 @ApplicationScoped
 public ConsentCleanupJob consentCleanupJob(ConsentTokenStore store) {
     return new ConsentCleanupJob(store);
 }
-
-@Scheduled(every = "24h")
-void cleanupExpiredConsents() {
-    Arc.container().instance(ConsentCleanupJob.class).get().run();
-}
 ```
 
-Add imports:
-```java
-import io.quarkus.arc.Arc;
-import io.quarkus.scheduler.Scheduled;
-```
-
-Note: `Arc.container().instance()` is used because `@Scheduled` methods
-run on the bean that declares them (`TrueLayerBeans`), which is the
-producer — it does not directly inject the cleanup job. Alternatively,
-inject `ConsentCleanupJob` as a field.
-
-Alternative (simpler — inject as field):
+Field injection + scheduler method:
 ```java
 @Inject
 ConsentCleanupJob cleanupJob;
@@ -842,7 +827,10 @@ void cleanupExpiredConsents() {
 }
 ```
 
-Use the field injection approach — it is simpler and idiomatic.
+Add import:
+```java
+import io.quarkus.scheduler.Scheduled;
+```
 
 - [ ] **Step 6: Run full module build**
 
