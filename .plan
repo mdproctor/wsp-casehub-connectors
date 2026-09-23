@@ -13,3 +13,9 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/connectors#107 — Issue #107 ← active
+  - [ ] Batch 1: SPI + In-Memory
+    - [ ] Task 1: ConsentTokenStore SPI and InMemoryConsentTokenStore
+    - [ ] Task 2: Refactor TrueLayerConsentService to use store SPI
+  - [ ] Batch 2: JPA + Cleanup
+    - [ ] Task 3: JPA store entity mapper and implementation
+    - [ ] Task 4: ConsentCleanupJob and scheduler wiring
