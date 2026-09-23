@@ -273,13 +273,26 @@ Added to `bank-truelayer/pom.xml`:
 <dependency>
     <groupId>io.quarkus</groupId>
     <artifactId>quarkus-jdbc-postgresql</artifactId>
+    <scope>test</scope>
 </dependency>
 ```
 
 Both managed by the platform parent BOM — no version needed.
 
+`quarkus-hibernate-orm` is a compile dependency (provides
+`EntityManager`). `quarkus-jdbc-postgresql` is test-scope only —
+`bank-truelayer` is a library; the consuming application provides the
+JDBC driver and datasource configuration.
+
 Dev Services auto-provisions a PostgreSQL instance for
 `@QuarkusTest` integration tests.
+
+## Schema Management
+
+Pre-release: Hibernate auto-DDL (`quarkus.hibernate-orm.database.generation=drop-and-create`)
+in dev mode. The consuming application owns production schema management
+(Flyway or equivalent). The entity mapping is the schema definition —
+a single table with 7 columns, no relationships.
 
 ## Testing
 
