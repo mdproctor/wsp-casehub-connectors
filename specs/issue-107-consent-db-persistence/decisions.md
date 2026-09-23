@@ -9,3 +9,15 @@
 **Sources:** `work/api/WorkItemStore.java` (SPI pattern), `work/runtime/JpaWorkItemStore.java` (EntityManager usage), `work/persistence-memory/InMemoryWorkItemStore.java` (in-memory tier), `persistence-memory-module-design.md` (CDI tier ladder), `persistence-backend-cdi-priority.md` (tier protocol)
 **Exploration:** quick
 **Status:** captured
+
+## D2: Scheduled cleanup for expired consents
+
+**Choice:** `ConsentTokenStore` includes `removeExpiredBefore(Instant cutoff)`. A `ConsentCleanupJob` (plain Java, no framework annotations) runs daily to purge consents whose `consentExpiry` has passed. Framework-specific scheduling wired externally — CDI `@Scheduled` in `TrueLayerBeans`, Spring `@Scheduled` in auto-config. The job takes `ConsentTokenStore` as a constructor arg and exposes a `run()` method.
+**Alternatives:**
+- Lazy cleanup on read only — accumulates dead rows over time, defers a known problem
+**Rationale:** Consent tokens carry sensitive data (access/refresh tokens). Expired entries have no business value and accumulate indefinitely without cleanup. Daily purge is trivial to implement now and prevents a predictable operational issue. The framework-agnostic job pattern maintains Spring/Quarkus parity.
+**Trade-offs:** One additional class + scheduling wiring. Negligible complexity.
+**Sources:** PSD2 consent lifecycle (90-day AISP window), D1 (store SPI design)
+**Exploration:** quick
+**Depends on:** D1 (store SPI)
+**Status:** captured
