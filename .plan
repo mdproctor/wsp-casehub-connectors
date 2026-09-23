@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-107-consent-db-persistence
-state: scaffolded
+state: active
 project-sha: 407eff6f657049e15626bdf4b2df180b2ab078ed
 date: 2026-09-23
 issue-repo: casehubio/connectors
@@ -13,9 +13,9 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/connectors#107 — Issue #107 ← active
-  - [ ] Batch 1: SPI + In-Memory
-    - [ ] Task 1: ConsentTokenStore SPI and InMemoryConsentTokenStore
-    - [ ] Task 2: Refactor TrueLayerConsentService to use store SPI
-  - [ ] Batch 2: JPA + Cleanup
-    - [ ] Task 3: JPA store entity mapper and implementation
-    - [ ] Task 4: ConsentCleanupJob and scheduler wiring
+  - [x] Batch 1: SPI + In-Memory
+    - [x] Task 1: ConsentTokenStore SPI and InMemoryConsentTokenStore
+    - [x] Task 2: Refactor TrueLayerConsentService to use store SPI
+  - [x] Batch 2: JPA + Cleanup
+    - [x] Task 3: JPA store entity mapper and implementation
+    - [x] Task 4: ConsentCleanupJob and scheduler wiring
