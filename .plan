@@ -13,3 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/connectors#109 — Issue #109 ← active
+  - [ ] Batch 1: Core
+    - [ ] Task 1: Maven module + BankBackend + InMemoryBankBackend
+    - [ ] Task 2: RefBankPlatform + capability wrappers + CDI producer
+  - [ ] Batch 2: Docs
+    - [ ] Task 3: CLAUDE.md + ARC42STORIES + consumer guide
