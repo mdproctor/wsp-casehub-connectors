@@ -2,36 +2,39 @@
 
 ## What Happened
 
-Implemented `bank-ref` module (#109) — in-memory reference BankPlatform
-with pre-loaded UK test data. Follows the chat-ref/calendar-ref pattern:
-`BankBackend` → `InMemoryBankBackend` (`@DefaultBean`) → `RefBankPlatform`
-→ `BankRefBeans`. Three accounts (current, savings, credit card), 12
-transactions with realistic UK merchants, payment lifecycle simulation
-(auto-advance on poll: AUTHORIZATION_REQUIRED → EXECUTED → SETTLED).
-30 tests. All documentation updated (CLAUDE.md, ARC42STORIES, consumer
-guide, contributor guide).
+Completed three banking issues on `issue-110-bank-spi-simulation`:
 
-Prior session: consent token persistence (#107), TrueLayer BankPlatform
-(#106), BankFeedPlatform and EmailPlatform SPIs (#94), simulation
-framework integration (#102, #104).
+**#109 (bank-ref):** New `bank-ref` module — in-memory BankPlatform
+with 3 UK accounts, 12 transactions, payment lifecycle simulation.
+Follows chat-ref/calendar-ref pattern. Merged to main, issue closed.
+
+**#110 (simulation corpus):** Renamed stale `bank-feed-platform.*`
+qualified names to `bank-platform.accountInformation.*` /
+`bank-platform.paymentInitiation.*` across all corpus YAML, simulation
+configs, scenario files, and SimulationIntegrationTest. Added
+`payments-corpus.yaml` with 3 payment lifecycle scenarios.
+
+**#111 (TrueLayer test profile):** `TrueLayerTestProfile` implementing
+`QuarkusTestProfile` — bundles 12 config lines into a reusable test
+profile shipped via test-jar.
+
+**#108 (payment webhook):** Designed and reviewed. Light design review
+caught a showstopper — spec assumed HMAC-SHA512 but TrueLayer uses
+JWS (ES512). Revised spec and implementation plan committed. Ready for
+execution.
 
 ## What's Next
 
-| # | Title | Scale | Complexity |
-|---|-------|-------|------------|
-| 110 | bank-spi: Simulation corpus YAML for BankPlatform | S | Low |
-| 111 | bank-truelayer: Reduce test setup friction for consuming apps | S | Med |
-| 108 | TrueLayer: Payment webhook receiver for real-time status updates | M | Med |
-
-#110 is the natural follow-on from #109 — packages the same test data as
-simulation corpus YAML. #111 reduces onboarding friction for TrueLayer
-consumers. #108 adds webhook-driven payment status updates (largest piece).
+#108 is the active issue with a committed plan at
+`plans/2026-09-25-payment-webhook.md`. Execute the plan — 2 batches,
+2 tasks. The JWS finding from the design review is already incorporated
+in the revised spec.
 
 ## Key Artifacts
 
-- Design spec: `docs/specs/issue-109-bank-ref/2026-09-25-bank-ref-design.md` (workspace copy in `specs/`)
-- Decisions: `docs/specs/issue-109-bank-ref/decisions.md`
-- Plan: `plans/attic/issue-109-bank-ref/2026-09-25-bank-ref.md`
-- #106 design spec: `docs/specs/issue-106-truelayer-bankfeed/2026-09-22-truelayer-bankplatform-design.md`
-- Consumer guide: `docs/guides/consumer-guide.md`
-- Contributor guide: `docs/guides/contributor-guide.md`
+- #108 design spec: `specs/issue-110-bank-spi-simulation/2026-09-25-payment-webhook-design.md`
+- #108 decisions: `specs/issue-110-bank-spi-simulation/decisions.md`
+- #108 plan: `plans/2026-09-25-payment-webhook.md`
+- #108 design review: `/Users/mdproctor/reviews/casehub-connectors/issue-108-payment-webhook-20260925-053043/`
+- #109 design spec: `docs/specs/issue-109-bank-ref/2026-09-25-bank-ref-design.md`
+- Diary: `blog/2026-09-25-mdp01-bank-ref-pattern-absorption.md`
