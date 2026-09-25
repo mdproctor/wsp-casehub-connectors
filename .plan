@@ -13,5 +13,5 @@ flyway-next-v: none
 
 ## Queue
 - [x] casehubio/connectors#110 — Issue #110
-- [ ] casehubio/connectors#111 — bank-truelayer Reduce test setup friction ← active
-- [ ] casehubio/connectors#108 — TrueLayer Payment webhook receiver
+- [x] casehubio/connectors#111 — bank-truelayer Reduce test setup friction
+- [ ] casehubio/connectors#108 — TrueLayer Payment webhook receiver ← active
