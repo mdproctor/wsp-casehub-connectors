@@ -22,3 +22,4 @@
 | [2026-07-01-mdp18-content-not-layout.md](2026-07-01-mdp18-content-not-layout.md) | 2026-07-01 | Content, not layout — platform-agnostic RichCard model, Block Kit translation, MCP tool consolidation, silent Slack num_members bug |
 | [2026-07-02-mdp19-making-the-demo-talk-back.md](2026-07-02-mdp19-making-the-demo-talk-back.md) | 2026-07-02 | Making the demo talk back — channel management, emoji reactions, Discord-style inline reply threading |
 | [2026-07-03-mdp20-the-platforms-own-identity.md](2026-07-03-mdp20-the-platforms-own-identity.md) | 2026-07-03 | The platform's own identity — JWT auth via casehub-pages-auth, SPI bypass for identity, HttpUpgradeCheck for WebSocket, auto-membership |
+| [2026-09-25-mdp01-bank-ref-pattern-absorption.md](2026-09-25-mdp01-bank-ref-pattern-absorption.md) | 2026-09-25 | How the ref implementation pattern absorbs BankPlatform capability sub-interfaces without changing shape |
