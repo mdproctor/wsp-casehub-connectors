@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-110-bank-spi-simulation
-state: scaffolded
+state: active
 project-sha: 2654e2336cc7bd8a5f19d8fa9a6b8f7e16a69a70
 date: 2026-09-25
 issue-repo: casehubio/connectors
@@ -12,6 +12,6 @@ design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Co
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/connectors#110 — Issue #110 ← active
-- [ ] casehubio/connectors#111 — bank-truelayer Reduce test setup friction
+- [x] casehubio/connectors#110 — Issue #110
+- [ ] casehubio/connectors#111 — bank-truelayer Reduce test setup friction ← active
 - [ ] casehubio/connectors#108 — TrueLayer Payment webhook receiver
