@@ -20,3 +20,14 @@
 **Sources:** core/ConnectorService.java (SentMessage pattern), bank-spi/BankPlatform.java (SPI surface)
 **Exploration:** quick
 **Status:** captured
+
+## D3: Standalone JAX-RS endpoint over WebhookInboundConnector
+
+**Choice:** Dedicated JAX-RS endpoint at `/webhooks/truelayer/payments`
+**Alternatives:**
+- WebhookInboundConnector extending the platform's inbound connector infrastructure — wrong semantic model (payment status != inbound message), pulls in InboundMessage/WebhookResult types, routes through WebhookRouter at /connectors/{id}/webhook.
+**Rationale:** Payment webhook events are provider-internal status updates, not inbound messages. The CDI event type is PaymentStatusChanged, not InboundMessage. D4 from #106 established precedent for standalone JAX-RS endpoints in bank-truelayer (consent callback). The semantic difference justifies a separate path.
+**Trade-offs:** Two webhook patterns in the platform — /connectors/{id}/webhook for messaging, /webhooks/truelayer/payments for banking. Future banking providers with webhooks would follow this pattern.
+**Sources:** webhook/WebhookRouter.java (messaging webhook infrastructure), bank-truelayer/TrueLayerAuthCallback.java (D4 precedent), ARC42STORIES.MD L2 (WebhookInboundConnector architecture)
+**Exploration:** quick
+**Status:** captured
