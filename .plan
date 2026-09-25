@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-109-bank-ref
-state: scaffolded
+state: active
 project-sha: 7fad9405606476cd28c8e7f59ce1574e383c22c9
 date: 2026-09-23
 issue-repo: casehubio/connectors
@@ -13,8 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/connectors#109 — Issue #109 ← active
-  - [ ] Batch 1: Core
-    - [ ] Task 1: Maven module + BankBackend + InMemoryBankBackend
-    - [ ] Task 2: RefBankPlatform + capability wrappers + CDI producer
-  - [ ] Batch 2: Docs
-    - [ ] Task 3: CLAUDE.md + ARC42STORIES + consumer guide
+  - [x] Batch 1: Core
+    - [x] Task 1: Maven module + BankBackend + InMemoryBankBackend
+    - [x] Task 2: RefBankPlatform + capability wrappers + CDI producer
+  - [x] Batch 2: Docs
+    - [x] Task 3: CLAUDE.md + ARC42STORIES + consumer guide
