@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-113-ref-email-platform
-state: closing:verified
+state: closing:promoted
 project-sha: b951663c47a2099f4835643b76052a7e2b91f093
 date: 2026-09-28
 issue-repo: casehubio/connectors
