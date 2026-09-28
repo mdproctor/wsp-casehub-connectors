@@ -1,10 +1,10 @@
-# Work Plan — main
+# Work Plan — issue-123-chat-capability-guards
 
 ## State
-branch: main
+branch: issue-123-chat-capability-guards
 state: scaffolded
-project-sha: c56f52f5af6ff06657519f063ce3dfad78f3c630
-date: 2026-09-28
+project-sha: 
+date: 
 issue-repo: casehubio/connectors
 covers: 122,118,119,120,121
 design-repo: project
@@ -12,8 +12,4 @@ design-section-hashes:
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/connectors#122 — Issue #122 ← active
-- [ ] casehubio/connectors#118 — MCP tools for EmailPlatform
-- [ ] casehubio/connectors#119 — MCP tools for DocumentPlatform
-- [ ] casehubio/connectors#120 — MCP tools for BankPlatform
-- [ ] casehubio/connectors#121 — MCP tools for ChatPlatform expanded
+- [ ] casehubio/connectors#123 — Issue #123 ← active
