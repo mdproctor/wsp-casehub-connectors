@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-116-document-platform-spi
-state: active
+state: transitioning
 project-sha: 2a7970ee3722f132d3cc1d61ee7cfb8de9f20974
 date: 2026-09-28
 issue-repo: casehubio/connectors
@@ -13,4 +13,4 @@ flyway-next-v: none
 
 ## Queue
 - [x] casehubio/connectors#116 — Issue #116
-- [ ] casehubio/connectors#117 — GoogleDocumentPlatform — Google Drive API provider ← active
+- [x] casehubio/connectors#117 — GoogleDocumentPlatform — Google Drive API provider
