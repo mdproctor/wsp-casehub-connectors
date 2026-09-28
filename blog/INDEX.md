@@ -23,3 +23,4 @@
 | [2026-07-02-mdp19-making-the-demo-talk-back.md](2026-07-02-mdp19-making-the-demo-talk-back.md) | 2026-07-02 | Making the demo talk back — channel management, emoji reactions, Discord-style inline reply threading |
 | [2026-07-03-mdp20-the-platforms-own-identity.md](2026-07-03-mdp20-the-platforms-own-identity.md) | 2026-07-03 | The platform's own identity — JWT auth via casehub-pages-auth, SPI bypass for identity, HttpUpgradeCheck for WebSocket, auto-membership |
 | [2026-09-25-mdp01-bank-ref-pattern-absorption.md](2026-09-25-mdp01-bank-ref-pattern-absorption.md) | 2026-09-25 | How the ref implementation pattern absorbs BankPlatform capability sub-interfaces without changing shape |
+| [2026-09-28-mdp01-emailplatform-ref-and-gmail.md](2026-09-28-mdp01-emailplatform-ref-and-gmail.md) | 2026-09-28 | Two EmailPlatform implementations: email-ref (in-memory reference) and email-google (Gmail API provider) |
