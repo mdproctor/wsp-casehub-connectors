@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-113-ref-email-platform
-state: active
+state: transitioning
 project-sha: b951663c47a2099f4835643b76052a7e2b91f093
 date: 2026-09-28
 issue-repo: casehubio/connectors
@@ -12,5 +12,5 @@ design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Co
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/connectors#113 — Issue #113 ← active
-- [ ] casehubio/connectors#114 — GoogleEmailPlatform — Gmail API provider
+- [x] casehubio/connectors#113 — Issue #113
+- [ ] casehubio/connectors#114 — GoogleEmailPlatform — Gmail API provider ← active
