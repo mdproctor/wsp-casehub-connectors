@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-116-document-platform-spi
-state: scaffolded
+state: active
 project-sha: 2a7970ee3722f132d3cc1d61ee7cfb8de9f20974
 date: 2026-09-28
 issue-repo: casehubio/connectors
