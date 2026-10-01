@@ -1,0 +1,15 @@
+# Work Plan — issue-129-retrofit-sync-support
+
+## State
+branch: issue-129-retrofit-sync-support
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 129
+design-repo: project
+design-section-hashes: 
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/connectors#129 — Issue #129 ← active
