@@ -1,4 +1,4 @@
-_branch=issue-124-project-platform-spi
+_branch=issue-133-location-platform-spi
 report_init=done
 code_review=done
 branch_audit_conformance=done
@@ -27,7 +27,7 @@ rebase=done
 report_rebase=done
 squash_attempt=1
 squash=done
-squash_produced=3
+squash_produced=4
 report_squash=done
 land=done
 report_land=done
