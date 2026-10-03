@@ -1,0 +1,15 @@
+# Work Plan — issue-133-location-platform-spi
+
+## State
+branch: issue-133-location-platform-spi
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 133
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#133 — Issue #133 ← active
