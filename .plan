@@ -1,0 +1,15 @@
+# Work Plan — issue-143-seed-data-yaml-simulation-corpus
+
+## State
+branch: issue-143-seed-data-yaml-simulation-corpus
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 143
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#143 — Issue #143 ← active
