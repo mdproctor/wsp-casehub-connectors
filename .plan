@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-139-simulation-integration-audit
-state: closing:promoted
+state: closing:pushed
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
