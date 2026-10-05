@@ -2,63 +2,41 @@
 
 ## What Happened
 
-Implemented 5 new modules across 4 issues on 2 branches, adding EmailPlatform
-and DocumentPlatform implementations to the connectors repo. Then filed
-5 MCP tool coverage issues (#118-122) and 3 platform contract issues
-(platform#474-476) to close the gap between SPI capabilities and LLM
-discoverability.
+Completed the ref/simulation unification (#138 design, #141 Phase 1, platform#512 Phase 2a, #143 Phase 2b). All 9 ref implementations normalised, seed data extracted to YAML, simulation corpus files shipped for 6 interpretive capability areas. DataRealism E2E verification landed in platform#517.
 
-**Branch 1 — email-ref + email-google (#113, #114):**
-- `email-ref`: In-memory `RefEmailPlatform` — `EmailBackend` interface,
-  `InMemoryEmailBackend` (3 mailboxes, 9 messages, 2 attachments,
-  cursor-based pagination), CDI producer. 19 tests.
-- `email-google`: `GoogleEmailPlatform` — Gmail API with OAuth2, label→mailbox
-  mapping, N+1 metadata fetch per page, MIME body parsing (text/plain +
-  text/html + multipart), attachment download. 14 WireMock tests.
+## Current Branch: issue-139-simulation-integration-audit
 
-**Branch 2 — document-spi + document-ref + document-google (#116, #117):**
-- `document-spi`: New `DocumentPlatform` SPI with capability sub-interfaces
-  following BankPlatform pattern — `FileOperations` (list, get, download,
-  upload, delete), `FolderOperations` (list, create, move),
-  `SearchOperations` (full-text), `SharingOperations` (share links).
-  `supports(Class<?>)` introspection, `@SimulationEligible`. 6 tests.
-- `document-ref`: In-memory `RefDocumentPlatform` — 3 folders, 7 files,
-  all 4 capabilities, upload/download round-trip, name-based search. 26 tests.
-- `document-google`: `GoogleDocumentPlatform` — Google Drive API v3 with
-  OAuth2, direct upload, folder management via addParents/removeParents,
-  fullText search, anyone-reader share links. 18 WireMock tests.
+**Status:** Scaffolded, no implementation yet.
 
-**MCP coverage gap analysis + issue filing:**
-- connectors#118 — EmailPlatform MCP tools (4 tools)
-- connectors#119 — DocumentPlatform MCP tools (10 tools)
-- connectors#120 — BankPlatform MCP tools (6 tools)
-- connectors#121 — ChatPlatform expanded MCP tools (10 tools)
-- connectors#122 — `connectors_report(scope=...)` + structured error responses
-- platform#474 — Structured error response type (CLOSED — landed)
-- platform#475 — Domain report convention (CLOSED — landed)
-- platform#476 — Platform aggregator (CLOSED — landed)
+**Issue #139:** Audit each connector SPI's ref implementation to determine whether it would benefit from simulation framework integration. Categorise every capability as seed-and-go (ref logic is sufficient) or seed-plus-simulate (needs simulation-driven responses).
 
-## What's Next
+**Context:** The #138 design spec already contains the interpretive capability classification (§ Interpretive Capability Classification). The seed data YAML and simulation corpus files from #143 already implement this classification. This audit is a verification pass — confirm the classification holds, identify any gaps in corpus coverage, and document the assessment formally.
 
-`.plan` queued on main with 5 issues — MCP tool coverage for all platform SPIs:
+**The issue asks for 4 deliverables:**
+1. Per-SPI assessment table (seed-and-go vs seed-plus-simulate per capability)
+2. Priority ordering — which SPIs benefit most from simulation integration
+3. Common patterns that can be extracted (search simulation, CRUD ref)
+4. Impact on demo scenarios — which SPIs are hard to demo without real providers
 
-| # | Issue | Scale | Complexity | Depends on |
-|---|-------|-------|------------|------------|
-| #122 | connectors_report + structured errors | M | Med | platform#474, #475 (landed) |
-| #118 | EmailPlatform MCP tools | S | Low | #122 (structured errors) |
-| #119 | DocumentPlatform MCP tools | M | Med | #122 (capability-aware tooling) |
-| #120 | BankPlatform MCP tools | S | Med | #122 (structured errors) |
-| #121 | ChatPlatform expanded MCP tools | M | Med | #122 (capability-aware tooling) |
+**What's already done (from #138 and #143):**
+- Interpretive capability classification exists in the design spec
+- Simulation corpus files shipped for all 6 interpretive areas (commerce, location, contacts, document, email, project)
+- Seed data YAML files for all 7 ref modules with data
 
-**Recommended order:** #122 first — it establishes `connectors_report` and the
-structured error pattern. Then #118-121 in any order (independent per-SPI tools).
+**What remains:**
+- Formal assessment document with the per-SPI table
+- Verify corpus coverage matches the classification (are there gaps?)
+- Priority ordering and demo impact assessment
+- Close the issue
 
-**Design note from this session:** `connectors_report(scope=...)` uses a single
-tool with a scope parameter (`all`, `email`, `email,bank`) to control what's
-returned. Token cost proportional to scope. One hop. The pattern is standardised
-at the platform level (platform#475) — IoT will adopt the same shape.
+## Decisions
+
+- `DataRealism` enum values: `GARBAGE, PLACEHOLDER, STRUCTURALLY_VALID, DOMAIN_PLAUSIBLE, RECORDED_REAL` (in `simulation-api`)
+- Interpretive capabilities get `STRUCTURALLY_VALID` from ref fallthrough, strategy-level realism from simulation
+- Deterministic capabilities stay unmarked (authoritative)
 
 ## Key Artifacts
 
-- Blog entry: `blog/2026-09-28-mdp01-emailplatform-ref-and-gmail.md`
-- Design spec (email/bank SPIs): `docs/specs/issue-94-bankfeed-email-spis/2026-09-20-bankfeed-email-platform-spis-design.md`
+- Design spec: `docs/specs/issue-138-design-unify-ref-simulation/2026-10-04-unify-ref-simulation-design.md`
+- Decisions: `docs/specs/issue-138-design-unify-ref-simulation/decisions.md`
+- Contributor guide seed data section: `docs/guides/contributor-guide.md` (§ Ref Implementation Seed Data)
