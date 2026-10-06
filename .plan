@@ -1,7 +1,7 @@
 # Work Plan — casehub-connectors
 
 ## State
-branch: issue-144-email-search-method
+branch: main
 state: drained
 issue-repo: casehubio/connectors
 covers: casehubio/connectors#144
