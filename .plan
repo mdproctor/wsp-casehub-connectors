@@ -1,13 +1,14 @@
 # Work Plan — casehub-connectors
 
 ## State
-branch: main
-state: drained
+branch: issue-135-travel-platform-spi
+state: active
 issue-repo: casehubio/connectors
-covers: casehubio/connectors#144
-Current: casehubio/connectors#144 — add search method to EmailPlatform SPI
+covers: casehubio/connectors#135
+Current: casehubio/connectors#135 — feat: TravelPlatform SPI
 date: 2026-10-06
-
 evidence-era: true
+
 ## Queue
-- [ ] casehubio/connectors#144 — add search method to EmailPlatform SPI ← active
+- [x] casehubio/connectors#144 — add search method to EmailPlatform SPI
+- [ ] casehubio/connectors#135 — feat: TravelPlatform SPI
