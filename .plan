@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-144-email-search-method
-state: closing:pushed
+state: closing:merged
 issue-repo: casehubio/connectors
 covers: casehubio/connectors#144
 Current: casehubio/connectors#144 — add search method to EmailPlatform SPI
