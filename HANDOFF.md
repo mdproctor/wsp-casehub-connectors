@@ -2,22 +2,19 @@
 
 ## What Happened
 
-Completed #141 (ref CDI normalisation) and #145 (Spring generator wiring) in one session. Investigated the Spring/Quarkus duality — discovered the ref implementations had no Spring auto-configuration. Wired the `spring-generator` plugin into `connectors-spring`, generating auto-configs for all 9 platform SPI refs. Filed neocortex#437 to generalize the search normalization pipeline beyond location, and updated connectors#140 to depend on it.
+Completed #144 (add search method to EmailPlatform SPI). Added `Page<EmailSummary> search(String query, PageRequest pagination)` to the flat EmailPlatform interface with implementations in email-ref (naive case-insensitive substring match across subject/from/bodyText), email-google (Gmail `messages.list` with native `q` parameter), and NoOp (empty page). Wired pre-existing `search-corpus.yaml` into `simulation.yaml`. Updated CLAUDE.md, consumer guide, contributor guide, and ARC42STORIES.MD.
 
 ## Decisions
 
-- Extend existing `connectors-spring` module rather than creating a new one — matches platform pattern of one `-spring` module per repo
-- `SpringVerifyMojo` for verification (no runtime Spring integration test) — mechanical generation doesn't warrant it
-- Backend interfaces made public (commerce, contacts, location) — required for generated cross-package auto-configs
-- Connectors #140 (NLP normalization) narrowed to "adopt neocortex infrastructure" — blocked by neocortex#437
+- Flat method (no capability sub-interface) — consistent with EmailPlatform's existing structure, unlike ContactsPlatform/DocumentPlatform which use sub-interfaces
+- No `userId` parameter — EmailPlatform is not user-scoped
+- Gmail search passes query directly to native `q` parameter — supports full Gmail search syntax
+- `primaryLabel()` helper derives mailboxId from message labels for cross-mailbox search results
 
 ## Key Artifacts
 
-- Design spec: `specs/issue-145-wire-spring-generator-for-ref-implementations/2026-10-06-spring-generator-ref-wiring-design.md`
-- Plan: `plans/2026-10-06-spring-generator-ref-wiring.md`
-- Manual config: `connectors-spring/src/main/java/io/casehub/connectors/spring/ProjectRefManualConfig.java`
-- Contributor guide update: `docs/guides/contributor-guide.md` (§ Ref Implementation Seed Data)
+- Diary entry: `blog/2026-10-06-mdp01-search-slots-into-place.md`
 
 ## Next
 
-- #144 — add search method to EmailPlatform SPI (small, identified in #139 audit)
+- No immediate follow-up identified — EmailPlatform search was the last gap from the #139 simulation integration audit
