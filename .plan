@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-145-wire-spring-generator-for-ref-implementations
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
@@ -11,6 +11,7 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/connectors#145 — Issue #145 ← active
   - [ ] Batch 1: Wiring
