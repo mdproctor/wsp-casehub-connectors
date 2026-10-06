@@ -2,41 +2,22 @@
 
 ## What Happened
 
-Completed the ref/simulation unification (#138 design, #141 Phase 1, platform#512 Phase 2a, #143 Phase 2b). All 9 ref implementations normalised, seed data extracted to YAML, simulation corpus files shipped for 6 interpretive capability areas. DataRealism E2E verification landed in platform#517.
-
-## Current Branch: issue-139-simulation-integration-audit
-
-**Status:** Scaffolded, no implementation yet.
-
-**Issue #139:** Audit each connector SPI's ref implementation to determine whether it would benefit from simulation framework integration. Categorise every capability as seed-and-go (ref logic is sufficient) or seed-plus-simulate (needs simulation-driven responses).
-
-**Context:** The #138 design spec already contains the interpretive capability classification (§ Interpretive Capability Classification). The seed data YAML and simulation corpus files from #143 already implement this classification. This audit is a verification pass — confirm the classification holds, identify any gaps in corpus coverage, and document the assessment formally.
-
-**The issue asks for 4 deliverables:**
-1. Per-SPI assessment table (seed-and-go vs seed-plus-simulate per capability)
-2. Priority ordering — which SPIs benefit most from simulation integration
-3. Common patterns that can be extracted (search simulation, CRUD ref)
-4. Impact on demo scenarios — which SPIs are hard to demo without real providers
-
-**What's already done (from #138 and #143):**
-- Interpretive capability classification exists in the design spec
-- Simulation corpus files shipped for all 6 interpretive areas (commerce, location, contacts, document, email, project)
-- Seed data YAML files for all 7 ref modules with data
-
-**What remains:**
-- Formal assessment document with the per-SPI table
-- Verify corpus coverage matches the classification (are there gaps?)
-- Priority ordering and demo impact assessment
-- Close the issue
+Completed #141 (ref CDI normalisation) and #145 (Spring generator wiring) in one session. Investigated the Spring/Quarkus duality — discovered the ref implementations had no Spring auto-configuration. Wired the `spring-generator` plugin into `connectors-spring`, generating auto-configs for all 9 platform SPI refs. Filed neocortex#437 to generalize the search normalization pipeline beyond location, and updated connectors#140 to depend on it.
 
 ## Decisions
 
-- `DataRealism` enum values: `GARBAGE, PLACEHOLDER, STRUCTURALLY_VALID, DOMAIN_PLAUSIBLE, RECORDED_REAL` (in `simulation-api`)
-- Interpretive capabilities get `STRUCTURALLY_VALID` from ref fallthrough, strategy-level realism from simulation
-- Deterministic capabilities stay unmarked (authoritative)
+- Extend existing `connectors-spring` module rather than creating a new one — matches platform pattern of one `-spring` module per repo
+- `SpringVerifyMojo` for verification (no runtime Spring integration test) — mechanical generation doesn't warrant it
+- Backend interfaces made public (commerce, contacts, location) — required for generated cross-package auto-configs
+- Connectors #140 (NLP normalization) narrowed to "adopt neocortex infrastructure" — blocked by neocortex#437
 
 ## Key Artifacts
 
-- Design spec: `docs/specs/issue-138-design-unify-ref-simulation/2026-10-04-unify-ref-simulation-design.md`
-- Decisions: `docs/specs/issue-138-design-unify-ref-simulation/decisions.md`
-- Contributor guide seed data section: `docs/guides/contributor-guide.md` (§ Ref Implementation Seed Data)
+- Design spec: `specs/issue-145-wire-spring-generator-for-ref-implementations/2026-10-06-spring-generator-ref-wiring-design.md`
+- Plan: `plans/2026-10-06-spring-generator-ref-wiring.md`
+- Manual config: `connectors-spring/src/main/java/io/casehub/connectors/spring/ProjectRefManualConfig.java`
+- Contributor guide update: `docs/guides/contributor-guide.md` (§ Ref Implementation Seed Data)
+
+## Next
+
+- #144 — add search method to EmailPlatform SPI (small, identified in #139 audit)
