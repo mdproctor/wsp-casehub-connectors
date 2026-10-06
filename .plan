@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-145-wire-spring-generator-for-ref-implementations
-state: closing:review
+state: closing:verified
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
@@ -10,11 +10,7 @@ covers: 145
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
-
 evidence-era: true
+
 ## Queue
-- [ ] casehubio/connectors#145 — Issue #145 ← active
-  - [ ] Batch 1: Wiring
-    - [ ] Task 1: Add deps and plugin to pom
-    - [ ] Task 2: Write ProjectRefManualConfig
-    - [ ] Task 3: Generate and verify duality
+- [x] casehubio/connectors#145 — Issue #145
