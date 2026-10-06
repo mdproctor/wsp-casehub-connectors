@@ -1,14 +1,15 @@
-# Work Plan — casehub-connectors
+# Work Plan — issue-135-travel-platform-spi
 
 ## State
 branch: issue-135-travel-platform-spi
-state: active
+state: scaffolded
+project-sha: 
+date: 
 issue-repo: casehubio/connectors
 covers: casehubio/connectors#135
-Current: casehubio/connectors#135 — feat: TravelPlatform SPI
-date: 2026-10-06
-evidence-era: true
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
 
 ## Queue
-- [x] casehubio/connectors#144 — add search method to EmailPlatform SPI
-- [ ] casehubio/connectors#135 — feat: TravelPlatform SPI
+- [ ] casehubio/connectors#135 — Issue #135 ← active
