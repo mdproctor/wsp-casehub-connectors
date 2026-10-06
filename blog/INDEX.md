@@ -25,3 +25,4 @@
 | [2026-09-25-mdp01-bank-ref-pattern-absorption.md](2026-09-25-mdp01-bank-ref-pattern-absorption.md) | 2026-09-25 | How the ref implementation pattern absorbs BankPlatform capability sub-interfaces without changing shape |
 | [2026-09-28-mdp01-emailplatform-ref-and-gmail.md](2026-09-28-mdp01-emailplatform-ref-and-gmail.md) | 2026-09-28 | Two EmailPlatform implementations: email-ref (in-memory reference) and email-google (Gmail API provider) |
 | [2026-10-05-mdp01-nine-spis-and-the-simulation-boundary.md](2026-10-05-mdp01-nine-spis-and-the-simulation-boundary.md) | 2026-10-05 | Audit of all 9 connector SPIs for simulation integration — classification verified, LocationPlatform highest priority, one gap found |
+| [2026-10-06-mdp01-search-slots-into-place.md](2026-10-06-mdp01-search-slots-into-place.md) | 2026-10-06 | EmailPlatform search method — the implementation was mechanical because the design groundwork was already done |
