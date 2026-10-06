@@ -1,0 +1,12 @@
+# Work Plan — casehub-connectors
+
+## State
+branch: issue-144-email-search-method
+state: active
+issue-repo: casehubio/connectors
+covers: casehubio/connectors#144
+Current: casehubio/connectors#144 — add search method to EmailPlatform SPI
+date: 2026-10-06
+
+## Queue
+- [ ] casehubio/connectors#144 — add search method to EmailPlatform SPI ← active
