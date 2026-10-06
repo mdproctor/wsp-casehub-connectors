@@ -1,0 +1,15 @@
+# Work Plan — issue-145-wire-spring-generator-for-ref-implementations
+
+## State
+branch: issue-145-wire-spring-generator-for-ref-implementations
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 145
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#145 — Issue #145 ← active
