@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-163-wire-travelplatform-knowledge
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
@@ -11,5 +11,6 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/connectors#163 — Issue #163 ← active
