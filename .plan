@@ -1,0 +1,16 @@
+# Work Plan — issue-163-wire-travelplatform-knowledge
+
+## State
+branch: issue-163-wire-travelplatform-knowledge
+state: closing:promoted
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 163
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+evidence-era: true
+## Queue
+- [ ] casehubio/connectors#163 — Issue #163 ← active
