@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-162-wire-commerceplatform-knowledge
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
@@ -11,6 +11,7 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/connectors#162 — Issue #162 ← active
   - [x] Batch 1: Commerce MCP
