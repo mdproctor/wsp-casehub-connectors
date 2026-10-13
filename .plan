@@ -1,0 +1,20 @@
+# Work Plan — issue-162-wire-commerceplatform-knowledge
+
+## State
+branch: issue-162-wire-commerceplatform-knowledge
+state: closing:promoted
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 162
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+evidence-era: true
+## Queue
+- [ ] casehubio/connectors#162 — Issue #162 ← active
+  - [x] Batch 1: Commerce MCP
+    - [x] Task 1: ConnectorCommerceApi with capability-check tests
+    - [x] Task 2: Add commerce to ConnectorOperationsImpl report
+    - [x] Task 3: Full build verification + CLAUDE.md update
