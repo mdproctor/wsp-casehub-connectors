@@ -10,7 +10,7 @@ covers: 163
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
-
 evidence-era: true
+
 ## Queue
-- [ ] casehubio/connectors#163 — Issue #163 ← active
+- [x] casehubio/connectors#163 — Issue #163
