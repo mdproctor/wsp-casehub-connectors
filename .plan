@@ -1,0 +1,15 @@
+# Work Plan — issue-165-fix-configproperty-defaults
+
+## State
+branch: issue-165-fix-configproperty-defaults
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 165
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#165 — Issue #165 ← active

@@ -24,3 +24,5 @@ recover_plan=done
 _exec_ok:design_routing=yes
 design_routing=done
 scaffold_mechanical_attempt=1
+_exec_ok:scaffold=yes
+scaffold=done
