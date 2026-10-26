@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-168-project-platform-mcp-tools
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
@@ -11,5 +11,6 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 
+evidence-era: true
 ## Queue
-- [ ] casehubio/connectors#168 — Issue #168 ← active
+- [x] casehubio/connectors#168 — Issue #168
