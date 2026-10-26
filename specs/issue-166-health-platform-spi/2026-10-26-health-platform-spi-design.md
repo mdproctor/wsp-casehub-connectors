@@ -2,7 +2,7 @@
 
 ## Summary
 
-New platform SPI for health/medical provider interactions: provider search, appointment booking, and medical record access. Provides `health-spi` (SPI + model) and `health-ref` (in-memory reference implementation with UK NHS-like seed data), plus GraphQL API integration for MCP dispatch.
+New platform SPI for health/medical provider interactions: provider search, appointment booking, and medical record access. Provides `health-spi` (SPI + model) and `health-ref` (in-memory reference implementation with UK NHS-like seed data), plus Platform API integration for MCP dispatch.
 
 Three casehub-life workers consume this SPI: `book-appointment`, `find-alternative` (appointment-cycle case), `provide-care` (care-episode case).
 
@@ -38,13 +38,14 @@ public interface HealthPlatform {
     MedicalRecords medicalRecords(String userId);
 
     interface ProviderSearch {
-        Page<Provider> search(String location, String specialty,
+        Page<Provider> search(Coordinates location, int radiusMeters, String specialty,
                               Boolean acceptingNewPatients, PageRequest pagination);
-        Provider getProvider(String providerId);
+        Page<Provider> searchByName(String query, PageRequest pagination);
+        Provider getProvider(ProviderId providerId);
     }
 
     interface AppointmentBooking {
-        Page<AppointmentSlot> availableSlots(String providerId, LocalDate from,
+        Page<AppointmentSlot> availableSlots(ProviderId providerId, LocalDate from,
                                               LocalDate to, PageRequest pagination);
         Appointment book(AppointmentRequest request);
         Appointment getAppointment(String appointmentId);
@@ -53,8 +54,9 @@ public interface HealthPlatform {
     }
 
     interface MedicalRecords {
-        Page<MedicalRecord> listRecords(RecordType type, LocalDate from,
-                                         LocalDate to, PageRequest pagination);
+        Page<MedicalRecord> listRecords(RecordType type, ProviderId providerId,
+                                         LocalDate from, LocalDate to,
+                                         PageRequest pagination);
         MedicalRecord getRecord(String recordId);
     }
 }
@@ -62,7 +64,9 @@ public interface HealthPlatform {
 
 Capability scoping: `ProviderSearch` is not user-scoped (public directory lookup). `AppointmentBooking` and `MedicalRecords` are user-scoped (patient context), following the TravelPlatform precedent where `transportSearch()` is public but `transportBooking(userId)` is user-scoped.
 
-`ProviderSearch.search()` takes a `location` string — interpreted as a postcode, city name, or free-text location by the implementation. The ref implementation does case-insensitive substring matching against provider addresses (consistent with other ref impls). Production NHS implementations would resolve to geographic coordinates via their own lookup. `specialty` and `acceptingNewPatients` are optional filters (null = no filter).
+`ProviderSearch.search()` takes `Coordinates` and `radiusMeters` for geographic search — callers use `LocationPlatform.Geocoding` to resolve free-text locations to coordinates before calling. `searchByName()` provides a text-based fallback for direct name/keyword lookup. The ref implementation matches all providers within radius for `search()` and does case-insensitive substring matching for `searchByName()`. All filter parameters (`specialty`, `acceptingNewPatients`, `type`, `providerId`) are optional — null means no filter.
+
+`ProviderId` is used consistently throughout all records and method parameters to preserve scheme information end-to-end.
 
 ## Model Records
 
@@ -90,28 +94,48 @@ record TimeRange(LocalTime open, LocalTime close) {}
 ```java
 enum AppointmentStatus { REQUESTED, CONFIRMED, CANCELLED, COMPLETED, NO_SHOW }
 
-record AppointmentSlot(String slotId, String providerId, LocalDateTime start,
+record AppointmentSlot(String slotId, ProviderId providerId, LocalDateTime start,
                        LocalDateTime end, String practitionerName, String specialty) {}
 
 record AppointmentRequest(String slotId, String reason) {}
 
-record Appointment(String appointmentId, String providerId, String practitionerName,
+record Appointment(String appointmentId, ProviderId providerId, String practitionerName,
                    String specialty, LocalDateTime start, LocalDateTime end,
                    String reason, AppointmentStatus status) {}
 
 record AppointmentStatusChanged(String platformId, String appointmentId,
-                                AppointmentStatus status, String providerId,
+                                AppointmentStatus status, String reason,
                                 String eventId, Instant timestamp) {}
 ```
 
-Status lifecycle: `REQUESTED` → `CONFIRMED` → `COMPLETED` or `CANCELLED` or `NO_SHOW`. The ref implementation transitions REQUESTED→CONFIRMED immediately on `book()`; real NHS implementations return REQUESTED and transition asynchronously. `AppointmentStatusChanged` CDI event follows the `PaymentStatusChanged` pattern (single `status` field, not oldStatus/newStatus).
+**Status lifecycle state machine:**
 
-`COMPLETED` and `NO_SHOW` extend beyond travel-spi's `BookingStatus` because health appointments have a post-confirmation lifecycle that travel bookings don't model.
+```
+REQUESTED → CONFIRMED    (provider accepts booking)
+REQUESTED → CANCELLED    (patient cancels before confirmation)
+CONFIRMED → COMPLETED    (appointment attended)
+CONFIRMED → CANCELLED    (patient or provider cancels)
+CONFIRMED → NO_SHOW      (patient did not attend)
+```
+
+`COMPLETED`, `CANCELLED`, and `NO_SHOW` are terminal states — no further transitions.
+
+`cancel()` on an already-cancelled appointment is idempotent (returns current state). `cancel()` on a `COMPLETED` or `NO_SHOW` appointment throws `IllegalStateException`.
+
+The ref implementation transitions REQUESTED→CONFIRMED immediately on `book()`; real NHS implementations return REQUESTED and transition asynchronously. `COMPLETED` and `NO_SHOW` are set by provider-side status updates; the ref implementation provides a test helper to simulate these transitions.
+
+`AppointmentStatusChanged` CDI event follows the `PaymentStatusChanged` pattern — single `status` field with nullable `reason` (why the status changed: "provider unavailable", "patient no-show", etc.). No `providerId` on the event — derivable from the appointment via `getAppointment()`. `userId` is resolved at the application layer, consistent with `PaymentStatusChanged`.
 
 ### Medical Records
 
 ```java
 enum RecordType { LAB_RESULT, REFERRAL, PRESCRIPTION }
+
+enum LabResultStatus { PENDING, PARTIAL, FINAL, CORRECTED, CANCELLED }
+
+enum ReferralStatus { DRAFT, ACTIVE, ON_HOLD, COMPLETED, REVOKED }
+
+enum UrgencyLevel { ROUTINE, URGENT, TWO_WEEK_WAIT, EMERGENCY }
 
 sealed interface MedicalRecord permits LabResult, Referral, Prescription {
     String recordId();
@@ -121,11 +145,11 @@ sealed interface MedicalRecord permits LabResult, Referral, Prescription {
 
 record LabResult(String recordId, LocalDate date, String providerName,
                  String testName, String result, String referenceRange,
-                 String status) implements MedicalRecord {}
+                 LabResultStatus status) implements MedicalRecord {}
 
 record Referral(String recordId, LocalDate date, String providerName,
-                String referredTo, String specialty, String urgency,
-                String status) implements MedicalRecord {}
+                String referredTo, String specialty, UrgencyLevel urgency,
+                ReferralStatus status) implements MedicalRecord {}
 
 record Prescription(String recordId, LocalDate date, String providerName,
                     String medication, String dosage, int repeatsRemaining,
@@ -134,19 +158,29 @@ record Prescription(String recordId, LocalDate date, String providerName,
 
 Sealed hierarchy gives compile-time exhaustiveness checks for pattern matching in life workers. The permits list is intentionally scoped to issue #166 requirements; additional record types are added by extending the permits list when a use case demands them.
 
+`LabResultStatus`, `ReferralStatus`, and `UrgencyLevel` enums provide type safety and lifecycle documentation — consistent with `AppointmentStatus`, `ProviderType`, and `RecordType`.
+
 ## CDI Service Layer
 
 ```java
-@ApplicationScoped
 public class HealthPlatformService {
-    @Inject Instance<HealthPlatform> platforms;
+
+    private final Map<String, HealthPlatform> platforms;
+
+    public HealthPlatformService(List<HealthPlatform> platforms) {
+        this.platforms = platforms.stream()
+            .collect(Collectors.toMap(HealthPlatform::id, Function.identity()));
+    }
 
     public HealthPlatform platform(String id) { ... }
-    public List<HealthPlatform> all() { ... }
+    public boolean supports(String id) { ... }
+    public Set<String> ids() { ... }
 }
 ```
 
-`NoOpHealthPlatform` provides a `@DefaultBean` fallback. `HealthBeans` provides CDI producer wiring.
+`HealthPlatformService` is a plain POJO — no CDI annotations. `HealthBeans` produces it via `@Produces @ApplicationScoped` using `@All List<HealthPlatform>`, following the `TravelPlatformService` + `TravelBeans` pattern.
+
+`NoOpHealthPlatform` provides a `@DefaultBean` fallback when no provider is configured.
 
 ## Reference Implementation (health-ref)
 
@@ -166,13 +200,17 @@ Realistic UK NHS data matching the life-domain persona (Jonny Alpha):
 
 **Appointments**: Pre-loaded appointment history — mix of COMPLETED (past visits), CONFIRMED (upcoming), CANCELLED. Tied to seed providers.
 
-**Medical records**: Mix of lab results (blood tests, cholesterol panels), referrals (cardiology, dermatology with varying urgency), prescriptions (common UK medications with repeat tracking and next-due dates).
+**Medical records**: Mix of lab results (blood tests, cholesterol panels with LabResultStatus), referrals (cardiology, dermatology with UrgencyLevel and ReferralStatus), prescriptions (common UK medications with repeat tracking and next-due dates).
 
 ### Booking Behaviour
 
-`book()` transitions REQUESTED → CONFIRMED immediately. Real NHS implementations handle this asynchronously.
+`book()` transitions REQUESTED → CONFIRMED immediately. Real NHS implementations handle this asynchronously. The backend exposes a `setAppointmentStatus()` test helper for simulating COMPLETED and NO_SHOW transitions in tests.
 
-## GraphQL API
+### Known Limitation
+
+No atomic `reschedule()` operation. Rescheduling requires cancel + rebook as separate operations. The new slot could be taken between cancel and rebook. Atomic rescheduling may be added in a future iteration if `find-alternative` worker patterns demand it.
+
+## Platform API
 
 ```java
 @McpDomain(value = "connectors/health", app = "connectors",
@@ -189,14 +227,15 @@ Operations:
 
 | Method | Type | Description |
 |--------|------|-------------|
-| `searchProviders` | Query | Search providers by location, specialty, accepting-new-patients |
+| `searchProviders` | Query | Search providers by location (coordinates + radius), specialty, accepting-new-patients |
+| `searchProvidersByName` | Query | Search providers by text query |
 | `getProvider` | Query | Get provider by ID |
 | `availableSlots` | Query | List available appointment slots for a provider |
 | `bookAppointment` | Mutation | Book an appointment slot |
 | `getAppointment` | Query | Get appointment by ID |
 | `listAppointments` | Query | List user's appointments |
 | `cancelAppointment` | Mutation | Cancel an appointment |
-| `listMedicalRecords` | Query | List medical records with type/date filtering |
+| `listMedicalRecords` | Query | List medical records with type/provider/date filtering |
 | `getMedicalRecord` | Query | Get a specific medical record |
 
 Each method uses `requireCapability()` checks following the `ConnectorTravelApi` pattern.
@@ -211,24 +250,25 @@ The migration is mechanical — ~65 reference updates across location-spi, locat
 
 **No SPI-level CalendarPlatform integration.** Health appointments have clinical domain semantics (provider assignment, specialty matching, referral pathways) that CalendarPlatform's generic CRUD cannot model. Workers compose HealthPlatform and CalendarPlatform as separate operations at the application level.
 
-**No SPI-level LocationPlatform dependency.** Provider and Place serve different domain purposes despite structural overlap. Provider models clinical capability; Place models geographic presence. The shared `Coordinates` primitive in connectors-api eliminates type mismatch at the composition point without SPI coupling.
+**No SPI-level LocationPlatform dependency.** Provider and Place serve different domain purposes despite structural overlap. Provider models clinical capability; Place models geographic presence. The shared `Coordinates` primitive in connectors-api eliminates type mismatch at the composition point without SPI coupling. Callers use `LocationPlatform.Geocoding.geocode()` to resolve free-text locations to `Coordinates` before calling `ProviderSearch.search()`.
 
 ## Testing
 
 | Test | Scope |
 |------|-------|
-| `InMemoryHealthBackendTest` | Unit tests — provider search, appointment lifecycle, medical record retrieval |
+| `InMemoryHealthBackendTest` | Unit tests — provider search (coordinate + text), appointment lifecycle (full state machine), medical record retrieval with filters |
 | `RefHealthPlatformTest` | SPI contract — capability support, userId scoping, pagination |
-| `ConnectorHealthApiTest` | MCP tool coverage — all 9 operations via GraphQL API |
+| `ConnectorHealthApiTest` | MCP tool coverage — all 10 operations via Platform API |
 
 ## References
 
 - `TravelPlatform.java` — 4 nested capabilities, mixed userId scoping, BookingStatus lifecycle
+- `TravelPlatformService.java` + `TravelBeans.java` — POJO service + CDI producer pattern
 - `CommercePlatform.java` — 5 nested capabilities pattern
 - `BankPlatform.java` — PSD2-driven separate capabilities, PaymentStatusChanged CDI event
 - `CalendarPlatform.java` — flat pattern (no partial implementation), EventTiming sealed hierarchy
-- `LocationPlatform.java` — 4 capabilities, Coordinates record
-- `ConnectorTravelApi.java` — GraphQL API pattern with requireCapability()
+- `LocationPlatform.java` — 4 capabilities, Coordinates record, Geocoding for address resolution
+- `ConnectorTravelApi.java` — Platform API pattern with requireCapability()
 - `InMemoryTravelBackend.java` — reference implementation pattern
 - `connectors-api` — Page, PageRequest, SyncRequest, SyncResult shared primitives
 - Issue #166 — scope, UK/NHS context, life worker requirements
