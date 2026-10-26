@@ -1,0 +1,15 @@
+# Work Plan — issue-166-health-platform-spi
+
+## State
+branch: issue-166-health-platform-spi
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 166
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#166 — Issue #166 ← active
