@@ -62,6 +62,8 @@ public interface HealthPlatform {
 
 Capability scoping: `ProviderSearch` is not user-scoped (public directory lookup). `AppointmentBooking` and `MedicalRecords` are user-scoped (patient context), following the TravelPlatform precedent where `transportSearch()` is public but `transportBooking(userId)` is user-scoped.
 
+`ProviderSearch.search()` takes a `location` string — interpreted as a postcode, city name, or free-text location by the implementation. The ref implementation does case-insensitive substring matching against provider addresses (consistent with other ref impls). Production NHS implementations would resolve to geographic coordinates via their own lookup. `specialty` and `acceptingNewPatients` are optional filters (null = no filter).
+
 ## Model Records
 
 ### Provider
