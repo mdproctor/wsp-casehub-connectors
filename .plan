@@ -2,15 +2,15 @@
 
 ## State
 branch: issue-171-life-domain-simulation-corpuses
-state: active
-project-sha:
-date:
+state: closing:review
+project-sha: 
+date: 
 issue-repo: casehubio/connectors
 covers: 171
-design-repo:
-design-section-hashes:
-flyway-next-v:
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
 evidence-era: true
 
 ## Queue
-- [ ] casehubio/connectors#171 — Life-domain simulation corpuses <- active
+- [x] casehubio/connectors#171 — Life-domain simulation corpuses
