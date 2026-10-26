@@ -34,7 +34,7 @@
 
 **Files:**
 - Create: `location-spi/pom.xml`
-- Create: `location-spi/src/main/java/io/casehub/connectors/location/model/Coordinates.java`
+- Create: `../../../../connectors-api/src/main/java/io/casehub/connectors/Coordinates.java`
 - Create: `location-spi/src/main/java/io/casehub/connectors/location/model/Place.java`
 - Create: `location-spi/src/main/java/io/casehub/connectors/location/model/PlaceDetail.java`
 - Create: `location-spi/src/main/java/io/casehub/connectors/location/model/PriceLevel.java`

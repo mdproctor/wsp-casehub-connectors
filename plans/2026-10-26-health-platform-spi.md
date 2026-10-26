@@ -36,7 +36,7 @@
 ### Task 1: Extract Coordinates to connectors-api
 
 **Files:**
-- Move: `location-spi/src/main/java/io/casehub/connectors/location/model/Coordinates.java` → `connectors-api/src/main/java/io/casehub/connectors/Coordinates.java` (use `ide_move_file`)
+- Move: `../../connectors-api/src/main/java/io/casehub/connectors/Coordinates.java` → `connectors-api/src/main/java/io/casehub/connectors/Coordinates.java` (use `ide_move_file`)
 - Modify: ~12 Java files across location-spi, location-ref, location-google, graphql (import updates handled by `ide_move_file`)
 - Test: existing `location-ref/src/test/java/io/casehub/connectors/location/ref/RefLocationPlatformTest.java` (must still pass)
 
@@ -54,7 +54,7 @@ Expected: BUILD SUCCESS
 
 - [ ] **Step 2: Move Coordinates using IDE refactoring**
 
-Use `ide_move_file` to move `location-spi/src/main/java/io/casehub/connectors/location/model/Coordinates.java` to `connectors-api/src/main/java/io/casehub/connectors/Coordinates.java`.
+Use `ide_move_file` to move `../../connectors-api/src/main/java/io/casehub/connectors/Coordinates.java` to `connectors-api/src/main/java/io/casehub/connectors/Coordinates.java`.
 
 This automatically updates all imports from `io.casehub.connectors.location.model.Coordinates` to `io.casehub.connectors.Coordinates` across:
 - `location-spi`: LocationPlatform.java, NoOpLocationPlatform.java, Place.java, PlaceDetail.java, GeocodingResult.java, RouteLeg.java
