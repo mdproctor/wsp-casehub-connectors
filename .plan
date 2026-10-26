@@ -13,3 +13,13 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/connectors#166 — Issue #166 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: Extract Coordinates to connectors-api
+    - [ ] Task 2: Health-spi model records
+    - [ ] Task 3: HealthPlatform SPI + CDI layer
+  - [ ] Batch 2: Reference
+    - [ ] Task 4: HealthBackend + InMemoryHealthBackend + SeedLoader
+    - [ ] Task 5: RefHealthPlatform + HealthRefBeans + seed data
+  - [ ] Batch 3: API
+    - [ ] Task 6: ConnectorHealthApi platform API
+    - [ ] Task 7: Tests — backend unit + SPI contract + API coverage
