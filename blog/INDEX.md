@@ -27,3 +27,4 @@
 | [2026-10-05-mdp01-nine-spis-and-the-simulation-boundary.md](2026-10-05-mdp01-nine-spis-and-the-simulation-boundary.md) | 2026-10-05 | Audit of all 9 connector SPIs for simulation integration — classification verified, LocationPlatform highest priority, one gap found |
 | [2026-10-06-mdp01-search-slots-into-place.md](2026-10-06-mdp01-search-slots-into-place.md) | 2026-10-06 | EmailPlatform search method — the implementation was mechanical because the design groundwork was already done |
 | [2026-10-13-mdp01-travel-wires-in.md](2026-10-13-mdp01-travel-wires-in.md) | 2026-10-13 | Phase 4 TravelPlatform wired into @McpDomain — pattern maturity across nine platforms |
+| [2026-10-26-mdp01-filling-in-the-world.md](2026-10-26-mdp01-filling-in-the-world.md) | 2026-10-26 | Life-domain seed data across 9 connector ref implementations — cross-platform referential integrity for casehub-life simulation testing |
