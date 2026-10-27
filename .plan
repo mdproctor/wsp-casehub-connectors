@@ -1,0 +1,15 @@
+# Work Plan — issue-180-amadeus-401-retry-test
+
+## State
+branch: issue-180-amadeus-401-retry-test
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 180
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#180 — Issue #180 ← active
