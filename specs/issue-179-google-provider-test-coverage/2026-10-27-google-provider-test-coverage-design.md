@@ -43,11 +43,33 @@ ProviderAuthException (extends ProviderApiException)
 | Status | Exception | Recovery |
 |--------|-----------|----------|
 | 401 | `ProviderAuthException(TOKEN_EXPIRED)` | Automatic token refresh |
-| 403 | `ProviderAuthException(INSUFFICIENT_SCOPE)` | User re-consent with broader scopes |
+| 403 (insufficientPermissions) | `ProviderAuthException(INSUFFICIENT_SCOPE)` | User re-consent with broader scopes |
+| 403 (other reasons) | `ProviderAuthException(FORBIDDEN)` | Not recoverable via re-auth |
 | 404 | `NoSuchElementException` | Existing convention (17+ call sites) |
 | 410 | `SyncTokenExpiredException` | Full resync (updated to extend `ProviderApiException`) |
 | 429 | `ProviderRateLimitedException(retryAfterSeconds)` | Retry after delay |
 | 5xx | `ProviderApiException(statusCode, body, provider)` | Retry or fail |
+
+Note: 403 default is `FORBIDDEN`. Only when Google's error `reason` field is `"insufficientPermissions"` does it map to `INSUFFICIENT_SCOPE`. Google 403 reasons include `domainPolicy`, `forbidden`, `userRateLimitExceeded`, etc. — these are not scope issues and re-consent cannot fix them.
+
+### SyncTokenExpiredException Constructor Change
+
+`SyncTokenExpiredException` extends `ProviderApiException` instead of `RuntimeException`. Constructor updated to accept `(String expiredToken, String provider)`:
+
+```java
+public class SyncTokenExpiredException extends ProviderApiException {
+    private final String expiredToken;
+
+    public SyncTokenExpiredException(String expiredToken, String provider) {
+        super(410, expiredToken, provider);
+        this.expiredToken = expiredToken;
+    }
+
+    public String expiredToken() { return expiredToken; }
+}
+```
+
+Existing call sites updated: `throw new SyncTokenExpiredException(request.syncToken(), id())`.
 
 ### File Locations
 
@@ -56,52 +78,122 @@ connectors-api/src/main/java/io/casehub/connectors/
 ├── ProviderApiException.java
 ├── ProviderRateLimitedException.java
 ├── ProviderAuthException.java
-└── AuthFailureReason.java
+├── AuthFailureReason.java
+└── SyncTokenExpiredException.java  (existing — re-parented + constructor updated)
 ```
-
-`SyncTokenExpiredException` already exists in connectors-api — updated to extend `ProviderApiException` instead of `RuntimeException`.
 
 ## 3. Production Error Handling Changes
 
-Each Google module gets a centralised error handler method (following TrueLayer's `handleResponse()` pattern), adapted for the module's HTTP stack.
+### Shared error mapping utility
+
+A shared static utility in `connectors-api` centralises the status-code-to-exception mapping. Each module extracts status code and body from its specific exception type and delegates to the utility. This avoids duplicating the switch statement across 3 modules.
+
+```java
+public final class ProviderErrorMapping {
+
+    private static final int DEFAULT_RETRY_AFTER_SECONDS = 30;
+
+    public static RuntimeException mapStatusCode(int statusCode, String body,
+            String provider, String errorReason) {
+        return switch (statusCode) {
+            case 401 -> new ProviderAuthException(AuthFailureReason.TOKEN_EXPIRED, provider);
+            case 403 -> {
+                var reason = "insufficientPermissions".equals(errorReason)
+                    ? AuthFailureReason.INSUFFICIENT_SCOPE
+                    : AuthFailureReason.FORBIDDEN;
+                yield new ProviderAuthException(reason, provider);
+            }
+            case 404 -> new NoSuchElementException(body);
+            case 410 -> new SyncTokenExpiredException(body, provider);
+            case 429 -> new ProviderRateLimitedException(DEFAULT_RETRY_AFTER_SECONDS, provider);
+            default -> new ProviderApiException(statusCode, body, provider);
+        };
+    }
+}
+```
+
+Note: `GoogleJsonResponseException` does not expose the `Retry-After` HTTP header — the Google API Client Library's `HttpResponse` is not accessible from the exception. A default constant (`DEFAULT_RETRY_AFTER_SECONDS = 30`) is used for all 429 responses from Google APIs.
 
 ### Google API Client Library modules (email, document, contacts)
 
-These modules catch `GoogleJsonResponseException` which carries `getStatusCode()` and `getDetails()`. Each module adds a private `handleGoogleError(GoogleJsonResponseException e)` method:
+Each module has a thin private method that extracts fields from `GoogleJsonResponseException` and delegates to `ProviderErrorMapping`:
 
 ```java
-private <T> T handleGoogleError(GoogleJsonResponseException e) {
+private RuntimeException handleGoogleError(GoogleJsonResponseException e) {
     int code = e.getStatusCode();
     String body = e.getDetails() != null ? e.getDetails().toPrettyString() : e.getMessage();
-    return switch (code) {
-        case 401 -> throw new ProviderAuthException(AuthFailureReason.TOKEN_EXPIRED, id());
-        case 403 -> throw new ProviderAuthException(AuthFailureReason.INSUFFICIENT_SCOPE, id());
-        case 404 -> throw new NoSuchElementException(body);
-        case 410 -> throw new SyncTokenExpiredException(body);
-        case 429 -> {
-            int retryAfter = parseRetryAfter(e);
-            throw new ProviderRateLimitedException(retryAfter, id());
-        }
-        default -> throw new ProviderApiException(code, body, id());
-    };
+    String reason = extractErrorReason(e);
+    return ProviderErrorMapping.mapStatusCode(code, body, id(), reason);
+}
+
+private String extractErrorReason(GoogleJsonResponseException e) {
+    if (e.getDetails() != null && e.getDetails().getErrors() != null
+            && !e.getDetails().getErrors().isEmpty()) {
+        return e.getDetails().getErrors().get(0).getReason();
+    }
+    return null;
 }
 ```
 
-Current `catch (IOException e) { throw new RuntimeException(...) }` blocks are replaced with `catch (GoogleJsonResponseException e) { handleGoogleError(e); } catch (IOException e) { throw new ProviderApiException(0, e.getMessage(), id()); }`.
+Current catch blocks replaced with:
+```java
+try {
+    // API call
+} catch (GoogleJsonResponseException e) {
+    throw handleGoogleError(e);
+} catch (IOException e) {
+    throw new ProviderApiException(0, e.getMessage(), id());
+}
+```
 
 ### Google Maps Java Client module (location)
 
-location-google catches `ApiException | InterruptedException | IOException`. `ApiException` carries status information differently — via `ApiException.getStatus()` which returns `OverQueryLimitException`, `RequestDeniedException`, etc.
+location-google uses a different HTTP stack (`GeoApiContext` / `ApiException`). The error handler is separate from the shared utility because Maps errors are exception-subtype-based, not HTTP-status-based:
 
 ```java
-private <T> T handleMapsError(ApiException e) {
+private static final int MAPS_DEFAULT_RETRY_SECONDS = 60;
+
+private RuntimeException handleMapsError(ApiException e) {
     return switch (e) {
-        case OverQueryLimitException _ -> throw new ProviderRateLimitedException(60, id());
-        case RequestDeniedException _ -> throw new ProviderAuthException(AuthFailureReason.FORBIDDEN, id());
-        default -> throw new ProviderApiException(0, e.getMessage(), id());
+        case OverQueryLimitException _ ->
+            new ProviderRateLimitedException(MAPS_DEFAULT_RETRY_SECONDS, id());
+        case RequestDeniedException _ ->
+            new ProviderAuthException(AuthFailureReason.FORBIDDEN, id());
+        default -> new ProviderApiException(0, e.getMessage(), id());
     };
 }
 ```
+
+Note: `MAPS_DEFAULT_RETRY_SECONDS = 60` is an approximation — Google Maps does not provide a `Retry-After` header in rate limit responses.
+
+**Complete catch structure for location-google methods:**
+```java
+try {
+    // Maps API call via .await()
+} catch (ApiException e) {
+    throw handleMapsError(e);
+} catch (InterruptedException e) {
+    Thread.currentThread().interrupt();
+    throw new ProviderApiException(0, "Interrupted", id());
+} catch (IOException e) {
+    throw new ProviderApiException(0, e.getMessage(), id());
+}
+```
+
+InterruptedException restores the thread interrupt flag before throwing, preserving the existing behavior.
+
+### Behavioral contract: fail-soft vs throw
+
+**Methods that currently return empty on error stay fail-soft.** The error handler applies only to methods that currently throw. This preserves the existing behavioral contract for callers.
+
+| Method | Current behavior | After change |
+|--------|-----------------|--------------|
+| `PlaceSearch.searchByText/Nearby/Category()` | Returns empty Page, logs WARNING | **No change** — stays fail-soft |
+| `Geocoding.geocode/reverseGeocode()` | Returns empty List, logs WARNING | **No change** — stays fail-soft |
+| `PlaceDetails.get()` | Throws RuntimeException | Throws `ProviderApiException` (typed) |
+| `Directions.route()` | Throws RuntimeException | Throws `ProviderApiException` (typed) |
+| email/document/contacts CRUD methods | Throw RuntimeException | Throw typed exceptions |
+| email/document/contacts search/list methods | Throw RuntimeException | Throw typed exceptions (already throw, not fail-soft) |
 
 ### Production code prerequisite for location-google
 
@@ -109,11 +201,11 @@ private <T> T handleMapsError(ApiException e) {
 
 ```java
 GoogleLocationPlatform(GeoApiContext context) {
-    this.testContext = context;
+    this.overrideContext = context;
 }
 ```
 
-The `contextFor()` method returns `testContext` when non-null, falling back to credential-based construction. This matches the pattern email-google and document-google already use for their service objects.
+The `contextFor()` method returns `overrideContext` when non-null, falling back to credential-based construction. This matches the pattern email-google and document-google already use for their service objects.
 
 ## 4. Pagination Protocol Compliance
 
@@ -121,7 +213,7 @@ Only methods with internal multi-page loops are governed by the paginating-clien
 
 ### Methods requiring fix
 
-- `GoogleDocumentPlatform.GoogleFileOperations.initialSync()` — currently throws `RuntimeException` on mid-loop `IOException`. Fix: accumulate results, log WARNING, return partial `SyncResult`.
+- `GoogleDocumentPlatform.GoogleFileOperations.initialSync()` — currently throws `RuntimeException` on mid-loop `IOException`. Fix: accumulate results, log WARNING, return partial `SyncResult` with `syncToken = null` (forces full resync on next attempt, avoiding duplicate items from partial initial sync).
 
 ### Already compliant
 
@@ -145,10 +237,10 @@ All require the new test constructor + WireMock with `GeoApiContext.Builder().ba
 
 | Class | Covers |
 |-------|--------|
-| `GooglePlaceSearchTest` | text/nearby/category search, pagination via nextPageToken, empty results, OverQueryLimitException, RequestDeniedException, malformed responses |
-| `GooglePlaceDetailsTest` | get() success, 404/RuntimeException path, null optional fields, malformed detail response |
-| `GoogleGeocodingTest` | geocode/reverse success, empty results, error responses, InterruptedException interrupt flag |
-| `GoogleDirectionsTest` | route() success, no routes, travel mode mapping, error responses |
+| `GooglePlaceSearchTest` | text/nearby/category search, pagination via nextPageToken, empty results, OverQueryLimitException (stays fail-soft — returns empty + WARNING), RequestDeniedException, malformed responses |
+| `GooglePlaceDetailsTest` | get() success, error responses → typed exceptions, null optional fields, malformed detail response |
+| `GoogleGeocodingTest` | geocode/reverse success, empty results, error responses (stays fail-soft), InterruptedException interrupt flag preservation |
+| `GoogleDirectionsTest` | route() success, no routes, travel mode mapping, error responses → typed exceptions |
 
 #### email-google (2 new test classes)
 
@@ -156,8 +248,8 @@ Existing `GoogleEmailPlatformTest` has substantial WireMock coverage. New classe
 
 | Class | Covers |
 |-------|--------|
-| `GoogleEmailErrorHandlingTest` | 401/403/429 responses, credential resolution failure, skip-on-error in listMessages (individual message fetch failure), buildDateQuery edge cases |
-| `GoogleEmailEdgeCaseTest` | Nested multipart messages, null headers/payload/body in GmailMessageMapper, primaryLabel() mapping |
+| `GoogleEmailErrorHandlingTest` | 401/403/429 responses (403 with `insufficientPermissions` reason vs other reasons), credential resolution failure, skip-on-error in listMessages (individual message fetch failure), buildDateQuery edge cases |
+| `GoogleEmailEdgeCaseTest` | Null headers/payload/body in GmailMessageMapper, primaryLabel() mapping. Nested multipart messages tested to document current limitation (mapper only processes one level — known gap, not fixed in this issue) |
 
 #### document-google (4 new test classes)
 
@@ -166,7 +258,7 @@ Existing `GoogleEmailPlatformTest` has substantial WireMock coverage. New classe
 | `GoogleFileOperationsTest` | download() success and 404, 401/403/429 on list/get/upload/delete, null metadata fields (parents, owners, timestamps) |
 | `GoogleFolderOperationsTest` | move() success and 404, 401/403/429, create with parent folder |
 | `GoogleSearchSharingTest` | search with quote escaping, 401/403/429, getShareLink 401/403/429 |
-| `GoogleDocumentSyncTest` | initialSync mid-loop failure → partial results (protocol compliance), MAX_PAGES cap, 429 during sync, incremental sync with deletes |
+| `GoogleDocumentSyncTest` | initialSync mid-loop failure → partial results with null token (protocol compliance), MAX_PAGES cap, 429 during sync, incremental sync with deletes |
 
 #### contacts-google (3 new test classes)
 
@@ -182,7 +274,7 @@ All require WireMock setup (not present today — follows email/document pattern
 
 | Class | Covers |
 |-------|--------|
-| `ProviderApiExceptionTest` | Constructor, field accessors, inheritance hierarchy, SyncTokenExpiredException extends ProviderApiException |
+| `ProviderApiExceptionTest` | Constructor, field accessors, inheritance hierarchy, SyncTokenExpiredException extends ProviderApiException, ProviderErrorMapping.mapStatusCode for all status codes including 403 reason discrimination |
 
 ### WireMock patterns
 
@@ -190,14 +282,12 @@ All require WireMock setup (not present today — follows email/document pattern
 ```java
 wireMockServer.stubFor(get(urlPathEqualTo("/gmail/v1/users/me/messages/msg-1"))
     .willReturn(aResponse().withStatus(429)
-        .withHeader("Retry-After", "30")
         .withHeader("Content-Type", "application/json")
         .withBody("{\"error\":{\"code\":429,\"message\":\"Rate Limit Exceeded\"}}")));
 ```
 
 **Google Maps Java Client (location):**
 ```java
-// Different path structure, API key as query param
 wireMockServer.stubFor(get(urlPathEqualTo("/maps/api/place/textsearch/json"))
     .willReturn(aResponse().withStatus(200)
         .withHeader("Content-Type", "application/json")
@@ -212,7 +302,7 @@ All tests use plain JUnit 5 with WireMock — no `@QuarkusTest`, no CDI containe
 
 ## 6. Follow-up Work
 
-- **TrueLayer exception migration:** File a follow-up issue to migrate TrueLayer's existing exception types (`TrueLayerApiException`, `ConsentExpiredException`, `RateLimitedException`) to extend the new `ProviderApiException` hierarchy.
+- **TrueLayer exception migration:** File a follow-up issue to migrate TrueLayer's existing exception types to extend the new hierarchy. Target state: `TrueLayerApiException extends ProviderApiException`, `ConsentExpiredException extends ProviderAuthException`, `RateLimitedException extends ProviderRateLimitedException`. TrueLayer-specific constructors preserved for backward compatibility; new constructors added that pass required fields (statusCode, provider) to super.
 - **calendar-google test coverage:** Similar gaps exist but out of scope for this issue.
 - **NoSuchElementException → ProviderNotFoundException:** 17+ call sites — separate issue if desired.
 
@@ -220,8 +310,11 @@ All tests use plain JUnit 5 with WireMock — no `@QuarkusTest`, no CDI containe
 
 | Area | Count |
 |------|-------|
-| New exception types (connectors-api) | 4 (3 new + 1 updated parent) |
-| Production error handler methods | 4 (one per module) |
+| New exception classes (connectors-api) | 3 (ProviderApiException, ProviderRateLimitedException, ProviderAuthException) |
+| New enum (connectors-api) | 1 (AuthFailureReason) |
+| New utility class (connectors-api) | 1 (ProviderErrorMapping) |
+| Updated exception (connectors-api) | 1 (SyncTokenExpiredException re-parented) |
+| Production error handler methods | 4 (1 shared utility + thin wrappers per module) |
 | Pagination protocol fixes | 1 (initialSync) |
 | Production test constructors | 1 (location-google) |
 | New test files | 14 |
@@ -237,3 +330,4 @@ All tests use plain JUnit 5 with WireMock — no `@QuarkusTest`, no CDI containe
 - `connectors-api/src/main/java/io/casehub/connectors/UnsupportedCapabilityException.java` — existing connectors-api exception precedent
 - Issue #179 — original scope definition
 - Decision review: `/Users/mdproctor/reviews/casehub-connectors/issue-179-decision-20261027-192031/`
+- Spec review: `/Users/mdproctor/reviews/casehub-connectors/issue-179-spec-20261027-193850/`
