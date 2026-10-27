@@ -13,3 +13,19 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/connectors#179 — Issue #179 ← active
+  - [ ] Batch 1: Exception Foundation
+    - [ ] Task 1: Exception hierarchy + error mapping
+  - [ ] Batch 2: email-google
+    - [ ] Task 2: Error handling + ErrorHandlingTest
+    - [ ] Task 3: EdgeCaseTest
+  - [ ] Batch 3: document-google
+    - [ ] Task 4: Error handling + FileOperationsTest
+    - [ ] Task 5: FolderOps + SearchSharing + SyncTest + initialSync fix
+  - [ ] Batch 4: contacts-google
+    - [ ] Task 6: WireMock + errors + ContactReadTest
+    - [ ] Task 7: GroupReadTest + ContactWriteTest
+  - [ ] Batch 5: location-google
+    - [ ] Task 8: WireMock + errors + PlaceSearchTest
+    - [ ] Task 9: PlaceDetails + Geocoding + DirectionsTest
+  - [ ] Batch 6: Follow-up
+    - [ ] Task 10: TrueLayer migration issue + docs
