@@ -27,3 +27,4 @@
 | [2026-10-05-mdp01-nine-spis-and-the-simulation-boundary.md](2026-10-05-mdp01-nine-spis-and-the-simulation-boundary.md) | 2026-10-05 | Audit of all 9 connector SPIs for simulation integration — classification verified, LocationPlatform highest priority, one gap found |
 | [2026-10-06-mdp01-search-slots-into-place.md](2026-10-06-mdp01-search-slots-into-place.md) | 2026-10-06 | EmailPlatform search method — the implementation was mechanical because the design groundwork was already done |
 | [2026-10-13-mdp01-travel-wires-in.md](2026-10-13-mdp01-travel-wires-in.md) | 2026-10-13 | Phase 4 TravelPlatform wired into @McpDomain — pattern maturity across nine platforms |
+| [2026-10-27-mdp01-batch-path-blind-spot.md](2026-10-27-mdp01-batch-path-blind-spot.md) | 2026-10-27 | Closing the last GraphQL gap — expanding ConnectorDocumentApi from 1 to 11 operations so playbooks can batch document work |
