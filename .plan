@@ -1,17 +1,17 @@
 # Work Plan — issue-181-test-coverage-travel-google-graphql
 
 ## State
-branch: issue-181-test-coverage-travel-google-graphql
-state: scaffolded
+branch: 
+state: active
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
-covers: 181
+covers: 181,180,178
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
 
 ## Queue
-- [ ] casehubio/connectors#181 — Issue #181 ← active
-- [ ] casehubio/connectors#180 — test: add 401 retry guard test for travel-amadeus
-- [ ] casehubio/connectors#178 — test: add missing GraphQL API test classes
+- [x] casehubio/connectors#181 — Issue #181
+- [x] casehubio/connectors#180 — test: add 401 retry guard test for travel-amadeus
+- [x] casehubio/connectors#178 — test: add missing GraphQL API test classes
