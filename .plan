@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-179-google-provider-test-coverage
-state: closing:pushed
+state: closing:merged
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
