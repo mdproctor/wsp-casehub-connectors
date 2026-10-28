@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 340" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <!-- Background -->
+  <rect width="820" height="340" fill="#fafafa" rx="6"/>
+
+  <!-- Before panel -->
+  <text x="190" y="28" text-anchor="middle" font-weight="600" font-size="14" fill="#555">Before</text>
+  <rect x="20" y="40" width="370" height="280" fill="white" stroke="#ddd" rx="4"/>
+
+  <rect x="100" y="60" width="200" height="32" rx="4" fill="#e8e8e8" stroke="#bbb"/>
+  <text x="200" y="81" text-anchor="middle" fill="#555">RuntimeException</text>
+
+  <line x1="200" y1="92" x2="200" y2="110" stroke="#bbb" stroke-width="1.5"/>
+
+  <line x1="200" y1="110" x2="80" y2="110" stroke="#bbb" stroke-width="1.5"/>
+  <line x1="200" y1="110" x2="200" y2="110" stroke="#bbb" stroke-width="1.5"/>
+  <line x1="200" y1="110" x2="320" y2="110" stroke="#bbb" stroke-width="1.5"/>
+
+  <line x1="80" y1="110" x2="80" y2="130" stroke="#bbb" stroke-width="1.5"/>
+  <line x1="200" y1="110" x2="200" y2="130" stroke="#bbb" stroke-width="1.5"/>
+  <line x1="320" y1="110" x2="320" y2="130" stroke="#bbb" stroke-width="1.5"/>
+
+  <rect x="32" y="130" width="96" height="52" rx="4" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="80" y="151" text-anchor="middle" font-size="11" fill="#333">TrueLayer</text>
+  <text x="80" y="167" text-anchor="middle" font-size="11" fill="#333">ApiException</text>
+
+  <rect x="148" y="130" width="104" height="52" rx="4" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="200" y="151" text-anchor="middle" font-size="11" fill="#333">ConsentExpired</text>
+  <text x="200" y="167" text-anchor="middle" font-size="11" fill="#333">Exception</text>
+
+  <rect x="268" y="130" width="104" height="52" rx="4" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="320" y="151" text-anchor="middle" font-size="11" fill="#333">RateLimited</text>
+  <text x="320" y="167" text-anchor="middle" font-size="11" fill="#333">Exception</text>
+
+  <text x="200" y="220" text-anchor="middle" font-size="11" fill="#999" font-style="italic">Three independent hierarchies.</text>
+  <text x="200" y="238" text-anchor="middle" font-size="11" fill="#999" font-style="italic">No common provider-agnostic type.</text>
+
+  <!-- After panel -->
+  <text x="620" y="28" text-anchor="middle" font-weight="600" font-size="14" fill="#555">After</text>
+  <rect x="430" y="40" width="370" height="280" fill="white" stroke="#ddd" rx="4"/>
+
+  <rect x="530" y="55" width="180" height="28" rx="4" fill="#e3f2fd" stroke="#90caf9"/>
+  <text x="620" y="74" text-anchor="middle" font-size="11" fill="#333">ProviderApiException</text>
+
+  <line x1="620" y1="83" x2="620" y2="100" stroke="#90caf9" stroke-width="1.5"/>
+  <line x1="490" y1="100" x2="750" y2="100" stroke="#90caf9" stroke-width="1.5"/>
+
+  <line x1="490" y1="100" x2="490" y2="115" stroke="#90caf9" stroke-width="1.5"/>
+  <line x1="620" y1="100" x2="620" y2="115" stroke="#90caf9" stroke-width="1.5"/>
+  <line x1="750" y1="100" x2="750" y2="115" stroke="#90caf9" stroke-width="1.5"/>
+
+  <!-- TrueLayerApiException -->
+  <rect x="442" y="115" width="96" height="40" rx="4" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="490" y="132" text-anchor="middle" font-size="10" fill="#333">TrueLayer</text>
+  <text x="490" y="145" text-anchor="middle" font-size="10" fill="#333">ApiException</text>
+
+  <!-- ProviderAuthException -->
+  <rect x="558" y="115" width="124" height="28" rx="4" fill="#e3f2fd" stroke="#90caf9"/>
+  <text x="620" y="134" text-anchor="middle" font-size="10" fill="#333">ProviderAuthException</text>
+
+  <line x1="620" y1="143" x2="620" y2="162" stroke="#90caf9" stroke-width="1.5"/>
+
+  <rect x="568" y="162" width="104" height="40" rx="4" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="620" y="179" text-anchor="middle" font-size="10" fill="#333">ConsentExpired</text>
+  <text x="620" y="192" text-anchor="middle" font-size="10" fill="#333">Exception</text>
+
+  <!-- ProviderRateLimitedException -->
+  <rect x="694" y="115" width="112" height="28" rx="4" fill="#e3f2fd" stroke="#90caf9"/>
+  <text x="750" y="134" text-anchor="middle" font-size="10" fill="#333">ProviderRateLimit…</text>
+
+  <line x1="750" y1="143" x2="750" y2="162" stroke="#90caf9" stroke-width="1.5"/>
+
+  <rect x="698" y="162" width="104" height="40" rx="4" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="750" y="179" text-anchor="middle" font-size="10" fill="#333">RateLimited</text>
+  <text x="750" y="192" text-anchor="middle" font-size="10" fill="#333">Exception</text>
+
+  <!-- Legend -->
+  <rect x="470" y="240" width="12" height="12" rx="2" fill="#e3f2fd" stroke="#90caf9"/>
+  <text x="488" y="251" font-size="11" fill="#777">Provider-agnostic (connectors-api)</text>
+  <rect x="470" y="260" width="12" height="12" rx="2" fill="#fff3e0" stroke="#e6a23c"/>
+  <text x="488" y="271" font-size="11" fill="#777">TrueLayer-specific (bank-truelayer)</text>
+
+  <text x="620" y="300" text-anchor="middle" font-size="11" fill="#999" font-style="italic">catch(ProviderApiException) catches all three.</text>
+</svg>
