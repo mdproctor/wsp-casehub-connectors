@@ -13,3 +13,5 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/connectors#181 — Issue #181 ← active
+- [ ] casehubio/connectors#180 — test: add 401 retry guard test for travel-amadeus
+- [ ] casehubio/connectors#178 — test: add missing GraphQL API test classes
