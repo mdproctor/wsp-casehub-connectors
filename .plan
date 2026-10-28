@@ -2,7 +2,7 @@
 
 ## State
 branch: 
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
@@ -11,6 +11,7 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 
+evidence-era: true
 ## Queue
 - [x] casehubio/connectors#181 — Issue #181
 - [x] casehubio/connectors#180 — test: add 401 retry guard test for travel-amadeus
