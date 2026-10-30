@@ -95,14 +95,47 @@
 **Exploration:** quick
 **Status:** captured
 
-## D9: Module structure — 6 new modules
+## D9: Module structure — 13 new modules (6 connectors + 7 migrated from agency)
 
-**Choice:** Create 6 new Maven modules: `voice-spi` (VoicePlatform SPI + 8 capability interfaces), `voice-ref` (in-memory ref impl with stubs), `email-google-inbound` (Gmail push/pull connector), `whatsapp-inbound-media` (WhatsApp media download streaming step), `voice-pipeline-steps` (STT/denoise/VAD playbook streaming steps), `signal-inbound-media` (Signal audio pipeline step reusing voice-pipeline-steps).
+**Choice:** Create 6 new modules in connectors plus migrate 7 from agency:
+
+New in connectors:
+- `voice-spi` — VoicePlatform SPI + 8 capability sub-interfaces + model types
+- `voice-ref` — in-memory reference VoicePlatform with stubs for all capabilities
+- `email-google-inbound` — Gmail push (WebhookInboundConnector) and pull (InboundConnector) via Pub/Sub, depends on email-google for message fetch
+- `whatsapp-inbound-media` — WhatsApp media download `@Plugin(streaming=true)` step
+- `voice-pipeline-steps` — STT/denoise/VAD `@Plugin(streaming=true)` steps using VoicePlatform SPI
+- `signal-inbound-media` — Signal audio pipeline step, reuses voice-pipeline-steps
+
+Migrated from agency (renamed `casehub-agency-speech-*` → `casehub-connectors-voice-*`):
+- `voice-sherpa` — sherpa-onnx/whisper.cpp implementation of VoicePlatform (from `speech-sherpa`)
+- `voice-sherpa-native-osx-arm64` — macOS ARM64 native libs (from `speech-sherpa-native-osx-arm64`)
+- `voice-sherpa-native-osx-x64` — macOS Intel native libs
+- `voice-sherpa-native-linux-x64` — Linux x86_64 native libs
+- `voice-sherpa-native-linux-arm64` — Linux AArch64 native libs
+- `voice-sherpa-native-win-x64` — Windows x64 native libs
+- (agency `speech-api` types absorbed into `voice-spi`, adapted to capability sub-interface pattern)
+
+Agency retains: `speech-ws` (WebSocket avatar endpoint), `speech-demo` (demo app) — both updated to depend on connectors' `voice-spi` + `voice-sherpa`.
+
 **Alternatives:**
-- 4 modules, consolidated — merge WhatsApp/Signal media + voice steps into one module. Less granular dependency control.
-- 3 modules, minimal — media download and voice steps stay in existing modules. Muddies module boundaries.
-**Rationale:** Each module has one clear purpose and can be depended on independently. `voice-pipeline-steps` is shared between WhatsApp and Signal without either depending on the other.
-**Trade-offs:** More modules means more POMs and more wiring. Mitigated by the existing project structure (40+ modules already) and clear dependency graph.
-**Sources:** Existing module structure in parent POM, connectors module table in CLAUDE.md
+- 6 modules only, no migration — leave speech-sherpa in agency. Breaks platform SPI pattern.
+- Consolidated — fewer modules with merged concerns. Less granular dependency control.
+**Rationale:** Each module has one clear purpose. Migrated modules keep their existing internal structure. Cross-repo change is explicit: connectors gains modules, agency loses them and updates consumer dependencies.
+**Trade-offs:** 13 new modules is significant. Mitigated by 7 being direct migrations (not new code) and the existing project already having 40+ modules. The cross-repo nature requires an IntelliJ workspace spanning both `casehubio/connectors` and `casehubio/agency`.
+**Sources:** Existing module structure in parent POM, agency speech module structure, connectors module table in CLAUDE.md
+**Exploration:** quick
+**Status:** captured
+
+## D10: Full speech-sherpa migration from agency to connectors
+
+**Choice:** Migrate speech-sherpa implementation and native library modules from `casehubio/agency` into `casehubio/connectors` as `voice-sherpa` + `voice-sherpa-native-*` modules. Agency keeps only the avatar/cognition layer (`speech-ws`, `speech-demo`) which becomes a consumer of the `VoicePlatform` SPI. This closes #187.
+**Alternatives:**
+- SPI in connectors, impl stays in agency — breaks the pattern of every other platform SPI. Wrong dependency direction: other apps needing speech would depend on agency.
+- Migrate STT/TTS only, defer rest — staged migration avoids big-bang but means two rounds of cross-repo changes.
+**Rationale:** Every other platform SPI in connectors (`calendar-google`, `email-google`, `document-google`, `bank-truelayer`, `commerce-amazon`, `travel-amadeus`, `project-github`, `location-google`, `contacts-google`) has its implementation module here. VoicePlatform should follow the same pattern. The native library JARs are self-contained, FFM bindings are pure Java, model provisioning is a single class — the migration is real work but not risky.
+**Trade-offs:** Cross-repo change: modifications to both `casehubio/connectors` (add modules) and `casehubio/agency` (remove speech-sherpa/speech-api/native modules, update speech-ws and speech-demo to depend on connectors' voice-spi + voice-sherpa). Requires an IntelliJ workspace spanning both repos for the migration. Agency's `speech-ws` and `speech-demo` POMs will need dependency changes from `casehub-agency-speech-*` to `casehub-connectors-voice-*`.
+**Depends on:** D8 (VoicePlatform SPI structure), D9 (module structure)
+**Sources:** agency/speech-sherpa (implementation), agency/speech-api (interfaces), agency/speech-sherpa-native-* (5 platform-specific native library JARs), agency/speech-ws and speech-demo (consumers that stay in agency)
 **Exploration:** quick
 **Status:** captured
