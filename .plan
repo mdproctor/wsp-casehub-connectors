@@ -1,0 +1,15 @@
+# Work Plan — issue-188-real-time-inbound-channels
+
+## State
+branch: issue-188-real-time-inbound-channels
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 188
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#188 — Issue #188 ← active
