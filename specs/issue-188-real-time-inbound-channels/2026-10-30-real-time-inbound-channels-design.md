@@ -22,9 +22,9 @@ This epic enhances the connectors inbound infrastructure with three capabilities
 ### 1.2 What This Epic Does Not Deliver
 
 - Full speech-sherpa migration from agency (deferred to #187)
-- Audio processing capabilities: denoising, VAD, speaker ID, diarization, text cleanup, lip sync (D11 — these are processing capabilities, not channel interfaces)
-- Pipeline playbook YAML (D12 — consuming applications author their own)
-- Gmail pull subscription (D5 — IMAP IDLE already serves that role)
+- Audio processing capabilities: denoising, VAD, speaker ID, diarization, text cleanup, lip sync (D11 — these are processing capabilities, not channel interfaces; GitHub issue to be created)
+- Pipeline playbook YAML (D12 — consuming applications author their own; GitHub issue to be created)
+- Gmail pull subscription (D5 — IMAP IDLE already serves that role; GitHub issue to be created)
 
 ## 2. Architecture
 
@@ -35,6 +35,9 @@ voice-pipeline-steps ──→ voice-spi ←── voice-ref
                               ↑
                     agency/speech-sherpa
                     (implements VoicePlatform)
+
+voice-spi ──→ connectors-api (UnsupportedCapabilityException)
+voice-spi ──→ simulation-api (@SimulationEligible)
 
 email-google-inbound ──→ email-google ──→ connectors-api
 
@@ -60,7 +63,8 @@ The platform's `FusionPass` automatically fuses consecutive type-compatible stre
 ### 3.1 Platform Interface
 
 ```java
-@SimulationEligible
+@SimulationEligible(name = "voice-platform",
+    capabilities = {"speechToText", "textToSpeech"})
 public interface VoicePlatform {
     String id();
     boolean supports(Class<?> capability);
@@ -71,6 +75,8 @@ public interface VoicePlatform {
 ```
 
 Follows the connectors capability pattern: `ChatPlatform` (10 capabilities), `BankPlatform` (2 capabilities). `VoicePlatform` starts with 2 — additional families added incrementally when a concrete consumer outside agency requires them.
+
+**Capability accessor contract:** `speechToText()` and `textToSpeech()` throw `UnsupportedCapabilityException` when `supports()` returns `false` for the corresponding capability class. This follows the newer platform convention established by `ContactsPlatform`, `CommercePlatform`, `TravelPlatform`, and `HealthPlatform` — NoOp implementations throw with structured error metadata (operation, capability, provider, supportedCapabilities) for LLM self-correction. The caller pattern is: check `supports(SpeechToText.class)` before calling `speechToText()`, or catch `UnsupportedCapabilityException` at the API boundary.
 
 ### 3.2 SpeechToText Capability
 
@@ -103,6 +109,11 @@ public record TranscriptionOptions(
     public TranscriptionOptions withLanguageHint(String hint) { ... }
     public TranscriptionOptions withModelSize(String size) { ... }
 }
+```
+
+**`modelSize` convention:** portable tier values `"small"`, `"medium"`, `"large"`. Providers map tiers to their own model identifiers (e.g. sherpa-onnx maps `"small"` → `whisper-tiny`, `"large"` → `whisper-large-v3`). Provider-specific values (e.g. `"whisper-large-v3"`) are also accepted — the SPI passes them through to the provider unchanged. `String` rather than an enum because model tiers are inherently provider-specific; a shared enum creates a coupling point that must be updated for every new provider.
+
+```java
 
 public record TranscriptionResult(String text, String language, double confidence) {}
 
@@ -119,7 +130,7 @@ Audio uses `byte[]` matching the existing `Attachment.content()` pattern (heap-r
 
 ### 3.5 Exception Handling
 
-`UnsupportedCapabilityException` (existing in `connectors-api`) thrown when `supports()` returns false and the caller invokes the capability. Follows the established pattern with structured error metadata.
+`UnsupportedCapabilityException` (existing in `connectors-api`) thrown from `speechToText()` and `textToSpeech()` when `supports()` returns `false` for the corresponding capability class. Follows the convention established by `ContactsPlatform`, `CommercePlatform`, `TravelPlatform`, and `HealthPlatform`: the NoOp implementation (`NoOpVoicePlatform`) returns `false` for all `supports()` checks and throws `UnsupportedCapabilityException` with structured metadata from every capability accessor. The graphql layer's `requireCapability` helper checks `supports()` before each call and provides recovery metadata for LLM self-correction.
 
 ## 4. Reference Implementation (`voice-ref`)
 
@@ -139,17 +150,47 @@ Follows the pattern of `chat-ref`, `calendar-ref`, `bank-ref`, `commerce-ref`.
 
 ### 5.2 New Behaviour
 
-For all media types (audio, image, document, video, sticker), spawn a virtual thread to download the binary via the Meta Graph API:
+**New `WebhookResult` variant:**
+
+```java
+record DeferredDelivery(
+    List<InboundMessage> immediate,
+    Supplier<List<InboundMessage>> deferred) implements WebhookResult {}
+```
+
+Added to the sealed `WebhookResult` interface. The router handles it as: deliver `immediate` messages synchronously (as with `Delivered`), then spawn a single virtual thread to execute the `deferred` supplier and deliver its results. This preserves the architectural separation from ADR-0001 — the connector remains passive (returns data), the router owns delivery and threading.
+
+**WhatsApp connector flow:**
 
 1. Webhook arrives → parse messages → split into text and media messages
-2. Text messages: return immediately as `WebhookResult.Delivered(textMessages)` — existing behaviour, unchanged
-3. Media messages: return `WebhookResult.Ignored` (so the router does not deliver them), then spawn a virtual thread per media message
-4. Virtual thread: `GET https://graph.facebook.com/v18.0/{media-id}` with Bearer token → JSON with download URL
-5. Virtual thread: `GET {download-url}` with Bearer token → binary bytes
-6. Wrap in `Attachment(mediaId, contentType, audioBytes)`
-7. Deliver `InboundMessage` to sink via `sink.receive()` directly (bypassing the webhook router's `Delivered` path)
+2. If text-only: return `WebhookResult.Delivered(textMessages)` — existing behaviour, unchanged
+3. If media present: return `WebhookResult.DeferredDelivery(textMessages, () -> downloadMedia(mediaMessages))`
+4. Router delivers text messages immediately, spawns one virtual thread for the deferred supplier
+5. Deferred supplier downloads media sequentially (one at a time, following the Discord pattern):
+   - `GET https://graph.facebook.com/v18.0/{media-id}` with Bearer token → JSON with download URL
+   - `GET {download-url}` with Bearer token → binary bytes
+6. Wrap each in `Attachment(filename, contentType, bytes)` where `filename` is derived from the WhatsApp API response (`filename` field for documents, generated name with correct extension for other types — e.g. `voice-note.ogg` for `audio/ogg`)
+7. Return `List<InboundMessage>` from the supplier — the router delivers them via `service.receive()`
 
-A single webhook POST containing both text and media messages produces temporally separated sink deliveries: text messages arrive immediately, media messages arrive after download completes. Consumers must not assume a single webhook POST maps to a single sink call.
+**Router changes (`WebhookRouter.dispatch`):**
+
+```java
+case WebhookResult.DeferredDelivery(var immediate, var deferred) -> {
+    immediate.forEach(service::receive);
+    Thread.ofVirtual().name("webhook-deferred-" + id).start(() -> {
+        try {
+            deferred.get().forEach(service::receive);
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Deferred delivery failed for " + id, e);
+        }
+    });
+    yield Response.ok().build();
+}
+```
+
+A single webhook POST containing both text and media messages produces temporally separated deliveries: text messages arrive immediately, media messages arrive after download completes. Consumers must not assume a single webhook POST maps to a single delivery call.
+
+Sequential download within the supplier naturally bounds concurrency — one download at a time per webhook POST, matching the Discord attachment download pattern. Meta Graph API rate limits (typically 200 calls/phone-number/hour) are not at risk under normal load.
 
 Uses `HttpHelper.CLIENT` per the shared HTTP client protocol.
 
@@ -179,8 +220,21 @@ All media types get downloaded, not just audio. Eliminates the "v1 limitation". 
 2. Google publishes notifications to Pub/Sub when matching mail arrives
 3. Pub/Sub push subscription posts to our webhook endpoint
 4. Notification contains `emailAddress` and `historyId` — not message content
-5. App calls `history.list(startHistoryId)` via `GoogleEmailPlatform` for new message IDs
+5. App calls `history.list(startHistoryId)` via `GmailHistoryClient` for new message IDs
 6. App calls `messages.get()` via `GoogleEmailPlatform` for content
+
+**`GmailHistoryClient`** — new class in the `email-google` module. Gmail's History API (`users.history.list`) is a fundamentally different access pattern from the mailbox-browsing pattern `EmailPlatform` was designed for. It returns `History` resources containing `messagesAdded`, `messagesDeleted`, `labelsAdded`, `labelsRemoved` — a change log, not a message list. This does not belong on the provider-agnostic `EmailPlatform` SPI.
+
+```java
+public class GmailHistoryClient {
+    private final ServiceConnectionProvider connectionProvider;
+
+    public List<String> getNewMessageIds(String emailAddress, long startHistoryId);
+    public long getCurrentHistoryId(String emailAddress);
+}
+```
+
+Uses the same `ServiceConnectionProvider` as `GoogleEmailPlatform` for per-user OAuth2 tokens.
 
 ### 6.2 Connector
 
@@ -192,20 +246,36 @@ public class GmailPushInboundConnector extends WebhookInboundConnector {
 ```
 
 - Webhook endpoint: `POST /connectors/gmail-push-inbound/webhook`
-- Connector type: `InboundConnectorTypes.EMAIL` (same as IMAP — both produce email `InboundMessage`s)
-- Depends on `email-google` module for `GoogleEmailPlatform` message fetching
+- Connector type: `InboundConnectorTypes.EMAIL` (same as IMAP — both produce email `InboundMessage`s; intentional: both deliver email, differentiation available via `connectorId` which is `gmail-push-inbound` vs `email-inbound`, and via the CloudEvent `source` URI which includes the `connectorId`)
+- Depends on `email-google` module for `GoogleEmailPlatform` (message fetching) and `GmailHistoryClient` (history-based change tracking)
 
 ### 6.3 Authentication
 
-Pub/Sub push subscriptions use JWT bearer token verification via Google's OAuth2 certs. The connector validates the JWT `audience` claim matches the configured value. No HMAC signature (unlike Slack/WhatsApp webhooks).
+Pub/Sub push subscriptions use OIDC JWT bearer token verification. Google sends a signed JWT in the `Authorization: Bearer` header of each push notification. The connector validates:
+
+1. **Signature** — RS256, verified against Google's OIDC JWKS keys (fetched from `https://www.googleapis.com/oauth2/v3/certs`, cached and refreshed on key rotation)
+2. **Issuer** — `https://accounts.google.com`
+3. **Audience** — matches `casehub.connectors.gmail.push.pubsub-audience` config
+4. **Expiry** — JWT `exp` claim is not past
+
+**Implementation:** uses `smallrye-jwt` for JWT verification with Google's OIDC provider URL configured as the issuer. This is a per-endpoint validation scoped to the Gmail push webhook — not a global Quarkus OIDC tenant — so it uses `JsonWebToken` parsing directly rather than JAX-RS `@RolesAllowed` integration. Key caching and rotation are handled by the SmallRye JWT JWKS client.
+
+No HMAC signature (unlike Slack/WhatsApp webhooks — those use platform-specific shared secret verification).
 
 ### 6.4 Watch Lifecycle
 
-`GmailWatchManager` CDI bean:
-- Calls `users.watch()` at startup
-- Refreshes before expiry (Google watches expire after 7 days)
-- Watches scoped to configurable labels (e.g. `INBOX` only)
-- Stores `historyId` per user for incremental history fetching via a `HistoryStore` SPI
+`GmailWatchManager` is an `@ApplicationScoped` CDI bean that manages per-user Gmail watch registrations.
+
+**Startup:** observes `@Observes StartupEvent` to register watches for all configured user accounts. For each user:
+1. Calls `users.watch()` with the configured Pub/Sub topic and label filter
+2. Stores the returned `historyId` as the initial baseline for that user via `HistoryStore`
+3. On failure: logs `WARNING`, skips the user, and retries on the next scheduled refresh cycle
+
+**Refresh:** a `@Scheduled` method runs daily (configurable via `casehub.connectors.gmail.push.watch-refresh-interval`). Google watches expire after 7 days; daily refresh ensures watches are renewed well before expiry. The refresh iterates all configured users and re-calls `users.watch()` — Google treats this as idempotent (re-registration returns the existing watch).
+
+**Per-user management:** watches are per-user (Gmail API requirement). The set of monitored users is driven by `ServiceConnectionProvider` — each user with a valid Gmail OAuth2 connection gets a watch. `HistoryStore` is keyed by `emailAddress` so incremental fetching is per-user.
+
+**Connector relationship:** `GmailPushInboundConnector` (the `WebhookInboundConnector`) is injected with `GmailWatchManager` to access `HistoryStore` for history-based message fetching on each push notification. The connector does not manage watches — it only reads history state.
 
 **`HistoryStore` SPI:**
 ```java
@@ -215,7 +285,9 @@ public interface HistoryStore {
 }
 ```
 
-Default implementation: in-memory `ConcurrentHashMap`. On startup with no stored `historyId`, the connector performs a full sync (fetches current `historyId` from Gmail API as the baseline — no historical messages replayed). Persistent implementations (database, file) can be provided by consuming applications via CDI.
+Default implementation: in-memory `ConcurrentHashMap`. Persistent implementations (database, file) can be provided by consuming applications via CDI alternative.
+
+**Risk: in-memory HistoryStore data loss on restart.** With the default in-memory implementation, all `historyId` state is lost on JVM restart. On restart with no stored `historyId`, the connector fetches the current `historyId` from the Gmail API as a new baseline — no historical messages are replayed. This means messages arriving between shutdown and restart are silently dropped (at-most-once delivery during restarts). This is the inverse of the IMAP IDLE connector's at-least-once risk (§12 Risk #1). Consuming applications requiring reliable delivery across restarts should provide a persistent `HistoryStore` via CDI. A `WARNING` is logged at startup when using the in-memory default.
 
 ### 6.5 History Deduplication
 
@@ -259,11 +331,18 @@ public record SttTranscribePlugin(
 }
 ```
 
+**Compile-time generation:** `@Plugin(streaming = true)` triggers `StepPluginProcessor` at compile time, which generates a `StreamingStep<byte[], TranscriptionResult>` adapter. The record does not implement `StreamingStep` directly — the annotation processor emits the adapter class. In the `@Execute` method signature:
+- **First parameter** (`byte[] audio`) — the streaming input type (`I`)
+- **Additional parameters** (`VoicePlatform voicePlatform`) — service parameters resolved from `ServiceRegistry` via CDI at `materialize()` time
+- **Record components** (`language`, `model`) — configuration parameters populated from playbook YAML
+
+This follows the same pattern as existing streaming plugins (e.g. `StreamingWithConfigPlugin` in the test suite).
+
 ### 7.2 Type Contract
 
 - Input: `byte[]` — raw audio bytes from `Attachment.content()`
 - Output: `TranscriptionResult` — `text`, `language`, `confidence`
-- Service: `VoicePlatform` resolved via `ServiceRegistry` (CDI)
+- Service: `VoicePlatform` resolved via `ServiceRegistry` (CDI) at `materialize()` time
 
 ### 7.3 Playbook Usage (consuming application)
 
