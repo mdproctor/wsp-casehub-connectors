@@ -10,26 +10,26 @@
 **Exploration:** quick
 **Status:** captured
 
-## D2: Shared audio processing pipeline
+## D2: Channel-agnostic STT step type for audio transcription
 
-**Choice:** Build a channel-agnostic audio processing pipeline that any inbound connector can feed into. WhatsApp and Signal both route audio attachments through the same STT path.
+**Choice:** Provide a channel-agnostic STT step type (`@Plugin(streaming=true)`) that consuming applications can compose into audio processing playbooks via the platform playbook engine. All audio-producing connectors (WhatsApp, Signal, Discord) download attachments inline and deliver `Attachment` with audio content types. The STT step transcribes audio bytes regardless of source channel.
 **Alternatives:**
 - WhatsApp-specific first — build transcription into WhatsApp flow only, refactor to shared later. Guaranteed refactor.
 - Observer-based pipeline — CDI observer detects audio attachments and enriches. Fully decoupled but adds a second event hop.
-**Rationale:** Signal already downloads attachments. WhatsApp needs to. The future voice connector will too. All produce `Attachment` with audio content types. The STT stage is identical regardless of source channel.
-**Trade-offs:** Slightly more upfront design work. Signal inbound needs modification to feed into the pipeline (currently delivers raw attachments without processing).
-**Sources:** SignalInboundConnector.java (downloads attachments inline), DiscordInboundConnector.java (same pattern), WhatsAppInboundConnector.java (currently URL-only for media)
+**Rationale:** All three audio-producing connectors download attachments inline (WhatsApp via D4's async download, Signal via `SignalInboundConnector.handleMessage()`, Discord via `DiscordInboundConnector.downloadAndDeliver()`). All produce `Attachment` with audio content types. The STT step is identical regardless of source channel — it takes audio bytes and calls `VoicePlatform.speechToText()`. Consuming applications compose this step into their own playbooks (D12), with per-application retry/timeout requirements.
+**Trade-offs:** Connectors provides only the step atom — consuming applications must author playbook YAML. This is the correct trade-off per D12: audio processing pipelines differ by application.
+**Sources:** SignalInboundConnector.java (downloads attachments inline), DiscordInboundConnector.java (same pattern), WhatsAppInboundConnector.java (D4: async download with retry), D12 (playbook YAML ownership)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R2-03: updated language to match post-revision scope — connectors provides a step type, not a pipeline)
 
 ## D3: Pipeline architecture — playbook orchestration with native streaming steps
 
-**Choice:** Use the platform playbook engine for orchestration (routing, retry, timeout, error handling, composition) with custom native step types for the data plane (binary media download, streaming STT).
+**Choice:** Use the platform playbook engine for orchestration (routing, retry, timeout, error handling, composition) with a custom native step type for the data plane (STT transcription).
 **Alternatives:**
 - Simple CDI content-type router in connectors — no playbook dependency, less flexible but zero orchestration overhead.
 - Defer pipeline architecture — focus on raw capabilities, design pipeline separately.
 **Rationale:** Playbooks already have CloudEvent triggers, match/cases for content-type routing, retry with backoff, timeout, channels with backpressure. The step compiler is extensible — custom step types handle streaming efficiently as plain Java. Clean separation: playbook handles orchestration plane, native steps handle data plane.
-**Trade-offs:** Playbook dependency for pipeline consumers. Mitigated because playbooks are already a platform primitive. Streaming step types need to be built (media-download, stt-transcribe) as step compiler extensions.
+**Trade-offs:** Playbook dependency for pipeline consumers. Mitigated because playbooks are already a platform primitive. The STT step type (stt-transcribe) needs to be built as a step compiler extension.
 **Sources:** platform/yaml-step-runtime (DecoratorChain, StructuralStepEvaluator), platform/playbook-compiler (extensible register()), playbooks/concurrency-patterns/combined-pipeline.playbook.yaml
 **Exploration:** deep-analysis
 **Status:** captured
@@ -74,7 +74,7 @@
 
 ## D7: Use platform's streaming step API with automatic pipe fusion
 
-**Choice:** Implement media-download and stt-transcribe as `@Plugin(streaming=true)` step types using the platform's shipping `StreamingStep<I, O>` API. The `FusionPass` automatically detects and fuses consecutive type-compatible steps into a single `FusedPipelineStep` — near-native piped execution with per-stage retry/timeout decorators.
+**Choice:** Implement stt-transcribe as a `@Plugin(streaming=true)` step type using the platform's shipping `StreamingStep<I, O>` API. Media download is handled inline by each connector (WhatsApp via D4, Signal and Discord via existing code). The `FusionPass` automatically detects and fuses consecutive type-compatible streaming steps into a single `FusedPipelineStep` — applicable when consuming applications compose multiple streaming steps (e.g. denoise → STT in future pipelines). For #188's single-step STT pipeline, the playbook engine still provides per-step retry/timeout decorators.
 **Alternatives:**
 - Custom pipeline framework in connectors — redundant given the platform already ships this.
 - Plain CDI service chain — no playbook integration, no automatic retry/timeout/error handling.
@@ -83,7 +83,7 @@
 **Depends on:** D3 (playbook orchestration architecture)
 **Sources:** platform StreamingStep.java, FusionPass.java, StructuralStepEvaluator.java (lines 194-205, AutoCloseable cleanup in fused chain evaluation), StreamingPipelineIntegrationTest.java, @Plugin(streaming=true) annotation
 **Exploration:** deep-analysis
-**Status:** revised (R1-11: clarified that "streaming" refers to step composition, not content streaming; clarified AutoCloseable cleanup is for intermediate data values in the evaluator, not the step interface)
+**Status:** revised (R1-11: clarified streaming/AutoCloseable semantics; R2-02: removed stale media-download reference, clarified single-step pipeline for #188)
 
 ## D8: VoicePlatform SPI structure — connectors capability pattern
 
@@ -150,7 +150,7 @@ Not included (deferred or eliminated):
 
 ## D12: Playbook YAML ownership — consuming applications, not connectors
 
-**Choice:** Connectors provides `@Plugin(streaming=true)` step types (media-download, stt-transcribe) as CDI beans. The playbook YAML that composes these steps into processing pipelines lives in consuming applications (casehub-life, casehub-clinical, etc.), not in connectors.
+**Choice:** Connectors provides the `@Plugin(streaming=true)` stt-transcribe step type as a CDI bean. Media download is handled inline by each connector, not as a pipeline step. The playbook YAML that composes step types into processing pipelines lives in consuming applications (casehub-life, casehub-clinical, etc.), not in connectors.
 **Alternatives:**
 - Pipeline YAML in connectors — connectors ships a shared pipeline playbook. Violates the library rule ("no orchestration"). Connectors provides building blocks; orchestration is a caller concern.
 - Pipeline YAML in a separate shared module — new module category. Creates a shared pipeline that all consumers inherit. Reduces flexibility; each application's audio processing needs may differ.
