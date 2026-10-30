@@ -14,6 +14,7 @@ This epic enhances the connectors inbound infrastructure with three capabilities
 |-------------|--------|------|
 | VoicePlatform SPI (STT + TTS) | `voice-spi` | New |
 | NoOpVoicePlatform (`@DefaultBean`) | `voice-spi` | New |
+| VoicePlatformService | `voice-spi` | New |
 | Reference VoicePlatform | `voice-ref` | New |
 | Gmail push via Pub/Sub | `email-google-inbound` | New |
 | STT playbook step type | `voice-pipeline-steps` | New |
@@ -80,6 +81,32 @@ public interface VoicePlatform {
 Follows the connectors capability pattern: `ChatPlatform` (10 capabilities), `BankPlatform` (2 capabilities). `VoicePlatform` starts with 2 — additional families added incrementally when a concrete consumer outside agency requires them.
 
 **Capability accessor contract:** `speechToText()` and `textToSpeech()` always return a capability instance — they never throw. When `supports()` returns `false`, the returned instance is a NoOp whose methods throw `UnsupportedCapabilityException` with structured error metadata (operation, capability, provider, supportedCapabilities). This follows the convention established by `ContactsPlatform`, `CommercePlatform`, `TravelPlatform`, and `HealthPlatform` — lazy failure at the point of use, not eager failure at the accessor. The caller pattern is: check `supports(SpeechToText.class)` before calling methods on the capability, or catch `UnsupportedCapabilityException` at the API boundary.
+
+**`VoicePlatformService`** — CDI-managed platform lookup, following the pattern of all 11 existing `*PlatformService` classes (`ContactsPlatformService`, `BankPlatformService`, etc.):
+
+```java
+public class VoicePlatformService {
+    private final Map<String, VoicePlatform> platforms;
+
+    public VoicePlatformService(List<VoicePlatform> platforms) {
+        this.platforms = platforms.stream()
+            .collect(Collectors.toMap(VoicePlatform::id, p -> p));
+    }
+
+    public VoicePlatform platform(String id) {
+        var platform = platforms.get(id);
+        if (platform == null) {
+            throw new IllegalArgumentException("No voice platform: " + id);
+        }
+        return platform;
+    }
+
+    public boolean supports(String id) { return platforms.containsKey(id); }
+    public Set<String> ids() { return platforms.keySet(); }
+}
+```
+
+Enables graphql layer and playbook runtime to resolve VoicePlatform providers by ID (e.g. `"sherpa"`, `"ref"`, `"none"`).
 
 ### 3.2 SpeechToText Capability
 
@@ -243,11 +270,15 @@ All media types get downloaded, not just audio. Eliminates the "v1 limitation". 
 5. Connector validates JWT and parses notification (fast, no I/O)
 6. Connector returns `DeferredDelivery(List.of(), () -> fetchNewMessages(emailAddress))` — Pub/Sub gets its 200 acknowledgement immediately
 7. Router spawns a virtual thread for the deferred supplier, which:
+   - **Acquires a per-user lock** from `GmailWatchManager.emailLock(emailAddress)` — serializes concurrent suppliers for the same email address to prevent duplicate message delivery (see §6.5)
    - Calls `historyStore.getLastHistoryId(emailAddress)` for the baseline
    - Calls `GmailHistoryClient.getNewMessageIds(emailAddress, lastHistoryId)` — outbound HTTP to Gmail API
    - For each new message ID, calls `GoogleEmailPlatform.getMessage(watchLabel, messageId)` — outbound HTTP per message (the `mailboxId` parameter is the configured watch label, e.g. `"INBOX"`)
    - Updates `historyStore.setLastHistoryId(emailAddress, newHistoryId)`
+   - Releases the per-user lock
    - Returns the `List<InboundMessage>`
+
+**Per-user serialization:** `GmailWatchManager` maintains a `ConcurrentHashMap<String, ReentrantLock>` keyed by email address. The deferred supplier acquires the lock before `getLastHistoryId()` and releases after `setLastHistoryId()`. This ensures the read-process-update sequence is atomic per user. Cross-user concurrency is preserved — locks are per-user, not global. The critical section covers one `history.list` + N `getMessage` calls, which is bounded by message burst size.
 
 **Why DeferredDelivery:** Google Pub/Sub push expects quick acknowledgement (~10s default). Calling `history.list()` and `messages.get()` synchronously inside `handle()` risks exceeding the deadline under message bursts (N messages × ~200ms per Gmail API call), triggering retry storms. `DeferredDelivery` solves this identically to the WhatsApp media download pattern — the connector remains passive, the router owns the I/O thread.
 
@@ -320,11 +351,13 @@ Default implementation: in-memory `ConcurrentHashMap`. Persistent implementation
 ### 6.5 History Deduplication
 
 `historyId` is monotonically increasing. On notification:
-1. Fetch `history.list(startHistoryId=lastSeen)`
-2. Process `messagesAdded` events
-3. Update `lastSeen` to the response's `historyId`
+1. Acquire per-user lock (§6.1 step 7)
+2. Fetch `history.list(startHistoryId=lastSeen)`
+3. Process `messagesAdded` events
+4. Update `lastSeen` to the response's `historyId`
+5. Release per-user lock
 
-Duplicate notifications (Pub/Sub at-least-once delivery) produce no duplicate `InboundMessage`s because `history.list` returns only genuinely new messages since `lastSeen`.
+Duplicate notifications (Pub/Sub at-least-once delivery) produce no duplicate `InboundMessage`s because: (a) `history.list` returns only genuinely new messages since `lastSeen`, and (b) per-user serialization ensures the `getLastHistoryId` → process → `setLastHistoryId` sequence is atomic — concurrent deferred suppliers for the same email address block on the per-user lock rather than reading the same stale baseline.
 
 ### 6.6 Credentials
 
@@ -422,6 +455,13 @@ public class SherpaVoicePlatform implements VoicePlatform {
     private final SpeechToTextService sttService;
     private final TextToSpeechService ttsService;
 
+    @Override public String id() { return "sherpa"; }
+
+    @Override
+    public boolean supports(Class<?> capability) {
+        return capability == SpeechToText.class || capability == TextToSpeech.class;
+    }
+
     @Override
     public SpeechToText speechToText() {
         return (audio, options) -> {
@@ -468,7 +508,7 @@ Agency's `SpeechToTextService.transcribe(Path, TranscriptionOptions)` takes a `P
 
 | Module | Test Approach |
 |--------|---------------|
-| `voice-spi` | `NoOpVoicePlatformTest` — verify `supports()` returns false for all capabilities, all NoOp capability methods throw `UnsupportedCapabilityException` with correct metadata (following `NoOpTravelPlatformTest` pattern) |
+| `voice-spi` | `NoOpVoicePlatformTest` — verify `supports()` returns false for all capabilities, all NoOp capability methods throw `UnsupportedCapabilityException` with correct metadata (following `NoOpTravelPlatformTest` pattern). `VoicePlatformServiceTest` — verify register/retrieve, throws for unknown ID, NoOp reports no capabilities (following `ContactsPlatformServiceTest` pattern) |
 | `voice-ref` | Verify canned responses, `supports()` introspection, `@SimulationEligible` wrapper generation |
 | `voice-pipeline-steps` | `voice-ref` as provider — `stt-transcribe` step produces `TranscriptionResult` |
 | `email-google-inbound` | Mock `GoogleEmailPlatform` for message fetch, test JWT validation, history deduplication, watch lifecycle |
