@@ -141,11 +141,15 @@ Follows the pattern of `chat-ref`, `calendar-ref`, `bank-ref`, `commerce-ref`.
 
 For all media types (audio, image, document, video, sticker), spawn a virtual thread to download the binary via the Meta Graph API:
 
-1. Webhook arrives → parse messages → return `WebhookResult.Ignored` for media messages (deferred delivery via virtual thread)
-2. Virtual thread: `GET https://graph.facebook.com/v18.0/{media-id}` with Bearer token → JSON with download URL
-3. Virtual thread: `GET {download-url}` with Bearer token → binary bytes
-4. Wrap in `Attachment(mediaId, contentType, audioBytes)`
-5. Deliver `InboundMessage` to sink with attachment
+1. Webhook arrives → parse messages → split into text and media messages
+2. Text messages: return immediately as `WebhookResult.Delivered(textMessages)` — existing behaviour, unchanged
+3. Media messages: return `WebhookResult.Ignored` (so the router does not deliver them), then spawn a virtual thread per media message
+4. Virtual thread: `GET https://graph.facebook.com/v18.0/{media-id}` with Bearer token → JSON with download URL
+5. Virtual thread: `GET {download-url}` with Bearer token → binary bytes
+6. Wrap in `Attachment(mediaId, contentType, audioBytes)`
+7. Deliver `InboundMessage` to sink via `sink.receive()` directly (bypassing the webhook router's `Delivered` path)
+
+A single webhook POST containing both text and media messages produces temporally separated sink deliveries: text messages arrive immediately, media messages arrive after download completes. Consumers must not assume a single webhook POST maps to a single sink call.
 
 Uses `HttpHelper.CLIENT` per the shared HTTP client protocol.
 
@@ -201,7 +205,17 @@ Pub/Sub push subscriptions use JWT bearer token verification via Google's OAuth2
 - Calls `users.watch()` at startup
 - Refreshes before expiry (Google watches expire after 7 days)
 - Watches scoped to configurable labels (e.g. `INBOX` only)
-- Stores `historyId` per user for incremental history fetching
+- Stores `historyId` per user for incremental history fetching via a `HistoryStore` SPI
+
+**`HistoryStore` SPI:**
+```java
+public interface HistoryStore {
+    Optional<Long> getLastHistoryId(String emailAddress);
+    void setLastHistoryId(String emailAddress, long historyId);
+}
+```
+
+Default implementation: in-memory `ConcurrentHashMap`. On startup with no stored `historyId`, the connector performs a full sync (fetches current `historyId` from Gmail API as the baseline — no historical messages replayed). Persistent implementations (database, file) can be provided by consuming applications via CDI.
 
 ### 6.5 History Deduplication
 
