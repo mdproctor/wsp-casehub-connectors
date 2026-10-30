@@ -13,6 +13,7 @@ This epic enhances the connectors inbound infrastructure with three capabilities
 | Deliverable | Module | Type |
 |-------------|--------|------|
 | VoicePlatform SPI (STT + TTS) | `voice-spi` | New |
+| NoOpVoicePlatform (`@DefaultBean`) | `voice-spi` | New |
 | Reference VoicePlatform | `voice-ref` | New |
 | Gmail push via Pub/Sub | `email-google-inbound` | New |
 | STT playbook step type | `voice-pipeline-steps` | New |
@@ -40,6 +41,8 @@ voice-spi ──→ connectors-api (UnsupportedCapabilityException)
 voice-spi ──→ simulation-api (@SimulationEligible)
 
 email-google-inbound ──→ email-google ──→ connectors-api
+email-google-inbound ──→ connectors-api (WebhookInboundConnector, InboundMessage, WebhookResult)
+email-google-inbound ──→ smallrye-jwt (JWT verification — new external dependency)
 
 webhook (enhanced) ──→ connectors-api (existing deps unchanged)
 ```
@@ -76,7 +79,7 @@ public interface VoicePlatform {
 
 Follows the connectors capability pattern: `ChatPlatform` (10 capabilities), `BankPlatform` (2 capabilities). `VoicePlatform` starts with 2 — additional families added incrementally when a concrete consumer outside agency requires them.
 
-**Capability accessor contract:** `speechToText()` and `textToSpeech()` throw `UnsupportedCapabilityException` when `supports()` returns `false` for the corresponding capability class. This follows the newer platform convention established by `ContactsPlatform`, `CommercePlatform`, `TravelPlatform`, and `HealthPlatform` — NoOp implementations throw with structured error metadata (operation, capability, provider, supportedCapabilities) for LLM self-correction. The caller pattern is: check `supports(SpeechToText.class)` before calling `speechToText()`, or catch `UnsupportedCapabilityException` at the API boundary.
+**Capability accessor contract:** `speechToText()` and `textToSpeech()` always return a capability instance — they never throw. When `supports()` returns `false`, the returned instance is a NoOp whose methods throw `UnsupportedCapabilityException` with structured error metadata (operation, capability, provider, supportedCapabilities). This follows the convention established by `ContactsPlatform`, `CommercePlatform`, `TravelPlatform`, and `HealthPlatform` — lazy failure at the point of use, not eager failure at the accessor. The caller pattern is: check `supports(SpeechToText.class)` before calling methods on the capability, or catch `UnsupportedCapabilityException` at the API boundary.
 
 ### 3.2 SpeechToText Capability
 
@@ -130,7 +133,24 @@ Audio uses `byte[]` matching the existing `Attachment.content()` pattern (heap-r
 
 ### 3.5 Exception Handling
 
-`UnsupportedCapabilityException` (existing in `connectors-api`) thrown from `speechToText()` and `textToSpeech()` when `supports()` returns `false` for the corresponding capability class. Follows the convention established by `ContactsPlatform`, `CommercePlatform`, `TravelPlatform`, and `HealthPlatform`: the NoOp implementation (`NoOpVoicePlatform`) returns `false` for all `supports()` checks and throws `UnsupportedCapabilityException` with structured metadata from every capability accessor. The graphql layer's `requireCapability` helper checks `supports()` before each call and provides recovery metadata for LLM self-correction.
+`UnsupportedCapabilityException` (existing in `connectors-api`) is thrown from the methods of NoOp capability instances returned by `speechToText()` and `textToSpeech()` when `supports()` returns `false` for the corresponding capability class.
+
+**`NoOpVoicePlatform`** — `@DefaultBean @ApplicationScoped` in `voice-spi`. Returns `false` for all `supports()` checks. Accessors return NoOp capability instances (`NoOpSpeechToText`, `NoOpTextToSpeech`) whose methods throw `UnsupportedCapabilityException` with structured metadata (operation, capability, provider, supportedCapabilities). Follows the convention established by `NoOpContactsPlatform`, `NoOpCommercePlatform`, `NoOpTravelPlatform`, and `NoOpHealthPlatform`.
+
+```java
+@DefaultBean
+@ApplicationScoped
+public class NoOpVoicePlatform implements VoicePlatform {
+    @Override public String id() { return "none"; }
+    @Override public boolean supports(Class<?> capability) { return false; }
+    @Override public SpeechToText speechToText() { return NoOpSpeechToText.INSTANCE; }
+    @Override public TextToSpeech textToSpeech() { return NoOpTextToSpeech.INSTANCE; }
+}
+```
+
+Where `NoOpSpeechToText.INSTANCE.transcribe(...)` throws `new UnsupportedCapabilityException("transcribe", "SpeechToText", "none", List.of())` and `NoOpTextToSpeech.INSTANCE.synthesise(...)` throws similarly. Private enum singletons, same pattern as `NoOpContactsPlatform.NoOpContactRead`.
+
+The graphql layer's `requireCapability` helper checks `supports()` before each call and provides recovery metadata for LLM self-correction.
 
 ## 4. Reference Implementation (`voice-ref`)
 
@@ -220,8 +240,16 @@ All media types get downloaded, not just audio. Eliminates the "v1 limitation". 
 2. Google publishes notifications to Pub/Sub when matching mail arrives
 3. Pub/Sub push subscription posts to our webhook endpoint
 4. Notification contains `emailAddress` and `historyId` — not message content
-5. App calls `history.list(startHistoryId)` via `GmailHistoryClient` for new message IDs
-6. App calls `messages.get()` via `GoogleEmailPlatform` for content
+5. Connector validates JWT and parses notification (fast, no I/O)
+6. Connector returns `DeferredDelivery(List.of(), () -> fetchNewMessages(emailAddress))` — Pub/Sub gets its 200 acknowledgement immediately
+7. Router spawns a virtual thread for the deferred supplier, which:
+   - Calls `historyStore.getLastHistoryId(emailAddress)` for the baseline
+   - Calls `GmailHistoryClient.getNewMessageIds(emailAddress, lastHistoryId)` — outbound HTTP to Gmail API
+   - For each new message ID, calls `GoogleEmailPlatform.getMessage(watchLabel, messageId)` — outbound HTTP per message (the `mailboxId` parameter is the configured watch label, e.g. `"INBOX"`)
+   - Updates `historyStore.setLastHistoryId(emailAddress, newHistoryId)`
+   - Returns the `List<InboundMessage>`
+
+**Why DeferredDelivery:** Google Pub/Sub push expects quick acknowledgement (~10s default). Calling `history.list()` and `messages.get()` synchronously inside `handle()` risks exceeding the deadline under message bursts (N messages × ~200ms per Gmail API call), triggering retry storms. `DeferredDelivery` solves this identically to the WhatsApp media download pattern — the connector remains passive, the router owns the I/O thread.
 
 **`GmailHistoryClient`** — new class in the `email-google` module. Gmail's History API (`users.history.list`) is a fundamentally different access pattern from the mailbox-browsing pattern `EmailPlatform` was designed for. It returns `History` resources containing `messagesAdded`, `messagesDeleted`, `labelsAdded`, `labelsRemoved` — a change log, not a message list. This does not belong on the provider-agnostic `EmailPlatform` SPI.
 
@@ -271,7 +299,7 @@ No HMAC signature (unlike Slack/WhatsApp webhooks — those use platform-specifi
 2. Stores the returned `historyId` as the initial baseline for that user via `HistoryStore`
 3. On failure: logs `WARNING`, skips the user, and retries on the next scheduled refresh cycle
 
-**Refresh:** a `@Scheduled` method runs daily (configurable via `casehub.connectors.gmail.push.watch-refresh-interval`). Google watches expire after 7 days; daily refresh ensures watches are renewed well before expiry. The refresh iterates all configured users and re-calls `users.watch()` — Google treats this as idempotent (re-registration returns the existing watch).
+**Refresh:** a `@Scheduled` method runs daily by default (configurable via `casehub.connectors.gmail.push.watch-refresh-seconds`, default `86400` = 1 day). Google watches expire after 7 days; daily refresh provides a 6-day safety margin so a single missed refresh (network glitch, JVM restart) doesn't cause watch expiry. The cost is one idempotent API call per day per user. The refresh iterates all configured users and re-calls `users.watch()` — Google treats this as idempotent (re-registration returns the existing watch).
 
 **Per-user management:** watches are per-user (Gmail API requirement). The set of monitored users is driven by `ServiceConnectionProvider` — each user with a valid Gmail OAuth2 connection gets a watch. `HistoryStore` is keyed by `emailAddress` so incremental fetching is per-user.
 
@@ -440,7 +468,7 @@ Agency's `SpeechToTextService.transcribe(Path, TranscriptionOptions)` takes a `P
 
 | Module | Test Approach |
 |--------|---------------|
-| `voice-spi` | Compile-time only — pure interfaces and records |
+| `voice-spi` | `NoOpVoicePlatformTest` — verify `supports()` returns false for all capabilities, all NoOp capability methods throw `UnsupportedCapabilityException` with correct metadata (following `NoOpTravelPlatformTest` pattern) |
 | `voice-ref` | Verify canned responses, `supports()` introspection, `@SimulationEligible` wrapper generation |
 | `voice-pipeline-steps` | `voice-ref` as provider — `stt-transcribe` step produces `TranscriptionResult` |
 | `email-google-inbound` | Mock `GoogleEmailPlatform` for message fetch, test JWT validation, history deduplication, watch lifecycle |
@@ -470,7 +498,7 @@ casehub.connectors.whatsapp.phone-number-id=...
 casehub.connectors.gmail.push.enabled=true
 casehub.connectors.gmail.push.pubsub-audience=https://example.com
 casehub.connectors.gmail.push.watch-labels=INBOX
-casehub.connectors.gmail.push.watch-refresh-seconds=518400  # 6 days (refresh before 7-day expiry)
+casehub.connectors.gmail.push.watch-refresh-seconds=86400  # 1 day (6-day safety margin before 7-day expiry)
 ```
 
 ## References
