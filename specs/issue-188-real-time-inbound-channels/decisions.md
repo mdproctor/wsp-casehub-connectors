@@ -70,14 +70,39 @@
 **Exploration:** quick
 **Status:** captured
 
-## D7: Streaming-ready native steps, pipe fusion deferred to platform#680
+## D7: Use platform's streaming step API with automatic pipe fusion
 
-**Choice:** Design the native step types (media-download, stt-transcribe, denoise) to support streaming interfaces internally, but wire them through current playbook step semantics for now. Pipe fusion (compiler-detected streaming step chains → near-native piped execution) filed as platform#680 for the step engine team.
+**Choice:** Implement media-download, stt-transcribe, denoise, and VAD as `@Plugin(streaming=true)` step types using the platform's shipping `StreamingStep<I, O>` API. The `FusionPass` automatically detects and fuses consecutive type-compatible steps into a single `FusedPipelineStep` — near-native piped execution with `AutoCloseable` resource cleanup.
 **Alternatives:**
-- Build streaming step support in this epic — include the platform step engine enhancement. Larger scope, cross-repo.
-- Defer entirely — don't design for streaming at all. Revisit when performance data shows overhead matters.
-**Rationale:** The streaming step concept makes playbooks more universal for agentic AI data pipelines, but it's a platform infrastructure enhancement. This epic defines the connectors-side steps with streaming-compatible interfaces so they're ready when the engine supports pipe fusion.
-**Trade-offs:** Initial deployment uses materialization boundaries between steps. Acceptable for v1 — audio files are typically small (< 10MB). Pipe fusion eliminates this overhead later without changing step implementations.
-**Sources:** platform#680 (streaming step type issue), agency speech-sherpa (streaming STT via RecognitionStream)
+- Custom pipeline framework in connectors — redundant given the platform already ships this.
+- Plain CDI service chain — no playbook integration, no automatic retry/timeout/error handling.
+**Rationale:** The platform's streaming step infrastructure (platform#680, now landed) provides exactly what this pipeline needs: typed transforms (`StreamingStep<I, O>`), automatic fusion by the compiler (`FusionPass`), per-stage `timeout`/`retry`/`delay` decorators, and `AutoCloseable` resource cleanup on failure. Using it means zero custom pipeline code in connectors.
+**Trade-offs:** Dependency on `yaml-plugin-api` for the `@Plugin` annotation and `StreamingStep` interface. Acceptable — this is the platform's standard step authoring API.
+**Depends on:** D3 (playbook orchestration architecture)
+**Sources:** platform StreamingStep.java, FusionPass.java, StreamingPipelineIntegrationTest.java, @Plugin(streaming=true) annotation
 **Exploration:** deep-analysis
+**Status:** captured
+
+## D8: VoicePlatform SPI structure — connectors capability pattern
+
+**Choice:** Single `VoicePlatform` interface with capability sub-interfaces matching the connectors platform SPI pattern: `speechToText()`, `textToSpeech()`, `denoising()`, `voiceActivityDetection()`, `speakerIdentification()`, `diarization()`, `textCleanup()`, `lipSync()`. `supports(Class)` introspection. `@SimulationEligible`.
+**Alternatives:**
+- Flat interfaces, no platform wrapper — mirror agency's speech-api structure. Simpler but inconsistent with other platform SPIs.
+- Hybrid — standalone interfaces AND a VoicePlatform aggregator. More flexible but more types.
+**Rationale:** Consistency with ChatPlatform, BankPlatform, DocumentPlatform, etc. The capability sub-interface pattern with `supports()` introspection enables the simulation framework and graceful degradation.
+**Trade-offs:** Agency's speech-api types need to be adapted to fit the capability pattern (e.g., `SpeechToTextService` becomes a capability sub-interface of `VoicePlatform`). Some types may need reshaping.
+**Sources:** ChatPlatform (10 capabilities), BankPlatform (AccountInformation + PaymentInitiation), agency speech-api (34 types, 8 families)
+**Exploration:** quick
+**Status:** captured
+
+## D9: Module structure — 6 new modules
+
+**Choice:** Create 6 new Maven modules: `voice-spi` (VoicePlatform SPI + 8 capability interfaces), `voice-ref` (in-memory ref impl with stubs), `email-google-inbound` (Gmail push/pull connector), `whatsapp-inbound-media` (WhatsApp media download streaming step), `voice-pipeline-steps` (STT/denoise/VAD playbook streaming steps), `signal-inbound-media` (Signal audio pipeline step reusing voice-pipeline-steps).
+**Alternatives:**
+- 4 modules, consolidated — merge WhatsApp/Signal media + voice steps into one module. Less granular dependency control.
+- 3 modules, minimal — media download and voice steps stay in existing modules. Muddies module boundaries.
+**Rationale:** Each module has one clear purpose and can be depended on independently. `voice-pipeline-steps` is shared between WhatsApp and Signal without either depending on the other.
+**Trade-offs:** More modules means more POMs and more wiring. Mitigated by the existing project structure (40+ modules already) and clear dependency graph.
+**Sources:** Existing module structure in parent POM, connectors module table in CLAUDE.md
+**Exploration:** quick
 **Status:** captured
