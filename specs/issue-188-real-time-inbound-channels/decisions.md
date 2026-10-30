@@ -69,3 +69,15 @@
 **Sources:** agency/speech-api (SpeechToTextService, TextToSpeechService, SpeechDenoiser, VoiceActivityFilter, SpeakerEmbeddingExtractor, SpeakerDiarizationService, TextFilter/CleanupConfig, PhonemeAligner), existing platform SPI patterns (ChatPlatform, BankPlatform with capability sub-interfaces and supports())
 **Exploration:** quick
 **Status:** captured
+
+## D7: Streaming-ready native steps, pipe fusion deferred to platform#680
+
+**Choice:** Design the native step types (media-download, stt-transcribe, denoise) to support streaming interfaces internally, but wire them through current playbook step semantics for now. Pipe fusion (compiler-detected streaming step chains → near-native piped execution) filed as platform#680 for the step engine team.
+**Alternatives:**
+- Build streaming step support in this epic — include the platform step engine enhancement. Larger scope, cross-repo.
+- Defer entirely — don't design for streaming at all. Revisit when performance data shows overhead matters.
+**Rationale:** The streaming step concept makes playbooks more universal for agentic AI data pipelines, but it's a platform infrastructure enhancement. This epic defines the connectors-side steps with streaming-compatible interfaces so they're ready when the engine supports pipe fusion.
+**Trade-offs:** Initial deployment uses materialization boundaries between steps. Acceptable for v1 — audio files are typically small (< 10MB). Pipe fusion eliminates this overhead later without changing step implementations.
+**Sources:** platform#680 (streaming step type issue), agency speech-sherpa (streaming STT via RecognitionStream)
+**Exploration:** deep-analysis
+**Status:** captured
