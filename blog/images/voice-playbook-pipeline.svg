@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 260" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="13">
+  <defs>
+    <marker id="flow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#475569" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="410" y="24" text-anchor="middle" font-weight="700" fill="#1e293b" font-size="14">YAML playbook: voice message → agent → multi-platform → voice reply</text>
+
+  <!-- WhatsApp In -->
+  <rect x="10" y="50" width="100" height="60" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="60" y="75" text-anchor="middle" fill="#166534" font-weight="600" font-size="12">WhatsApp</text>
+  <text x="60" y="93" text-anchor="middle" fill="#166534" font-size="11">voice msg</text>
+
+  <!-- STT -->
+  <rect x="140" y="50" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="195" y="72" text-anchor="middle" fill="#1e40af" font-weight="600" font-size="12">stt-transcribe</text>
+  <text x="195" y="93" text-anchor="middle" fill="#1e40af" font-size="10">audio → text</text>
+
+  <!-- Agent -->
+  <rect x="280" y="50" width="110" height="60" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="335" y="72" text-anchor="middle" fill="#92400e" font-weight="600" font-size="12">agent-query</text>
+  <text x="335" y="93" text-anchor="middle" fill="#92400e" font-size="10">LLM reasoning</text>
+
+  <!-- Platform APIs -->
+  <rect x="420" y="42" width="170" height="78" rx="8" fill="#f3e8ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="505" y="64" text-anchor="middle" fill="#5b21b6" font-weight="600" font-size="12">Platform APIs</text>
+  <text x="505" y="82" text-anchor="middle" fill="#5b21b6" font-size="10">BankPlatform.transfer()</text>
+  <text x="505" y="96" text-anchor="middle" fill="#5b21b6" font-size="10">TravelPlatform.book()</text>
+  <text x="505" y="110" text-anchor="middle" fill="#5b21b6" font-size="10">HealthPlatform.schedule()</text>
+
+  <!-- TTS -->
+  <rect x="620" y="50" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="675" y="72" text-anchor="middle" fill="#1e40af" font-weight="600" font-size="12">tts-synthesise</text>
+  <text x="675" y="93" text-anchor="middle" fill="#1e40af" font-size="10">text → audio</text>
+
+  <!-- WhatsApp Out -->
+  <rect x="760" y="50" width="50" height="60" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="785" y="85" text-anchor="middle" fill="#166534" font-size="20">🔊</text>
+
+  <!-- Flow arrows -->
+  <line x1="110" y1="80" x2="138" y2="80" stroke="#475569" stroke-width="1.5" marker-end="url(#flow)"/>
+  <line x1="250" y1="80" x2="278" y2="80" stroke="#475569" stroke-width="1.5" marker-end="url(#flow)"/>
+  <line x1="390" y1="80" x2="418" y2="80" stroke="#475569" stroke-width="1.5" marker-end="url(#flow)"/>
+  <line x1="590" y1="80" x2="618" y2="80" stroke="#475569" stroke-width="1.5" marker-end="url(#flow)"/>
+  <line x1="730" y1="80" x2="758" y2="80" stroke="#475569" stroke-width="1.5" marker-end="url(#flow)"/>
+
+  <!-- YAML snippet below -->
+  <rect x="60" y="145" width="700" height="105" rx="6" fill="#1e293b"/>
+  <text fill="#94a3b8" font-family="'JetBrains Mono', 'Fira Code', monospace" font-size="11">
+    <tspan x="80" y="166" fill="#7dd3fc">steps:</tspan>
+    <tspan x="80" y="182" fill="#94a3b8">  - step: transcribe</tspan>
+    <tspan x="80" y="198" fill="#94a3b8">    stt-transcribe: { language: en }</tspan>
+    <tspan x="340" y="166" fill="#94a3b8">  - agent-query:</tspan>
+    <tspan x="340" y="182" fill="#94a3b8">      session: banker</tspan>
+    <tspan x="340" y="198" fill="#fde68a">      user: "${transcribe.text}"</tspan>
+    <tspan x="80" y="218" fill="#94a3b8">  - step: respond</tspan>
+    <tspan x="80" y="234" fill="#94a3b8">    tts-synthesise: { language: en }</tspan>
+  </text>
+</svg>

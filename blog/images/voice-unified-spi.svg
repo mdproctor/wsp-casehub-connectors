@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 380" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="13">
+  <!-- Connectors voice-spi box -->
+  <rect x="160" y="20" width="480" height="200" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="400" y="48" text-anchor="middle" font-weight="700" fill="#1e40af" font-size="15">connectors / voice-spi — canonical voice types</text>
+
+  <!-- Core row -->
+  <rect x="180" y="64" width="120" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="240" y="83" text-anchor="middle" fill="#1e40af" font-size="11">SpeechToText</text>
+
+  <rect x="310" y="64" width="110" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="365" y="83" text-anchor="middle" fill="#1e40af" font-size="11">TextToSpeech</text>
+
+  <rect x="430" y="64" width="100" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="480" y="83" text-anchor="middle" fill="#1e40af" font-size="11">StreamingSTT</text>
+
+  <rect x="540" y="64" width="90" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="585" y="83" text-anchor="middle" fill="#1e40af" font-size="11">LipSync</text>
+
+  <!-- Capabilities row -->
+  <rect x="180" y="104" width="100" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="230" y="123" text-anchor="middle" fill="#1e40af" font-size="11">Denoiser</text>
+
+  <rect x="290" y="104" width="70" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="325" y="123" text-anchor="middle" fill="#1e40af" font-size="11">VAD</text>
+
+  <rect x="370" y="104" width="120" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="430" y="123" text-anchor="middle" fill="#1e40af" font-size="11">SpeakerRegistry</text>
+
+  <rect x="500" y="104" width="120" height="28" rx="4" fill="#fff" stroke="#2563eb"/>
+  <text x="560" y="123" text-anchor="middle" fill="#1e40af" font-size="11">VoiceprintStore</text>
+
+  <!-- Model row -->
+  <rect x="180" y="148" width="110" height="24" rx="4" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="235" y="165" text-anchor="middle" fill="#1e40af" font-size="10">TranscriptionResult</text>
+
+  <rect x="300" y="148" width="100" height="24" rx="4" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="350" y="165" text-anchor="middle" fill="#1e40af" font-size="10">SynthesisResult</text>
+
+  <rect x="410" y="148" width="100" height="24" rx="4" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="460" y="165" text-anchor="middle" fill="#1e40af" font-size="10">PhonemeTiming</text>
+
+  <rect x="520" y="148" width="100" height="24" rx="4" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="570" y="165" text-anchor="middle" fill="#1e40af" font-size="10">SpeakerEmbedding</text>
+
+  <text x="400" y="198" text-anchor="middle" fill="#1e40af" font-size="11" font-style="italic">21 types — 14 spi interfaces + 7 model records</text>
+
+  <!-- Agency implementations -->
+  <rect x="50" y="270" width="200" height="90" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="150" y="296" text-anchor="middle" font-weight="600" fill="#92400e" font-size="12">agency / speech-sherpa</text>
+  <text x="150" y="316" text-anchor="middle" fill="#92400e" font-size="11">SherpaOnnxSpeechToText</text>
+  <text x="150" y="333" text-anchor="middle" fill="#92400e" font-size="11">VitsTextToSpeech</text>
+  <text x="150" y="350" text-anchor="middle" fill="#92400e" font-size="11">KokoroTextToSpeech ...</text>
+
+  <!-- Connectors ref -->
+  <rect x="300" y="270" width="200" height="90" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="400" y="296" text-anchor="middle" font-weight="600" fill="#166534" font-size="12">connectors / voice-ref</text>
+  <text x="400" y="316" text-anchor="middle" fill="#166534" font-size="11">ReferenceVoicePlatform</text>
+  <text x="400" y="336" text-anchor="middle" fill="#166534" font-size="11">(canned STT + silent WAV)</text>
+
+  <!-- Pipeline steps -->
+  <rect x="550" y="270" width="200" height="90" rx="8" fill="#f3e8ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="650" y="296" text-anchor="middle" font-weight="600" fill="#5b21b6" font-size="12">voice-pipeline-steps</text>
+  <text x="650" y="316" text-anchor="middle" fill="#5b21b6" font-size="11">stt-transcribe</text>
+  <text x="650" y="336" text-anchor="middle" fill="#5b21b6" font-size="11">tts-synthesise</text>
+  <text x="650" y="353" text-anchor="middle" fill="#5b21b6" font-size="11">@Plugin(streaming=true)</text>
+
+  <!-- implements arrows -->
+  <line x1="150" y1="270" x2="300" y2="220" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="200" y="240" fill="#64748b" font-size="10" font-style="italic">implements</text>
+
+  <line x1="400" y1="270" x2="400" y2="222" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,3"/>
+
+  <line x1="650" y1="270" x2="530" y2="220" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="610" y="240" fill="#64748b" font-size="10" font-style="italic">uses</text>
+</svg>

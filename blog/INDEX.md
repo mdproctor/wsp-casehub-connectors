@@ -29,3 +29,4 @@
 | [2026-10-13-mdp01-travel-wires-in.md](2026-10-13-mdp01-travel-wires-in.md) | 2026-10-13 | Phase 4 TravelPlatform wired into @McpDomain — pattern maturity across nine platforms |
 | [2026-10-27-mdp01-batch-path-blind-spot.md](2026-10-27-mdp01-batch-path-blind-spot.md) | 2026-10-27 | Closing the last GraphQL gap — expanding ConnectorDocumentApi from 1 to 11 operations so playbooks can batch document work |
 | [2026-10-28-mdp01-collapsing-truelayer-exception-hierarchy.md](2026-10-28-mdp01-collapsing-truelayer-exception-hierarchy.md) | 2026-10-28 | Migrating TrueLayer exceptions to extend ProviderApiException hierarchy — the userId catch during review |
+| [2026-11-01-mdp01-voice-where-it-belongs.md](2026-11-01-mdp01-voice-where-it-belongs.md) | 2026-11-01 | Why voice types moved from agency to connectors voice-spi — the adapter bridge problem, the refactor-move, and what YAML playbook orchestration of voice + multi-platform scenarios looks like |
