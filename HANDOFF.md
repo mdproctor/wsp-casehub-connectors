@@ -2,19 +2,41 @@
 
 ## Last Session
 
-Completed #179 — provider-agnostic exception hierarchy and Google provider test coverage. Created `ProviderApiException`, `ProviderRateLimitedException`, `ProviderAuthException` (with `AuthFailureReason` discriminator for 401 vs 403 reason inspection) and `ProviderErrorMapping` in connectors-api. Updated all 4 Google modules (email, document, contacts, location) with typed error handling and 14 new test files. Fixed `initialSync` protocol compliance (partial results on mid-loop failure). Re-parented `SyncTokenExpiredException` under `ProviderApiException`. Closed duplicate #183; #182 remains for TrueLayer migration.
+Voice type migration (#188) — completed full migration of all voice types from agency to connectors voice-spi. Two batches:
+
+**Batch 1 (7 types):** Core STT/TTS interfaces + model records. Enriched connectors voice-spi with PhonemeTiming, phonemes on SynthesisResult, transcribe(Path) default method, convenience methods. Deleted agency duplicates (SpeechToTextService, TextToSpeechService, TranscriptionResult, TranscriptionOptions, SynthesisResult, SynthesisOptions, PhonemeTiming). Deleted SherpaVoicePlatform adapter. Created tts-synthesise @Plugin(streaming=true) + YAML chain integration test.
+
+**Batch 2 (14 types):** Streaming STT (StreamingSpeechToText — renamed from StreamingSpeechToTextService, RecognitionStream), phoneme/lip-sync (PhonemeAligner, LipSyncEnricher), audio processing (SpeechDenoiser, StreamingSpeechDenoiser, StreamingSpeechDenoiserFactory, VoiceActivityFilter, VoiceActivityFilterFactory), speaker ID (SpeakerEmbedding, SpeakerMatch, SpeakerEmbeddingExtractor, SpeakerRegistry, VoiceprintStore).
+
+**Deep audit:** 3 parallel forks verified zero remnant references in Java code, all 21 types exist with correct signatures, all 16 agency implementations wired to connectors interfaces. Fixed: 4 SPI contract tests moved to connectors (31 voice-spi tests now), 13 stale doc references updated, file/class name mismatch fixed.
+
+**Agency landed:** Squashed to single commit `810dbe37` on agency main. Branch stamped closed. #193 closed (moot — adapter deleted).
 
 ## Immediate Next Step
 
-`work start 182` — migrate TrueLayer's 3 exception types to extend the new provider-agnostic hierarchy (S/Low).
+**Voice playbook integration tests** — end-to-end YAML playbook examples showing voice capabilities with simulated services. Design agreed:
+
+- `examples/voice-interaction-patterns/` directory with numbered YAMLs (platform pattern)
+- Progressive: 01-voice-echo (STT→TTS), 02-voice-agent (STT→agent→TTS), 03-banking-assistant (STT→agent→BankPlatform→TTS), 04-travel-booking, 05-health-appointment
+- `VoiceExampleExecutionTest` modeled on platform's `AgentExampleExecutionTest`
+- Execution harness bridges PluginStep (voice) + InvokeStep (agent) — neither `executeAll()` nor `StructuralStepEvaluator` handles both alone
+- CorpusBackend for simulated LLM with scenario-specific canned responses
+- ReferenceVoicePlatform + bank-ref/travel-ref/health-ref for simulated platforms
+- Need to add deps: bank-ref, travel-ref, health-ref, calendar-ref, email-ref, location-ref, playbook-compiler, mutiny (all test scope)
+
+**Future:** YAML-based assertion mechanism for self-verifying playbooks (assert: steps in YAML).
 
 ## Cross-Module
 
-- platform#560 — TokenRefreshClient wiring (open, blocks live token refresh)
+- Agency commit `810dbe37` on main — voice type migration landed
+- Agency speech-api retains 12 types: text cleanup (TextFilter, CleanupConfig, CorrectionStrategy), avatar/conversation (6), diarization (3)
+- #192 (JWT JWKS verification for Gmail push) remains open
 
 ## References
 
-- `connectors-api/src/main/java/io/casehub/connectors/ProviderErrorMapping.java` — shared status-code mapping
-- `specs/issue-179-google-provider-test-coverage/2026-10-27-google-provider-test-coverage-design.md` — design spec
-- `plans/2026-10-27-google-provider-test-coverage.md` — implementation plan
-- `blog/2026-10-27-mdp02-provider-exception-hierarchy.md` — diary entry
+- Connectors branch: `issue-188-real-time-inbound-channels` (paused)
+- `specs/issue-188-real-time-inbound-channels/2026-10-30-real-time-inbound-channels-design.md`
+- `plans/2026-10-30-real-time-inbound-channels.md`
+- `integration-tests/` — 22 integration tests, 31 voice-spi tests
+- Platform pattern: `platform/examples/agent-interaction-patterns/` + `AgentExampleExecutionTest`
+- Key infrastructure: `StructuralStepEvaluator`, `CorpusBackend`, `ExampleEnvironment`, `InvokeHandler`
