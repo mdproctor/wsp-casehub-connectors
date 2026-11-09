@@ -13,16 +13,14 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/connectors#188 — Issue #188 ← active
-  - [ ] Batch 1: Engine+VoiceEcho
-    - [ ] Task 1: Module scaffold+ConnectorTestEngine+VoicePlugin+voice-echo
-  - [ ] Batch 2: AgentBank
-    - [ ] Task 2: Voice-agent playbook
-    - [ ] Task 3: BankPlugin+banking-assistant
-  - [ ] Batch 3: ChatEmail
-    - [ ] Task 4: ChatPlugin+WhatsApp-banking-alert
-    - [ ] Task 5: EmailPlugin+email-voice-notification
-  - [ ] Batch 4: Verify
-    - [ ] Task 6: Full build+docs
+  - [x] Batch 1: Model types and registry
+    - [x] Task 1: VoiceDescriptor VoiceCapability VoiceQuery
+    - [x] Task 2: VoiceRegistry MutableVoiceRegistry InMemoryVoiceRegistry
+  - [x] Batch 2: Manifest loading
+    - [x] Task 3: VoiceManifest types and VoiceManifestLoader
+  - [x] Batch 3: Routing and integration
+    - [x] Task 4: VoiceManifestProcessor RoutingVoicePlatformService
+    - [x] Task 5: Seed catalog CDI wiring plugin integration
 
 ## Deferred
-- [ ] SherpaVoicePlatform adapter (agency cross-repo) (S / Med) [casehubio/agency] — Cross-repo change — requires IntelliJ workspace spanning connectors+agency, branch in agency repo. Connectors voice-spi is built and installed; this task bridges agency SpeechToTextService/TextToSpeechService to VoicePlatform SPI.
+- [ ] SherpaVoicePlatform adapter (agency cross-repo) (S / Med) [casehubio/agency#445] — Cross-repo change — requires IntelliJ workspace spanning connectors+agency, branch in agency repo. Connectors voice-spi is built and installed; this task bridges agency SpeechToTextService/TextToSpeechService to VoicePlatform SPI.
