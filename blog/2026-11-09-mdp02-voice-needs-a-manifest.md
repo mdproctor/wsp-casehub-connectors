@@ -79,7 +79,63 @@ defaults:
   stt-vendor: whisper
 ```
 
-Three resolution modes. By name: `voice: af_heart` looks up the descriptor directly. By alias: `voice: alice` follows the alias to `af_heart`. By criteria: `voice: high-quality` queries the registry for all TTS voices with quality ≥ 4.0, preferring the Kokoro vendor, and picks the best match.
+Three resolution modes. By name: `voice: af_heart` looks up the descriptor directly. By alias: `voice: alice` follows the alias to `af_heart`. By criteria: the alias `high-quality` queries the registry and picks the best match. But this last one is where the real power is.
+
+## Selecting a voice by criteria
+
+Every `VoiceDescriptor` carries metadata beyond just its name — vendor, gender, accent, quality rating, supported languages, style, and capability (TTS, STT, or both). A `VoiceQuery` can filter on any combination of these fields. The registry returns all voices that match, and the router picks the best one.
+
+A criteria alias in the manifest declares a query:
+
+```yaml
+aliases:
+  narrator:
+    gender: male
+    accent: british
+    min-quality: 4.0
+    capability: tts
+  customer-service:
+    gender: female
+    style: cheerful
+    language: en-US
+    capability: tts
+  best-available:
+    min-quality: 4.0
+    prefer-vendor: kokoro
+    capability: tts
+```
+
+When a playbook says `voice: narrator`, the router doesn't look up a voice called "narrator" — it builds a `VoiceQuery` from the alias fields and queries the registry. Every voice whose gender is male, accent is british, quality is 4.0 or above, and capability includes TTS is a candidate. If `prefer-vendor` is set, voices from that vendor rank first. Otherwise the router picks the highest quality match.
+
+This means a playbook can express intent without naming a specific voice:
+
+```yaml
+steps:
+  - tts-synthesise:
+      text: Welcome to your account summary.
+      voice: narrator
+  - tts-synthesise:
+      text: How can I help you today?
+      voice: customer-service
+```
+
+The voice that reads the account summary depends on what's in the registry — which depends on the manifest files in the priority chain. A deployment with Kokoro voices configured might resolve `narrator` to `bm_daniel` (male, british, quality 4.3). A deployment with OpenAI voices might resolve it to something else entirely. The playbook doesn't change.
+
+`VoiceQuery` also works programmatically. Java callers who don't want to go through an alias can build a query directly:
+
+```java
+var query = VoiceQuery.builder()
+    .gender("female")
+    .language("es")
+    .minQuality(4.0)
+    .capability(VoiceCapability.TTS)
+    .build();
+var resolved = routing.resolveQuery(query);
+```
+
+The same filtering and selection logic applies — the registry matches, the router picks the best candidate, and the caller gets back a `ResolvedVoice` with the platform and descriptor.
+
+The criteria fields are all optional. A query with only `capability: stt` returns every STT voice in the registry. A query with `gender: female` and `accent: american` narrows to that intersection. The `all()` query matches everything. The principle is the same as `ModelQuery` on the agent side — declare what you need, let the registry find what matches.
 
 The seed catalog that ships with the SPI maps the Kokoro voice names to the `ref` vendor — the in-memory reference platform. A deployment that wants real Kokoro inference drops a `voice-config.yaml` in the project directory that maps the same voice names to the `kokoro` vendor. The playbook YAML doesn't change. The voice name is an abstraction that the manifest resolves.
 
