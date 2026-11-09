@@ -139,7 +139,7 @@ This matters because the audience for playbook scenarios is broader than the aud
 
 The `@Plugin` records stay in the SPI modules — close to the interfaces they wrap. The playbooks module consumes them from the classpath. This separation means SPI authors can ship domain steps alongside their interfaces, and playbook authors can use them without knowing the SPI internals. The YAML surface is the contract.
 
-![Playbook pipeline architecture](/blog/images/voice-playbook-pipeline.svg)
+![Playbook pipeline architecture](images/yaml-playbook-architecture.svg)
 
 Five platform issues surfaced during this work (#769–#773), all fixed same-day. ServiceRegistry forwarding, captures in results, streaming plugin non-streaming execution, record auto-unwrapping. Each was a gap between how `@Plugin` records work in CDI and how they need to work in the YAML test engine. Closing those gaps means the same plugin code runs identically in Quarkus, Spring, and the YAML test engine — no framework-specific adapters, no conditional wiring.
 
