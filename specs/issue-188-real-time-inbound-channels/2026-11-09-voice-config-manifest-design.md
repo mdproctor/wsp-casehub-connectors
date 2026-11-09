@@ -455,6 +455,10 @@ defaults:
 
 The seed catalog maps to the `ref` vendor (ReferenceVoicePlatform). Real deployments override with project-level `voice-config.yaml` that maps the same voice names to real vendor implementations (Kokoro, OpenAI, etc.).
 
+## Credential Resolution
+
+Provider credentials follow the same `${ENV_VAR}` expansion pattern as agent-config. The `VoiceManifestLoader` expands `${VAR}` and `${VAR:default}` in provider `credential` and `properties` values during YAML loading. Full `CredentialResolver` integration (credential store, managed credentials) is deferred until a real voice provider implementation needs it — the ref platform requires no credentials.
+
 ## CDI Wiring
 
 ```java
