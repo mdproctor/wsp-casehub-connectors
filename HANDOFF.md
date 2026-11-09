@@ -2,38 +2,43 @@
 
 ## Last Session
 
-Completed zero-Java playbook test migration and built a kitchen-sink voice processing pipeline. Platform fixes landed for Walker inputKey (#777 Gap 1, committed `d831b840`) and AptPluginSource required fields (committed `e88262fe`). Three-line `ConnectorPlaybookSuiteTest` replaces 130-line manual Java test class.
+Completed voice config manifest (#203) — priority-chain YAML loading, voice registry, and routing voice platform service. All types in voice-spi, mirroring the agent-config pattern. Code review done with 7 findings fixed (cycle guard, null checks, test quality, CDI wiring). Blog written: "Voice Needs a Manifest."
 
 **Delivered:**
-- Zero-Java Suite: `@Suite @IncludeEngines("casehub-yaml") @SelectDirectories`
-- `AudioPlugin` — join, trim, splice, mix via `javax.sound.sampled`
-- `AudioDenoisePlugin` — SpeechDenoiser wrapper
-- `SpeakerPlugin` — register/identify via SpeakerEmbeddingExtractor + SpeakerRegistry
-- `ChatSendPlugin` attachment support — `@Optional byte[]` field, type-safe expression flow
-- Ref implementations: `RefSpeechDenoiser`, `RefSpeakerEmbeddingExtractor`, `RefSpeakerRegistry`
-- Per-module `yaml-services.yaml` in voice-ref, bank-ref, chat-ref, email-ref
-- APT processor on all 4 SPI modules (voice-pipeline-steps, bank-spi, chat-spi, email-spi)
-- ReferenceVoicePlatform voice tagging (`[voice:name]` in WAV data)
-- All 6 playbooks updated: unquoted YAML, relative paths, voice messages with attachments, transcript follow-ups
-- Blog revised: "YAML All the Way Down" with voice pipeline SVG
+- `VoiceDescriptor`, `VoiceCapability`, `VoiceQuery` — model types with builder
+- `VoiceRegistry`, `MutableVoiceRegistry`, `InMemoryVoiceRegistry` — catalog interfaces and implementation
+- `VoiceManifest`, `VoiceProviderDeclaration`, `VoiceAliasDeclaration`, `VoiceManifestDefaults` — YAML config types
+- `VoiceManifestLoader` — 6-level priority-chain loading (classpath → /etc → ~/.casehub → profile → project)
+- `VoiceManifestProcessor`, `VoiceManifestResult` — manifest-to-registry processing
+- `RoutingVoicePlatformService`, `ResolvedVoice` — resolve by name/alias/criteria with cycle guard
+- `VoiceConfigProducer` — CDI wiring with profile and project-dir support
+- Seed catalog (`voices/seed-catalog.yaml`) — maps af_heart/bm_daniel to ref platform
+- `TtsSynthesisePlugin` and `SttTranscribePlugin` migrated to `RoutingVoicePlatformService`
+- All integration tests updated and passing (90 tests across 4 modules)
+- Blog: "Voice Needs a Manifest" with SVG routing diagram
 
-**Platform commits this session:**
-- `d831b840` — Walker streaming inputKey fallback (#777)
-- `e88262fe` — AptPluginSource reads required fields from JSON Schema (#777)
+**Prior session (same branch):**
+- Zero-Java Suite, AudioPlugin, SpeakerPlugin, AudioDenoisePlugin
+- Per-module yaml-services.yaml, APT processor on 4 SPI modules
+- All 6 playbooks updated, blog "YAML All the Way Down"
 
 ## Immediate Next Step
 
-**Voice config manifest (#203)** — provider routing and voice registry following the agent-config pattern. Priority-based accumulation from classpath → `/etc/casehub/` → `~/.casehub/` → project dir. Maps voice names to provider-specific IDs (Kokoro integer IDs, Whisper model paths, etc.). Same credential resolution as LLM manifest.
+**Close GitHub issue #203** — work is complete, merged to branch. Then either continue with next issue on the branch or `work end` if #188 scope is complete.
 
 ## Cross-Module
 
 - **Enabled** — platform#777 (Walker + AptPluginSource gaps) landed; zero-Java Suite works end-to-end
 - **Blocked by** — none
 
+## Deferred
+
+- SherpaVoicePlatform adapter (agency cross-repo) — requires IntelliJ workspace spanning connectors+agency
+
 ## References
 
-- Branch: `issue-188-real-time-inbound-channels` at `288845a0`
-- Blog: `blog/2026-11-09-mdp01-yaml-all-the-way-down.md`
-- Platform custom step guide: `platform/docs/guides/custom-step-authoring.md`
-- Issues filed: connectors#201 (ChatSendPlugin attachments), connectors#202 (voice manifest — superseded), connectors#203 (voice config manifest)
-- Platform issues: #776 (byte[] fix — closed), #777 (Walker + required fields — landed)
+- Branch: `issue-188-real-time-inbound-channels` at `6057c0c`
+- Spec: `specs/issue-188-real-time-inbound-channels/2026-11-09-voice-config-manifest-design.md`
+- Plan: `plans/2026-11-09-voice-config-manifest.md`
+- Blog: `blog/2026-11-09-mdp02-voice-needs-a-manifest.md`
+- Issues: connectors#203 (voice config manifest — done)
