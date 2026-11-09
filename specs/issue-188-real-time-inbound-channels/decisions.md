@@ -160,3 +160,79 @@ Not included (deferred or eliminated):
 **Sources:** MCP module pattern (mcp/src with @Tool @Blocking beans depending on quarkus-mcp-server-core), platform playbook architecture (steps in plugin modules, YAML in consuming apps)
 **Exploration:** quick (surfaced by reviewer R1-04, made explicit)
 **Status:** captured
+
+---
+
+# Issue #203 — Voice Config Manifest
+
+## D13: YAML loading — self-contained VoiceManifestLoader in connectors
+
+**Choice:** Own loader in voice-spi, mirroring ManifestLoader's priority-chain pattern but independent of agent-config-core.
+**Alternatives:**
+- Extend ManifestLoader — add voice sections to existing agent-config Manifest. Tighter coupling to platform but avoids duplicating priority-chain logic.
+- Shared priority-chain utility — extract file discovery into platform-api. Avoids duplication but adds a new platform-api surface for a 20-line pattern.
+**Rationale:** Voice config is connector infrastructure, not agent config. The priority-chain pattern is simple (6 addFileIfExists calls + merge by key). Duplicating it is cheaper than coupling voice-spi to agent-config-core or adding a new platform-api abstraction.
+**Trade-offs:** Priority-chain logic is duplicated. Mitigated by simplicity — the pattern is ~20 lines of file-exists checks + LinkedHashMap merge.
+**Sources:** ManifestLoader.java lines 89-111 (priority chain), AgentConfigLoader.java (self-contained loader)
+**Exploration:** quick
+**Status:** captured
+
+## D14: Module location — inside voice-spi
+
+**Choice:** Add VoiceRegistry, VoiceManifestLoader, VoiceDescriptor, VoiceQuery, and RoutingVoicePlatformService directly to voice-spi.
+**Alternatives:**
+- New voice-config module — clean separation but adds a module for types that everything already needs from voice-spi.
+- Inside voice-pipeline-steps — wrong level; VoicePlatform implementations also need the registry.
+**Rationale:** Everything already depends on voice-spi. Config loading and the registry are part of the SPI infrastructure, not a separate concern. Keeps the dependency graph flat.
+**Trade-offs:** voice-spi gains a YAML parsing dependency (Jackson/SnakeYAML). Acceptable — voice-spi already depends on platform types which pull Jackson transitively.
+**Sources:** voice-spi/pom.xml (existing dependencies), VoicePlatformService.java (existing service in voice-spi)
+**Exploration:** quick
+**Status:** captured
+
+## D15: Registry + Router pattern — mirrors agent ModelRegistry + RoutingAgentProvider
+
+**Choice:** Three layers following the agent pattern:
+1. `VoiceRegistry` — catalog of `VoiceDescriptor` entries (loaded from voice-config.yaml). Analogous to `ModelRegistry`.
+2. `VoiceQuery` — criteria-based lookup (vendor, gender, accent, min-quality, language, capability). Analogous to `ModelQuery`.
+3. `RoutingVoicePlatformService` — resolves voice reference (by name, alias, or query) to the correct `VoicePlatform`. Returns `VoicePlatform` same as `VoicePlatformService`. Analogous to `RoutingAgentProvider`.
+**Alternatives:**
+- Registry resolves metadata only, caller routes manually — two-step API, more explicit but consumers need both registry and platform service.
+- Registry resolves and routes in one call — one-stop shop but conflates config lookup with engine dispatch.
+**Rationale:** Direct structural mirror of the agent pattern. RoutingAgentProvider wraps BackendInstanceRegistry and ModelRegistry. RoutingVoicePlatformService wraps VoicePlatformService and VoiceRegistry. Callers get a VoicePlatform back — the routing is transparent.
+**Trade-offs:** RoutingVoicePlatformService must return both the VoicePlatform and the resolved VoiceDescriptor (so callers know the vendor-specific voice-id for SynthesisOptions). Solved by returning a ResolvedVoice record.
+**Sources:** RoutingAgentProvider.java (resolve → ResolvedRoute(backend, apiModelId)), BackendInstanceRegistry.java, ModelRegistry.java, VoicePlatformService.java
+**Exploration:** quick
+**Status:** captured
+
+## D16: VoiceDescriptor fields
+
+**Choice:** vendor, voiceId (vendor-specific), name, gender, accent, quality (float), languages (List<String>), style (optional — newscast, cheerful, etc.), sampleRate (optional), bitDepth (optional), channels (optional), capability (TTS, STT, or both), properties (Map<String,String> for vendor-specific extras).
+**Alternatives:**
+- Issue spec fields only (vendor, voiceId, name, gender, accent, quality, languages) — sufficient for TTS but no extensibility.
+- ModelDescriptor-style with capabilities set — treats each voice capability as a string. Over-abstracted for voice.
+**Rationale:** Style/emotion, sample-rate, and format metadata are needed by real TTS engines. The properties map handles vendor-specific config without modifying VoiceDescriptor. Capability field (TTS/STT/both) enables VoiceQuery to filter by function.
+**Trade-offs:** More fields than the minimal spec. Mitigated by all non-core fields being optional.
+**Sources:** ModelDescriptor.java (properties map pattern), SynthesisOptions.java (voice, language, audioFormat fields), issue #203 spec
+**Exploration:** quick
+**Status:** captured
+
+## D17: VoiceQuery covers both TTS and STT
+
+**Choice:** Unified VoiceQuery for both TTS and STT criteria. Capability field distinguishes TTS vs STT. STT queries filter by language support, vendor, model-size; TTS queries filter by gender, accent, quality, style.
+**Alternatives:**
+- STT defaults only — voice-config.yaml defaults.stt-vendor picks the STT engine, no criteria-based resolution. Simpler but less flexible.
+**Rationale:** Consistent API — one query mechanism for all voice resolution. STT vendor selection may become criteria-driven as more STT engines are added (Whisper variants, Google Cloud Speech, Azure Speech).
+**Trade-offs:** VoiceQuery has fields that are only meaningful for TTS (gender, accent, quality) or STT (model-size). Callers set what's relevant.
+**Sources:** ModelQuery.java (unified query with optional fields), issue #203 spec (defaults section with stt-vendor and tts-vendor)
+**Exploration:** quick
+**Status:** captured
+
+## D18: Provider declarations — typed fields + properties map
+
+**Choice:** `VoiceProviderDeclaration` with typed common fields (vendor, credential) plus `Map<String,String> properties` for vendor-specific config (model-dir, endpoint URL, etc.). Mirrors agent ProviderDeclaration.
+**Alternatives:**
+- Pure properties map — everything flat. Maximally flexible but loses type safety on common fields.
+**Rationale:** Common fields (vendor, credential) are always present and benefit from type checking. Vendor-specific config varies (Kokoro needs model-dir, OpenAI needs API key + endpoint, Whisper needs model path). Properties map handles this without per-vendor subclasses.
+**Sources:** ProviderDeclaration.java (agent-config pattern), issue #203 spec (providers section with vendor + model-dir + credential)
+**Exploration:** quick
+**Status:** captured
