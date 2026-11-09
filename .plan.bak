@@ -1,0 +1,18 @@
+# Work Plan — issue-188-real-time-inbound-channels
+
+## State
+branch: issue-188-real-time-inbound-channels
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 188
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#188 — Issue #188 ← active
+
+## Deferred
+- [ ] SherpaVoicePlatform adapter (agency cross-repo) (S / Med) [casehubio/agency] — Cross-repo change — requires IntelliJ workspace spanning connectors+agency, branch in agency repo. Connectors voice-spi is built and installed; this task bridges agency SpeechToTextService/TextToSpeechService to VoicePlatform SPI.
