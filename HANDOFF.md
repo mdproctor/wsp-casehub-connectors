@@ -24,11 +24,39 @@ Completed voice config manifest (#203) — priority-chain YAML loading, voice re
 
 ## Immediate Next Step
 
-**Close GitHub issue #203** — work is complete, merged to branch. Then either continue with next issue on the branch or `work end` if #188 scope is complete.
+**Real TTS with Kokoro ONNX models.** The manifest and routing are in place. Next is a production VoicePlatform implementation that loads ONNX models and produces real audio.
+
+**Voice models:**
+- `af_heart` — female (Alice in the joint account playbook)
+- `bm_daniel` — male (Bob in the joint account playbook)
+- Kokoro v1.0 ONNX — ~80MB per model
+
+**Model management — Maven artifact in GitHub Packages:**
+Publish models as Maven artifacts to `maven.pkg.github.com/casehubio/*`. CI already has `GITHUB_TOKEN` for this repo. Models resolve like any dependency — cached in `.m2`, fast on warm builds, no external URL dependency.
+
+```xml
+<dependency>
+  <groupId>io.casehub.models</groupId>
+  <artifactId>kokoro-v1.0</artifactId>
+  <version>1.0</version>
+  <type>onnx</type>
+  <scope>test</scope>
+</dependency>
+```
+
+One-time upload to Packages, same retrieval path as all other casehubio artifacts.
+
+**Implementation:**
+- `KokoroVoicePlatform` — loads ONNX model via `onnxruntime-java`, implements `VoicePlatform`
+- Voice manifest entry maps `af_heart`/`bm_daniel` to Kokoro provider
+- Playbooks already use `voice: af_heart` / `voice: bm_daniel` — no YAML changes needed
+- Round-trip tests become real integration tests: TTS produces actual WAV, STT (via Whisper/Sherpa) transcribes back
+
+**Key insight from prior session:** Reference implementations are not test stubs — they serve demo, dev, and onboarding environments. `yaml-services.yaml` is the default service config across all environments. Service profiles (`-Dcasehub.yaml.services.profile=integration`) swap implementations without changing playbooks.
 
 ## Cross-Module
 
-- **Enabled** — platform#777 (Walker + AptPluginSource gaps) landed; zero-Java Suite works end-to-end
+- **Enabled** — platform#769-773, #777 all landed; zero-Java Suite works end-to-end
 - **Blocked by** — none
 
 ## Deferred
@@ -37,8 +65,9 @@ Completed voice config manifest (#203) — priority-chain YAML loading, voice re
 
 ## References
 
-- Branch: `issue-188-real-time-inbound-channels` at `6057c0c`
-- Spec: `specs/issue-188-real-time-inbound-channels/2026-11-09-voice-config-manifest-design.md`
-- Plan: `plans/2026-11-09-voice-config-manifest.md`
+- Branch: `issue-188-real-time-inbound-channels`
+- Platform custom step authoring: `platform/docs/guides/custom-step-authoring.md`
+- Blog: `blog/2026-11-09-mdp01-yaml-all-the-way-down.md`
 - Blog: `blog/2026-11-09-mdp02-voice-needs-a-manifest.md`
-- Issues: connectors#203 (voice config manifest — done)
+- Issues: connectors#197 (round-trip — done), #203 (voice manifest — done)
+- Platform issues: #769, #770, #771, #772, #773, #777 (all landed)
