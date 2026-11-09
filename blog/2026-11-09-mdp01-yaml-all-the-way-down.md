@@ -5,142 +5,152 @@ date: 2026-11-09
 entry_type: article
 subtype: diary
 projects: [casehubio/connectors]
-tags: [yaml, playbooks, testing, simulation, ref-implementations, voice, bank, multi-platform]
+tags: [yaml, playbooks, testing, voice, speaker-id, audio-processing, zero-java]
 series: issue-188-real-time-inbound-channels
 ---
 
 # YAML All the Way Down
 
-A connector playbook that transcribes speech, checks a bank balance, and replies via WhatsApp should be testable without writing Java. The playbook is YAML. The test assertions are YAML. The service configuration is YAML. The simulation corpus is YAML. The only Java is the `@Plugin` record that defines the step — and that lives in the SPI module, not the test.
+A connector playbook that registers voiceprints, transcribes speech, denoises audio, identifies speakers by voice, joins two recordings into a single compliance file, and sends it to an admin channel — with the full transcript — should be testable without writing Java. The playbook is YAML. The test assertions are YAML. The service configuration is YAML. The only Java is the `@Plugin` record that defines each step, and that lives in the SPI module next to the interface it wraps.
 
-This is what we shipped today. Six playbook scenarios covering voice, banking, chat, and email — all tested end-to-end with zero Java test code.
+The entire test suite is three lines:
 
-## The shape of a playbook test
+```java
+@Suite
+@IncludeEngines("casehub-yaml")
+@SelectDirectories("src/test/playbooks")
+class ConnectorPlaybookSuiteTest {}
+```
 
-A banking voice assistant playbook looks like this:
+No test wiring. No service construction. No plugin registration. The casehub-yaml engine discovers everything from the classpath — plugins via APT-generated manifests, services via `yaml-services.yaml`, test files via directory scan.
+
+## The compliance playbook
+
+The joint account confirmation scenario exercises the full voice processing stack. Two account holders must verbally confirm a transaction. The system registers their voiceprints, receives their confirmations, cleans the audio, verifies who spoke, joins the recordings, transcribes the result, and sends it all to a compliance channel.
 
 ```yaml
 steps:
-  - tts-synthesise: "What is my current account balance?"
-    capture: inputAudio
+  - tts-synthesise:
+      text: Hello, I am Alice
+      voice: af_heart
+    capture: aliceSample
 
-  - stt-transcribe: "${inputAudio.audio-data}"
-    capture: transcript
+  - speaker register:
+      name: Alice Smith
+      audio: ${aliceSample.audio-data}
 
-  - bank-balance: "acc-100"
-    capture: balance
+  - tts-synthesise:
+      text: I, Alice Smith, confirm this transaction of 500 pounds
+      voice: af_heart
+    capture: aliceMessage
 
-  - tts-synthesise: "Your balance is ${balance.amount} ${balance.currency}"
-    capture: audio
+  - audio-denoise:
+      audio: ${aliceMessage.audio-data}
+    capture: aliceClean
+
+  - speaker identify:
+      audio: ${aliceClean.audio-data}
+    capture: aliceId
+
+  - audio join:
+      first: ${aliceClean.audio-data}
+      second: ${bobClean.audio-data}
+    capture: combinedRecording
+
+  - stt-transcribe: ${combinedRecording.audio-data}
+    capture: fullTranscript
+
+  - chat-send:
+      channel: compliance
+      message: "We have identified ${aliceId.name} and ${bobId.name} by voice, and they have both authorised the payment. Transcript: ${fullTranscript.text}"
+      attachment: ${combinedRecording.audio-data}
+      attachment-type: audio/wav
+      attachment-name: joint-authorisation.wav
+    capture: auditRecord
 ```
 
-Four steps, three domains (voice, bank, voice again), data flowing between them via named captures. The `${balance.amount}` expression resolves from the bank step's output — the playbook author controls exactly what's visible downstream.
+Seven domain plugins. Four SPI boundaries (voice, audio, speaker, chat). Binary data flowing through expressions — `${aliceClean.audio-data}` is a `byte[]` at runtime, not a string. The expression engine preserves Java types end-to-end, so the `audio join` step receives actual WAV bytes, not a serialised representation.
 
-The test YAML asserts on those captures:
+The `voice: af_heart` parameter selects a Kokoro TTS voice model. `bm_daniel` voices the second speaker. In the reference implementation, each voice embeds a tag the speaker identification system can match. In production, these are real neural voice models with distinct acoustic fingerprints — the playbook is the same either way.
+
+## Audio processing is a plugin
+
+The `audio` plugin handles WAV manipulation via `javax.sound.sampled` — pure JDK, zero dependencies. Four operations through the compact form:
+
+```yaml
+- audio join:
+    first: ${alice.audio-data}
+    second: ${bob.audio-data}
+
+- audio trim:
+    audio: ${recording.audio-data}
+    start: 1.5
+    end: 10.0
+
+- audio splice:
+    target: ${base.audio-data}
+    insert: ${clip.audio-data}
+    at: 3.0
+
+- audio mix:
+    first: ${music.audio-data}
+    second: ${voice.audio-data}
+    balance: 0.3
+```
+
+The `absorbSiblings = true` pattern gives the compact form — `audio join` means plugin name `audio`, operation `join`. The remaining keys are the parameters. One `@Plugin` record handles all four operations.
+
+## Attachments flow through too
+
+`chat-send` now carries binary attachments. The compliance playbook sends the combined WAV file alongside the transcript:
+
+```yaml
+- chat-send:
+    channel: compliance
+    message: Joint confirmation complete
+    attachment: ${combinedRecording.audio-data}
+    attachment-type: audio/wav
+    attachment-name: joint-authorisation.wav
+```
+
+The `attachment` field is `@Optional byte[]` on the `ChatSendPlugin` record. The expression resolves to `byte[]` at runtime. The APT-generated action casts it correctly. The JSON Schema declares it as `type: object` — a reasonable mapping since JSON Schema has no native binary type. The type safety lives in the Java record and the expression engine, not in the schema.
+
+## Services register themselves
+
+Each reference implementation ships its own `META-INF/yaml-services.yaml`:
+
+```yaml
+# voice-ref/src/main/resources/META-INF/yaml-services.yaml
+io.casehub.connectors.voice.spi.VoicePlatform: io.casehub.connectors.voice.ref.ReferenceVoicePlatform
+io.casehub.connectors.voice.spi.SpeechDenoiser: io.casehub.connectors.voice.ref.RefSpeechDenoiser
+io.casehub.connectors.voice.spi.SpeakerEmbeddingExtractor: io.casehub.connectors.voice.ref.RefSpeakerEmbeddingExtractor
+io.casehub.connectors.voice.spi.SpeakerRegistry: io.casehub.connectors.voice.ref.RefSpeakerRegistry
+```
+
+The engine discovers all `yaml-services.yaml` files from the classpath via `cl.getResources()` and merges them. Depend on `voice-ref` and you get VoicePlatform, the denoiser, the speaker embedding extractor, and the speaker registry — all registered automatically. No centralised configuration file. No wiring class. The dependency is the declaration.
+
+## The test verifies everything
+
+The test asserts on speaker identification, audio format, transcript content, and compliance delivery — all from named captures:
 
 ```yaml
 tests:
-  - name: "bank balance retrieved and spoken as voice"
+  - name: full pipeline — register, confirm, denoise, identify, join, send
     steps:
-      - run-playbook: voice-interaction-patterns/03-banking-assistant.playbook.yaml
+      - run-playbook: ../../../main/playbooks/voice-interaction-patterns/06-joint-account-confirmation.playbook.yaml
         capture: result
-      - assertThat: result.captures.balance.accountId
-        equals: "acc-100"
-      - assertThat: result.captures.balance.currency
-        equals: "GBP"
-      - assertThat: result.captures.audio.audio-format
-        equals: "wav"
+      - assertThat: result.captures.aliceId.identified
+        equals: true
+      - assertThat: result.captures.aliceId.name
+        equals: Alice Smith
+      - assertThat: result.captures.fullTranscript.text
+        contains: confirm this transaction
+      - assertThat: result.captures.auditRecord.ok
+        equals: true
 ```
 
-Every assertion traces to a named capture in the playbook. No magic keys, no flat-merged output bags, no guessing which step produced which value. `result.captures.balance.currency` means: the step that captured `balance` returned a map with `currency` in it. You can trace it from the test YAML to the playbook YAML without opening any Java file.
+No mocks. No stubs. No test fixtures. Reference implementations execute real logic with real data. The speaker registry does cosine similarity matching on the embeddings. The audio join produces a valid WAV file via `javax.sound.sampled`. The STT extracts text from the WAV data section. Every step does real work — just with lightweight local implementations instead of neural models.
 
-## Reference implementations are not test stubs
+![Voice pipeline architecture](images/voice-pipeline-architecture.svg)
 
-This is the point I want to emphasise. The `yaml-services.yaml` file maps SPI interfaces to implementations:
-
-```yaml
-io.casehub.connectors.voice.spi.VoicePlatform: io.casehub.connectors.voice.ref.ReferenceVoicePlatform
-io.casehub.connectors.bank.spi.BankPlatform: io.casehub.connectors.bank.ref.RefBankPlatform
-```
-
-This isn't a test fixture. It's the default service configuration — used in tests, demos, local development, and onboarding environments. The same YAML playbook, the same reference implementations, the same seed data. A developer runs the playbooks locally to understand how the voice-banking flow works. A demo environment runs them to show the platform to prospects. A CI pipeline runs them to verify the steps still compose correctly.
-
-Service profiles let you swap implementations without changing the playbooks:
-
-```
-yaml-services.yaml                    # default — lightweight ref impls
-yaml-services-integration.yaml        # richer ref impls, full seed data
-yaml-services-smoke.yaml              # minimal stubs for CI
-```
-
-Same playbooks, different backends. The playbook is the contract. The service configuration is the deployment concern.
-
-## Round-trip verification
-
-The voice tests use a pattern I'm particularly happy with. `ReferenceVoicePlatform` encodes text as bytes for TTS and decodes bytes back to text for STT. No silent WAVs, no canned responses — the content flows through.
-
-```yaml
-steps:
-  - tts-synthesise: "I, Alice Smith, confirm this transaction of 500 pounds"
-    capture: aliceAudio
-
-  - stt-transcribe: "${aliceAudio.audio-data}"
-    capture: aliceConfirmation
-```
-
-The test asserts that Alice's name survived the round-trip:
-
-```yaml
-- assertThat: result.captures.aliceConfirmation.text
-  contains: "Alice Smith"
-- assertThat: result.captures.aliceConfirmation.text
-  contains: "confirm this transaction"
-```
-
-This isn't checking "did the step run." It's checking "did the content survive the pipeline." The joint-account confirmation playbook does this for both Alice and Bob — proving that two separate voice confirmations each preserve the speaker's identity and intent through TTS→STT.
-
-With a real TTS engine, this round-trip becomes a genuine integration test. With the reference implementation, it validates the pipeline wiring. Both are useful. Both use the same YAML.
-
-## @Plugin records — one record, any execution mode
-
-Each domain step is a Java record:
-
-```java
-@Plugin(value = "bank-balance",
-        description = "Look up account balance")
-public record BankBalancePlugin(
-        @Required String accountId,
-        @Optional String userId) {
-
-    @Execute
-    public Result execute(BankPlatform bankPlatform) {
-        var balance = bankPlatform.accountInformation(
-                userId != null ? userId : "user-1")
-                .balance(accountId);
-        return Result.of(Map.of(
-                "accountId", balance.accountId(),
-                "amount", balance.available(),
-                "currency", balance.currency()));
-    }
-}
-```
-
-Record fields are YAML inputs. The `@Execute` method's service parameters resolve from `ServiceRegistry` — the same registry populated by `yaml-services.yaml` in tests, by CDI in Quarkus, by auto-configuration in Spring. The plugin doesn't know and doesn't care.
-
-The APT generates a manifest at compile time. `AptPluginSource` discovers it from the classpath. No manual registration, no scanner calls, no test wiring. Add the record, add the APT processor to your Maven config, and the step appears in playbooks.
-
-Streaming plugins work the same way. `tts-synthesise` and `stt-transcribe` use `streaming = true` — the first `@Execute` parameter is the pipeline input. In streaming execution, it's fed by the pipeline. In non-streaming execution (playbook runner), it comes from the YAML step's scalar value. Same record, both modes.
-
-## What this unlocks
-
-The playbook module has no production Java. Its `src/main` is YAML playbooks and a service configuration file. Its `src/test` is YAML test files and a three-line JUnit Suite class. Adding a new scenario means writing three YAML files — playbook, test, and optionally a simulation corpus. No Java, no compilation, no build changes.
-
-This matters because the audience for playbook scenarios is broader than the audience for Java unit tests. Product managers can read a playbook and understand what the banking assistant does. QA engineers can write test scenarios without touching Java. Demo teams can assemble new scenarios from existing steps without a development cycle.
-
-The `@Plugin` records stay in the SPI modules — close to the interfaces they wrap. The playbooks module consumes them from the classpath. This separation means SPI authors can ship domain steps alongside their interfaces, and playbook authors can use them without knowing the SPI internals. The YAML surface is the contract.
-
-![Playbook pipeline architecture](images/yaml-playbook-architecture.svg)
-
-Five platform issues surfaced during this work (#769–#773), all fixed same-day. ServiceRegistry forwarding, captures in results, streaming plugin non-streaming execution, record auto-unwrapping. Each was a gap between how `@Plugin` records work in CDI and how they need to work in the YAML test engine. Closing those gaps means the same plugin code runs identically in Quarkus, Spring, and the YAML test engine — no framework-specific adapters, no conditional wiring.
-
-The remaining work is mechanical: APT processor on the SPI module POMs, the `Seedable` interface for corpus-driven ref seeding, and service profiles for environment-specific configurations. The architecture is in place. The playbooks prove it works.
+The voice processing stack in `speech-sherpa` — Whisper for STT, Kokoro for TTS, CAM++ for speaker embeddings, sherpa-onnx for denoising and VAD — implements the same SPIs. Swap the `yaml-services.yaml` in each module, and the same playbooks run against real models. The playbook is the contract. The service configuration is the deployment concern.
