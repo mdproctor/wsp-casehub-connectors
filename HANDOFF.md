@@ -2,40 +2,32 @@
 
 ## Last Session
 
-Landed 4 issues (#289–#292) plus a partial fix for #288. Filed 2 new issues (#293, #294). All work landed on main and published.
+Completed #187 — VoicePlatform SPI epic closed. Added voice MCP tools to the graphql module via `ConnectorVoiceApi` with `@McpDomain("connectors/voice")`:
 
-**#289+#290 — MicrosoftGraphClient URI handling:**
-- Replaced deprecated `java.net.URL(String)` in `toUri()` with manual URI component parsing (scheme, authority, path, query, fragment)
-- Unified all 5 `BASE_URL + path` call sites through `toUri()` — `putBytes`, `getBytes`, `getRaw` were bypassing it via `URI.create()`
-- `getBytesFromUrl` and pagination cursors correctly stay on `URI.create()` (pre-formed URLs)
+- `voice_speak` — TTS with smart routing via `RoutingVoicePlatformService` (voice ID, alias, or query params), base64 audio output, optional phoneme timing
+- `voice_transcribe` — STT with base64 audio input, platform routing
+- `voice_list_voices` — query available voices by gender/accent/language/style/capability/vendor
+- `voice_status` — `VoiceDomainReportProvider` for runtime platform status via `connectors/voice_report` tool
 
-**#291 — SpeakerPlugin configurable sample rates:**
-- Added `@Optional List<Integer> supportedSampleRates` to the plugin record
-- Default `Set.of(16000)` preserves backward compatibility
-- Error message now lists configured valid rates on rejection
+Uses platform MCP annotations (`@DefaultValue`, `McpCapabilityException`, platform `QueryParam`) rather than JAX-RS — following the "good MCP tool design" principle. `ConnectorsModelEnricher` updated with voice platform count. 12 new tests (144 total in graphql module). Landed as 58fd5923 on main.
 
-**#292 — Cloned-voice attack playbook:**
-- Rewrote 06b negative twin to demonstrate actual voice cloning attack
-- Bob registers with `bm_daniel`, attacker uses same voice, passes speaker ID gate
-- Test asserts the clone passes — proving the vulnerability multi-factor prevents
+## Immediate Next Step
 
-**#288 (partial) — Playbook integration tests:**
-- Fixed `mobile-send-sms` params in 06-joint-account-confirmation (`platform: ref`, `body` instead of `message`)
-- Root cause identified: platform YAML runtime 0.4-20261118 SNAPSHOT broke `capture:` variable scoping — all 18 tests fail with "Unknown prefix"
-- Blocked on platform fix (filed as #294)
+Epic #187 is fully closed. No remaining items — cloud providers and per-provider module split are in the "Future" section, not blocking.
 
-**Filed:**
-- #293 — `toUri()` treats `#` and `?` as URI delimiters in file paths (known limitation, not a regression)
-- #294 — Platform YAML runtime capture variable scoping broken (blocks #288)
+Open related work:
+- agency#447 — Remove residual cognitive code from agency → neocortex (open, independent)
+- agency#448 — speech-demo: replace hand-rolled Vertex client with agent-config manifest (open, independent)
 
-**Blog:** "Deprecation, Encoding, and Cloned Voices" — URI migration, sample rates, voice cloning attack demo, platform regression discovery.
+## Cross-Module
 
-## Queue
+- agency#447 — Remove residual cognitive code from agency → neocortex (open, independent)
+- agency#448 — speech-demo: replace hand-rolled Vertex client with agent-config manifest (open, independent)
 
-13 items remaining. Next up: #288 (blocked on #294), then #264 (GeneratePlugin annotations).
+## References
 
-## Key Context for Next Session
-
-- The platform YAML runtime regression (#294) blocks all playbook integration tests. The Nov 16 SNAPSHOT (279KB) works; the Nov 18 SNAPSHOT (331KB) doesn't. `capture:` variable scoping is broken — step results are no longer accessible as named prefixes.
-- #288 has the `mobile-send-sms` parameter fix committed and landed, but the broader test failures need the platform fix first.
-- MicrosoftGraphClient is now fully consistent — every `BASE_URL + path` goes through `toUri()`. Only pre-formed URLs (CDN, cursors) use `URI.create()` directly.
+- `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorVoiceApi.java` — voice MCP tools
+- `graphql/src/main/java/io/casehub/connectors/graphql/VoiceDomainReportProvider.java` — voice status report
+- `graphql/src/main/java/io/casehub/connectors/graphql/dto/VoiceSynthesisResult.java` — TTS result DTO
+- `voice-spi/src/main/java/io/casehub/connectors/voice/spi/RoutingVoicePlatformService.java` — routing layer
+- `wsp-casehub-connectors/specs/issue-187-voice-mcp-tools/` — design spec and decisions
