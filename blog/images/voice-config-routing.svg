@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <linearGradient id="yamlGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+    <linearGradient id="registryGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="routerGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d1fae5"/>
+      <stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+    <linearGradient id="engineGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#c7d2fe"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" font-size="16" font-weight="600" fill="#1e293b">Voice Config Manifest — Resolution Flow</text>
+
+  <!-- Priority chain (left column) -->
+  <text x="110" y="62" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e" letter-spacing="1">PRIORITY CHAIN</text>
+
+  <rect x="20" y="74" width="180" height="28" rx="4" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="110" y="93" text-anchor="middle" font-size="11" fill="#92400e">seed-catalog.yaml (0)</text>
+
+  <rect x="20" y="108" width="180" height="28" rx="4" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="110" y="127" text-anchor="middle" font-size="11" fill="#92400e">/etc/casehub/ (10)</text>
+
+  <rect x="20" y="142" width="180" height="28" rx="4" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="110" y="161" text-anchor="middle" font-size="11" fill="#92400e">~/.casehub/ (20)</text>
+
+  <rect x="20" y="176" width="180" height="28" rx="4" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="110" y="195" text-anchor="middle" font-size="11" fill="#92400e">~/.casehub/-{profile} (25)</text>
+
+  <rect x="20" y="210" width="180" height="28" rx="4" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="110" y="229" text-anchor="middle" font-size="11" fill="#92400e">{project}/ (30)</text>
+
+  <rect x="20" y="244" width="180" height="28" rx="4" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="110" y="263" text-anchor="middle" font-size="11" fill="#92400e">{project}/-{profile} (35)</text>
+
+  <!-- Arrow from chain to loader -->
+  <line x1="200" y1="170" x2="245" y2="170" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Loader box -->
+  <rect x="250" y="140" width="170" height="60" rx="6" fill="url(#registryGrad)" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="335" y="163" text-anchor="middle" font-size="12" font-weight="600" fill="#1e40af">VoiceManifestLoader</text>
+  <text x="335" y="180" text-anchor="middle" font-size="10" fill="#3b82f6">merge by key, last wins</text>
+
+  <!-- Arrow from loader to registry -->
+  <line x1="335" y1="200" x2="335" y2="240" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Registry box -->
+  <rect x="250" y="245" width="170" height="50" rx="6" fill="url(#registryGrad)" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="335" y="268" text-anchor="middle" font-size="12" font-weight="600" fill="#1e40af">VoiceRegistry</text>
+  <text x="335" y="283" text-anchor="middle" font-size="10" fill="#3b82f6">VoiceDescriptor catalog</text>
+
+  <!-- Router box (central) -->
+  <rect x="220" y="330" width="230" height="70" rx="8" fill="url(#routerGrad)" stroke="#059669" stroke-width="2"/>
+  <text x="335" y="355" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">RoutingVoicePlatformService</text>
+  <text x="335" y="374" text-anchor="middle" font-size="10" fill="#059669">resolve(name | alias | query)</text>
+  <text x="335" y="388" text-anchor="middle" font-size="10" fill="#059669">→ ResolvedVoice(platform, descriptor)</text>
+
+  <!-- Arrow from registry to router -->
+  <line x1="335" y1="295" x2="335" y2="325" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Aliases box -->
+  <rect x="480" y="245" width="120" height="50" rx="6" fill="url(#yamlGrad)" stroke="#d97706" stroke-width="1"/>
+  <text x="540" y="268" text-anchor="middle" font-size="12" font-weight="600" fill="#92400e">Aliases</text>
+  <text x="540" y="283" text-anchor="middle" font-size="10" fill="#92400e">alice → af_heart</text>
+
+  <!-- Arrow from aliases to router -->
+  <line x1="540" y1="295" x2="400" y2="340" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Engine boxes (bottom) -->
+  <rect x="120" y="430" width="120" height="40" rx="6" fill="url(#engineGrad)" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="180" y="455" text-anchor="middle" font-size="11" font-weight="600" fill="#4338ca">Kokoro TTS</text>
+
+  <rect x="300" y="430" width="120" height="40" rx="6" fill="url(#engineGrad)" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="360" y="455" text-anchor="middle" font-size="11" font-weight="600" fill="#4338ca">Whisper STT</text>
+
+  <rect x="480" y="430" width="120" height="40" rx="6" fill="url(#engineGrad)" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="540" y="455" text-anchor="middle" font-size="11" font-weight="600" fill="#4338ca">OpenAI TTS</text>
+
+  <!-- Arrows from router to engines -->
+  <line x1="280" y1="400" x2="200" y2="425" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="335" y1="400" x2="360" y2="425" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="390" y1="400" x2="520" y2="425" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- VoicePlatformService label -->
+  <text x="360" y="420" text-anchor="middle" font-size="10" fill="#475569" font-style="italic">VoicePlatformService (engine registry)</text>
+
+  <!-- Playbook caller (top right) -->
+  <rect x="530" y="90" width="160" height="70" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="610" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#991b1b">tts-synthesise:</text>
+  <text x="610" y="130" text-anchor="middle" font-size="11" fill="#991b1b">  text: Hello</text>
+  <text x="610" y="147" text-anchor="middle" font-size="11" fill="#991b1b">  voice: alice</text>
+
+  <!-- Arrow from caller to router -->
+  <path d="M 610 160 L 610 365 L 455 365" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="618" y="270" font-size="10" fill="#475569" font-style="italic">resolve("alice")</text>
+</svg>

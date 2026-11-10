@@ -2,41 +2,32 @@
 
 ## Last Session
 
-Voice type migration (#188) — completed full migration of all voice types from agency to connectors voice-spi. Two batches:
+Landed voice infrastructure on main — rebased issue-188 branch (52 commits), fast-forward merged. Voice config manifest (#203), zero-Java playbook suite, routing service, integration tests all on main.
 
-**Batch 1 (7 types):** Core STT/TTS interfaces + model records. Enriched connectors voice-spi with PhonemeTiming, phonemes on SynthesisResult, transcribe(Path) default method, convenience methods. Deleted agency duplicates (SpeechToTextService, TextToSpeechService, TranscriptionResult, TranscriptionOptions, SynthesisResult, SynthesisOptions, PhonemeTiming). Deleted SherpaVoicePlatform adapter. Created tts-synthesise @Plugin(streaming=true) + YAML chain integration test.
+**This session:**
+- Rebased issue-188-real-time-inbound-channels onto main (resolved pom.xml module conflicts)
+- Fast-forward merged to main — 143 files, 5967 additions
+- Decided to migrate speech implementations from agency to connectors (connectors#204)
+- Closed agency#445 (adapter approach superseded), filed agency#446 (agency cleanup)
+- Agency's SpeechToTextService/TextToSpeechService will be deleted — redundant with VoicePlatform
 
-**Batch 2 (14 types):** Streaming STT (StreamingSpeechToText — renamed from StreamingSpeechToTextService, RecognitionStream), phoneme/lip-sync (PhonemeAligner, LipSyncEnricher), audio processing (SpeechDenoiser, StreamingSpeechDenoiser, StreamingSpeechDenoiserFactory, VoiceActivityFilter, VoiceActivityFilterFactory), speaker ID (SpeakerEmbedding, SpeakerMatch, SpeakerEmbeddingExtractor, SpeakerRegistry, VoiceprintStore).
-
-**Deep audit:** 3 parallel forks verified zero remnant references in Java code, all 21 types exist with correct signatures, all 16 agency implementations wired to connectors interfaces. Fixed: 4 SPI contract tests moved to connectors (31 voice-spi tests now), 13 stale doc references updated, file/class name mismatch fixed.
-
-**Agency landed:** Squashed to single commit `810dbe37` on agency main. Branch stamped closed. #193 closed (moot — adapter deleted).
+**Key decision:** Voice model provisioning follows agency's auto-download pattern (Provisioner), not Maven artifacts. Kokoro is one shared 88-310MB ONNX model + small voice style vectors, not per-voice files.
 
 ## Immediate Next Step
 
-**Voice playbook integration tests** — end-to-end YAML playbook examples showing voice capabilities with simulated services. Design agreed:
+**connectors#204 — Migrate speech implementations from agency to connectors.** Move Provisioner, native lib modules, KokoroTextToSpeech, VitsTextToSpeech, SherpaOnnxSpeechToText, WhisperSpeechToText from agency speech-sherpa into connectors as VoicePlatform modules (voice-kokoro, voice-vits, stt-whisper, etc.).
 
-- `examples/voice-interaction-patterns/` directory with numbered YAMLs (platform pattern)
-- Progressive: 01-voice-echo (STT→TTS), 02-voice-agent (STT→agent→TTS), 03-banking-assistant (STT→agent→BankPlatform→TTS), 04-travel-booking, 05-health-appointment
-- `VoiceExampleExecutionTest` modeled on platform's `AgentExampleExecutionTest`
-- Execution harness bridges PluginStep (voice) + InvokeStep (agent) — neither `executeAll()` nor `StructuralStepEvaluator` handles both alone
-- CorpusBackend for simulated LLM with scenario-specific canned responses
-- ReferenceVoicePlatform + bank-ref/travel-ref/health-ref for simulated platforms
-- Need to add deps: bank-ref, travel-ref, health-ref, calendar-ref, email-ref, location-ref, playbook-compiler, mutiny (all test scope)
-
-**Future:** YAML-based assertion mechanism for self-verifying playbooks (assert: steps in YAML).
+Also: move seed-catalog.yaml from voice-spi to voice-ref or playbooks — it hardcodes ref-specific config in the SPI module. Switch VoiceManifestLoader to scan META-INF/voice-catalog.yaml (multi-resource, like yaml-services.yaml).
 
 ## Cross-Module
 
-- Agency commit `810dbe37` on main — voice type migration landed
-- Agency speech-api retains 12 types: text cleanup (TextFilter, CleanupConfig, CorrectionStrategy), avatar/conversation (6), diarization (3)
-- #192 (JWT JWKS verification for Gmail push) remains open
+- **Enabled** — platform#769-773, #777 all landed
+- **Blocked by** — none
+- agency#446 blocked by connectors#204
 
 ## References
 
-- Connectors branch: `issue-188-real-time-inbound-channels` (paused)
-- `specs/issue-188-real-time-inbound-channels/2026-10-30-real-time-inbound-channels-design.md`
-- `plans/2026-10-30-real-time-inbound-channels.md`
-- `integration-tests/` — 22 integration tests, 31 voice-spi tests
-- Platform pattern: `platform/examples/agent-interaction-patterns/` + `AgentExampleExecutionTest`
-- Key infrastructure: `StructuralStepEvaluator`, `CorpusBackend`, `ExampleEnvironment`, `InvokeHandler`
+- Issues: connectors#204 (speech migration), agency#446 (agency cleanup)
+- Blog: blog/2026-11-09-mdp01-yaml-all-the-way-down.md
+- Blog: blog/2026-11-09-mdp02-voice-needs-a-manifest.md
+- Design specs: specs/issue-188-real-time-inbound-channels/

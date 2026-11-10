@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#475569"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="320" fill="#fafaf9" rx="8"/>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#1e293b">DeferredDelivery — Sync + Async Split</text>
+
+  <!-- Webhook POST -->
+  <rect x="20" y="55" width="120" height="44" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="80" y="82" text-anchor="middle" font-weight="500" fill="#334155">Webhook POST</text>
+
+  <!-- Arrow to Connector -->
+  <line x1="140" y1="77" x2="178" y2="77" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Connector -->
+  <rect x="180" y="55" width="160" height="44" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="260" y="75" text-anchor="middle" font-weight="500" fill="#1e40af">WhatsApp Connector</text>
+  <text x="260" y="90" text-anchor="middle" font-size="11" fill="#3b82f6">parseAndSplit()</text>
+
+  <!-- Split arrow down: text messages -->
+  <line x1="230" y1="99" x2="230" y2="138" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="195" y="125" font-size="11" fill="#64748b">text</text>
+
+  <!-- Split arrow down-right: media -->
+  <line x1="290" y1="99" x2="290" y2="138" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-blue)"/>
+  <text x="300" y="125" font-size="11" fill="#2563eb">media</text>
+
+  <!-- Immediate box -->
+  <rect x="160" y="140" width="140" height="40" rx="6" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="230" y="165" text-anchor="middle" font-weight="500" fill="#166534">immediate[]</text>
+
+  <!-- Arrow from immediate to Router -->
+  <line x1="230" y1="180" x2="230" y2="218" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Router delivers sync -->
+  <rect x="155" y="220" width="150" height="40" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="230" y="237" text-anchor="middle" font-size="12" fill="#334155">Router: service.receive()</text>
+  <text x="230" y="252" text-anchor="middle" font-size="11" fill="#64748b">synchronous</text>
+
+  <!-- Deferred box -->
+  <rect x="360" y="140" width="160" height="40" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="440" y="158" text-anchor="middle" font-weight="500" fill="#92400e">Supplier&lt;List&gt;</text>
+  <text x="440" y="172" text-anchor="middle" font-size="11" fill="#b45309">deferred</text>
+
+  <!-- Arrow from deferred to virtual thread -->
+  <line x1="440" y1="180" x2="440" y2="218" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-blue)"/>
+
+  <!-- Virtual thread -->
+  <rect x="365" y="220" width="150" height="40" rx="6" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="440" y="237" text-anchor="middle" font-size="12" fill="#5b21b6">Virtual Thread</text>
+  <text x="440" y="252" text-anchor="middle" font-size="11" fill="#7c3aed">download + deliver</text>
+
+  <!-- HTTP 200 -->
+  <rect x="560" y="55" width="140" height="44" rx="6" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="630" y="75" text-anchor="middle" font-weight="500" fill="#166534">HTTP 200 OK</text>
+  <text x="630" y="90" text-anchor="middle" font-size="11" fill="#16a34a">returned immediately</text>
+
+  <!-- Arrow from connector to 200 -->
+  <line x1="340" y1="77" x2="558" y2="77" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Timeline labels -->
+  <text x="80" y="300" text-anchor="middle" font-size="11" fill="#94a3b8">t₀ request arrives</text>
+  <text x="340" y="300" text-anchor="middle" font-size="11" fill="#94a3b8">t₁ text delivered, 200 returned</text>
+  <text x="600" y="300" text-anchor="middle" font-size="11" fill="#94a3b8">t₂ media downloaded + delivered</text>
+</svg>

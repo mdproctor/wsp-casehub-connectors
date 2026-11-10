@@ -1,0 +1,26 @@
+# Work Plan — issue-188-real-time-inbound-channels
+
+## State
+branch: issue-188-real-time-inbound-channels
+status: active
+project-sha: 
+date: 
+issue-repo: casehubio/connectors
+covers: 188
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/connectors#188 — Issue #188 ← active
+  - [x] Batch 1: Model types and registry
+    - [x] Task 1: VoiceDescriptor VoiceCapability VoiceQuery
+    - [x] Task 2: VoiceRegistry MutableVoiceRegistry InMemoryVoiceRegistry
+  - [x] Batch 2: Manifest loading
+    - [x] Task 3: VoiceManifest types and VoiceManifestLoader
+  - [x] Batch 3: Routing and integration
+    - [x] Task 4: VoiceManifestProcessor RoutingVoicePlatformService
+    - [x] Task 5: Seed catalog CDI wiring plugin integration
+
+## Deferred
+- [x] Migrate speech implementations from agency (L / High) [casehubio/connectors#204]
