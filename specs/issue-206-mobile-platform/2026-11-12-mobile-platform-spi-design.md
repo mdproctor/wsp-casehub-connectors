@@ -73,7 +73,7 @@ interface ConversationHandler {
 }
 ```
 
-`ConversationResponse`: text (what to say next), or action (HOLD, TRANSFER, HANG_UP). The handler can perform arbitrary work before returning (check work queues, call APIs, consult a human) — the call waits.
+`ConversationResponse`: text (what to say next), or action (HOLD, TRANSFER, HANG_UP). The handler call is synchronous — the provider blocks and the call waits while the handler performs work (check work queues, call APIs, consult a human). The handler runs on a virtual thread to avoid blocking platform threads. For long-running actions, the handler should send a "please hold" response first, then perform the action and send a follow-up.
 
 ### VoiceCallControl
 
@@ -213,7 +213,7 @@ In-memory reference implementation with stateful switchboard. Follows chat-ref/b
 
 **Canned simulation** via `@SimulationEligible` (D13) — the simulation framework provides strategy selection (sequential, key-lookup, random, replay) and corpus seeding. No hand-written simulation code in mobile-ref.
 
-**Supports:** All six capabilities.
+**Supports:** Determined by seed data configuration. Default seed supports all six capabilities.
 
 ## Provider: mobile-dial
 
@@ -243,11 +243,11 @@ Dial (getdial.ai) integration.
 5. Connectors sends `response` message — Dial speaks it via TTS
 6. Loop until call ends
 
-**Inbound:** Webhook events (`message.received`, `call.ended`, `call.transcribed`) via WebhookInboundConnector. Event verification TBD (Dial webhook signing).
+**Inbound:** Webhook events (`message.received`, `call.ended`, `call.transcribed`) via WebhookInboundConnector. Webhook signing verification to be determined from Dial docs during implementation — follow the same HMAC pattern as Discord (Ed25519) and Slack (HMAC-SHA256).
 
 **Events:** Long-poll (`GET /events/wait`) or SSE (`GET /events/stream`) for real-time event delivery.
 
-**Supports:** All six capabilities.
+**Supports:** Determined by Dial account capabilities and `supports()` implementation.
 
 ## Provider: mobile-twilio
 
