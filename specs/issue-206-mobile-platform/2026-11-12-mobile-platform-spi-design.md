@@ -81,11 +81,23 @@ interface ConversationHandler {
 
 `ConversationResponse`: text (what to say next), with optional action.
 
+```java
+record ConversationResponse(String text, ConversationAction action) {}
+
+sealed interface ConversationAction {
+    record Hold() implements ConversationAction {}
+    record Transfer(String transferTo) implements ConversationAction {}
+    record HangUp() implements ConversationAction {}
+}
+```
+
+Sealed action hierarchy follows the `WebhookResult` pattern (ADR-0001: exhaustive switch handling). `Transfer` carries the target number as a typed field rather than a nullable field on a flat record.
+
 Actions:
 - **No action (null)** — normal flow: provider speaks the text, waits for human speech, then calls `onHumanSpeech` again.
-- **HOLD** — provider speaks the text, then immediately re-invokes `onHumanSpeech` with the current transcript (without waiting for human speech). Use for interim status updates: the handler returns `ConversationResponse("Please hold while I check availability", HOLD)`, the provider speaks it, the handler gets another turn to perform work, and returns the final answer with no action.
-- **TRANSFER(transferTo)** — provider speaks the text (if any), then transfers the call to the specified number.
-- **HANG_UP** — provider speaks the text (if any), then ends the call.
+- **Hold** — provider speaks the text, then immediately re-invokes `onHumanSpeech` with the current transcript (without waiting for human speech). Use for interim status updates: the handler returns `new ConversationResponse("Please hold while I check availability", new Hold())`, the provider speaks it, the handler gets another turn to perform work, and returns the final answer with no action.
+- **Transfer(transferTo)** — provider speaks the text (if any), then transfers the call to the specified number.
+- **HangUp** — provider speaks the text (if any), then ends the call.
 
 The handler call is synchronous — the provider blocks while the handler performs work (check work queues, call APIs, consult a human). The handler runs on a virtual thread to avoid blocking platform threads.
 
@@ -361,15 +373,17 @@ public class ConnectorMobileApi { ... }
 
 | Method | Annotation | Capability | Operation |
 |--------|-----------|-----------|-----------|
-| `sendSms(to, body)` | `@PlatformMutation` | Sms | Send SMS to a number |
-| `call(to, instruction)` | `@PlatformMutation` | VoiceCall | Make a voice call (provider-managed) |
-| `hangUp(callId)` | `@PlatformMutation` | VoiceCallControl | Hang up a call |
-| `transfer(callId, transferTo)` | `@PlatformMutation` | VoiceCallControl | Transfer a call |
-| `listVoicemails()` | `@PlatformQuery` | Voicemail | List voicemails |
-| `transcribeVoicemail(id)` | `@PlatformMutation` | Voicemail | Transcribe a voicemail |
-| `sendMessage(to, body, channel)` | `@PlatformMutation` | Messaging | Send WhatsApp/iMessage/RCS |
-| `listNumbers()` | `@PlatformQuery` | NumberInfo | List available numbers |
-| `lookupNumber(number)` | `@PlatformQuery` | NumberInfo | Check number capabilities |
+| `sendSms(platform, to, body)` | `@PlatformMutation` | Sms | Send SMS to a number |
+| `call(platform, to, instruction)` | `@PlatformMutation` | VoiceCall | Make a voice call (provider-managed) |
+| `hangUp(platform, callId)` | `@PlatformMutation` | VoiceCallControl | Hang up a call |
+| `transfer(platform, callId, transferTo)` | `@PlatformMutation` | VoiceCallControl | Transfer a call |
+| `listVoicemails(platform)` | `@PlatformQuery` | Voicemail | List voicemails |
+| `transcribeVoicemail(platform, id)` | `@PlatformMutation` | Voicemail | Transcribe a voicemail |
+| `sendMessage(platform, to, body, channel)` | `@PlatformMutation` | Messaging | Send WhatsApp/iMessage/RCS |
+| `listNumbers(platform)` | `@PlatformQuery` | NumberInfo | List available numbers |
+| `lookupNumber(platform, number)` | `@PlatformQuery` | NumberInfo | Check number capabilities |
+
+The `platform` parameter routes to the correct provider via `mobilePlatformService.platform(platform)`, consistent with every other multi-provider connector API: `ConnectorChatApi.send(platform, ...)`, `ConnectorBankApi.listAccounts(platform)`, `ConnectorLocationApi.searchPlaces(platform, ...)`.
 
 **Platform-managed calls are programmatic-only** — not exposed as MCP tools. Platform-managed calls require a `ConversationHandler` callback (D9), which is a Java interface that receives multiple invocations during a call. An MCP tool caller (LLM) cannot provide a Java callback. The MCP surface exposes only provider-managed calls via `call(to, instruction)` — the LLM provides a goal, the provider's AI handles the conversation. Programmatic callers (engine, agency) construct a `ConversationHandler` and call `voiceCall().initiate(to, handler)` directly via the SPI. No existing platform SPI exposes callback-based operations through MCP tools.
 
@@ -430,7 +444,7 @@ steps:
     capture: chatNotification
 ```
 
-The voice call is a single step — the agent gives the goal, Dial's AI (or the platform's agent via ConversationHandler) handles the conversation. No TTS/STT steps needed.
+The voice call is a single step — the agent gives the goal, Dial's AI handles the conversation. No TTS/STT steps needed.
 
 For the playbook module, the `mobile-call` step uses eidos AgentDescriptor to define the agent brief (D9) — best practice for any LLM invocation.
 
