@@ -10,16 +10,20 @@ Two voice call modes: provider-managed (fire-and-forget instruction) and platfor
 
 ## Modules
 
-| Module | Purpose |
-|--------|---------|
-| `mobile-spi` | MobilePlatform interface, capabilities, model types, NoOp default, MobilePlatformService registry |
-| `mobile-ref` | In-memory reference: switchboard, SMS log, voicemail store. Seed data from YAML. |
-| `mobile-dial` | Dial (getdial.ai) provider — SMS, voice, WhatsApp/iMessage, number queries |
-| `mobile-twilio` | Twilio provider — SMS, voice (Media Streams), WhatsApp. Absorbs legacy connectors. |
+| Module | Purpose | Dependencies |
+|--------|---------|-------------|
+| `mobile-spi` | MobilePlatform interface, capabilities, model types, NoOp default, MobilePlatformService registry | `connectors-api`, `simulation-api`, `quarkus-arc` |
+| `mobile-ref` | In-memory reference: switchboard, SMS log, voicemail store. Seed data from YAML. | `mobile-spi`, `quarkus-arc` |
+| `mobile-dial` | Dial (getdial.ai) provider — SMS, voice, WhatsApp/iMessage, number queries | `mobile-spi`, `connectors-api`, `platform-api` |
+| `mobile-twilio` | Twilio provider — SMS, voice (Media Streams), WhatsApp. Absorbs legacy connectors. | `mobile-spi`, `connectors-api`, `platform-api`, `voice-spi` |
 
 ## Capability Sub-Interfaces
 
-Six capabilities as inner interfaces of `MobilePlatform`, following the ChatPlatform pattern. Each provider declares which it supports via `supports(Class<?>)`.
+Six capabilities as inner interfaces of `MobilePlatform`. This is a new hybrid composition pattern (D11) combining:
+- **Inner interfaces** (TravelPlatform style) — all capability definitions co-located within `MobilePlatform`, clean namespace (`MobilePlatform.Sms`, `MobilePlatform.VoiceCall`)
+- **Builder + graceful degradation** (ChatPlatform style) — heterogeneous provider landscape (Dial: all six; Twilio: SMS + voice + messaging; future SMS-only providers) requires composed capabilities with NoOp degradation defaults
+
+Each provider declares which capabilities it supports via `supports(Class<?>)`.
 
 ### Sms
 
@@ -73,7 +77,15 @@ interface ConversationHandler {
 }
 ```
 
-`ConversationResponse`: text (what to say next), or action (HOLD, TRANSFER, HANG_UP). The handler call is synchronous — the provider blocks and the call waits while the handler performs work (check work queues, call APIs, consult a human). The handler runs on a virtual thread to avoid blocking platform threads. For long-running actions, the handler should send a "please hold" response first, then perform the action and send a follow-up.
+`ConversationResponse`: text (what to say next), with optional action.
+
+Actions:
+- **No action (null)** — normal flow: provider speaks the text, waits for human speech, then calls `onHumanSpeech` again.
+- **HOLD** — provider speaks the text, then immediately re-invokes `onHumanSpeech` with the current transcript (without waiting for human speech). Use for interim status updates: the handler returns `ConversationResponse("Please hold while I check availability", HOLD)`, the provider speaks it, the handler gets another turn to perform work, and returns the final answer with no action.
+- **TRANSFER(transferTo)** — provider speaks the text (if any), then transfers the call to the specified number.
+- **HANG_UP** — provider speaks the text (if any), then ends the call.
+
+The handler call is synchronous — the provider blocks while the handler performs work (check work queues, call APIs, consult a human). The handler runs on a virtual thread to avoid blocking platform threads.
 
 ### VoiceCallControl
 
@@ -84,7 +96,19 @@ interface VoiceCallControl {
 }
 ```
 
-Orthogonal to conversation model. Works for both provider-managed and platform-managed calls.
+External out-of-band call control — used by supervisors, timeout monitors, admin panels, or other system components outside the active conversation handler. For provider-managed calls (no ConversationHandler), this is the only call control mechanism.
+
+**Relationship to ConversationResponse actions:** ConversationResponse actions (HOLD, TRANSFER, HANG_UP) are handler-initiated, within the synchronous `onHumanSpeech` turn. VoiceCallControl is externally-initiated, from any thread at any time. If VoiceCallControl is invoked while a ConversationHandler callback is in progress, VoiceCallControl wins — the provider terminates/transfers the call and the handler's `onCallEnded()` is invoked with the externally-initiated status.
+
+### Voice Call Failure Handling
+
+**Handler throws during `onHumanSpeech()`:** The provider catches the exception, logs it, speaks a configurable error message (default: "I'm sorry, I'm having technical difficulties. Goodbye."), and hangs up. The handler's `onCallEnded()` is invoked with FAILED status and the exception available via `Call.failureReason()`.
+
+**WebSocket drops mid-conversation:** The provider detects the disconnection and invokes `onCallEnded()` with FAILED status. If the handler is blocked in `onHumanSpeech()`, the provider interrupts the handler's virtual thread. The handler should treat `InterruptedException` as a call termination signal.
+
+**VoicePlatform STT/TTS unavailable for platform-managed calls (mobile-twilio):** Hard failure, not graceful degradation. `initiate()` with a ConversationHandler must fail fast with `UnsupportedOperationException` if the injected VoicePlatformService has no real STT/TTS provider (i.e. only NoOpVoicePlatform). A NoOp STT returning empty text would produce a silent call — worse than failing. The check occurs at `initiate()` time, before the call is placed.
+
+**Handler blocks indefinitely:** No built-in timeout at the SPI level. The `maxDurationSeconds` in CallOptions applies to the overall call duration. Provider implementations enforce this via their platform's call timeout. When the call times out, the provider invokes `onCallEnded()` with COMPLETED or FAILED status.
 
 ### Voicemail
 
@@ -243,7 +267,7 @@ Dial (getdial.ai) integration.
 5. Connectors sends `response` message — Dial speaks it via TTS
 6. Loop until call ends
 
-**Inbound:** Webhook events (`message.received`, `call.ended`, `call.transcribed`) via WebhookInboundConnector. Webhook signing verification to be determined from Dial docs during implementation — follow the same HMAC pattern as Discord (Ed25519) and Slack (HMAC-SHA256).
+**Inbound:** Webhook events (`message.received`, `call.ended`, `call.transcribed`) via WebhookInboundConnector. Webhook signature verification is mandatory — every existing WebhookInboundConnector (Slack, Teams, WhatsApp, Twilio) verifies signatures before processing, using `SigHelper` with constant-time comparison. Dial's self-hosted LLM WebSocket uses HMAC-SHA256; the webhook endpoint likely uses the same mechanism. Implementation must verify Dial's webhook signing docs and implement accordingly. If Dial does not support webhook signing, inbound events via Dial require alternative security: API key in custom header with constant-time comparison, or restrict webhook endpoint to trusted network paths (reverse proxy with IP allowlist).
 
 **Events:** Long-poll (`GET /events/wait`) or SSE (`GET /events/stream`) for real-time event delivery.
 
@@ -280,11 +304,14 @@ Twilio integration. Absorbs existing TwilioSmsConnector and WhatsAppInboundConne
 This is the conversation layer that Dial handles natively. For Twilio, mobile-twilio builds it from STT/TTS/WebSocket.
 
 **Legacy absorption (D5):**
-- Delete `TwilioSmsConnector` from core module
-- Delete `WhatsAppInboundConnector` from webhook module
-- Remove CDI producers from `ConnectorsBeans` and Spring config from `ConnectorsAutoConfiguration`
+- Delete `TwilioSmsConnector` from `connectors-api` module (`connectors-api/src/main/java/io/casehub/connectors/twilio/`)
+- Delete `WhatsAppConnector` from `connectors-api` module (`connectors-api/src/main/java/io/casehub/connectors/whatsapp/`)
+- Delete `TwilioSmsInboundConnector` from `webhook` module (`webhook/src/main/java/io/casehub/connectors/webhook/`)
+- Delete `WhatsAppInboundConnector` from `webhook` module (`webhook/src/main/java/io/casehub/connectors/webhook/`)
+- Remove CDI producers from `core/ConnectorsBeans.java` and Spring config from `connectors-spring/ConnectorsAutoConfiguration.java`
+- Migrate `ConnectorMessagingApi.sendSms()` and `ConnectorMessagingApi.sendWhatsapp()` — these currently route through `ConnectorService.send("twilio-sms", ...)` and `ConnectorService.send("whatsapp", ...)`. Replace with `ConnectorMobileApi` methods routing through `MobilePlatformService` (see §MCP Tools). Delete the SMS/WhatsApp methods from `ConnectorMessagingApi` — email, Slack, and Teams methods remain.
 - Preserve notification-bridge `channelType` contract: mobile-twilio returns `"sms"` and `"whatsapp"` for notification delivery compatibility
-- Update/replace MCP tools (`send_sms`, `send_whatsapp`)
+- Preserve `connectorId` continuity: mobile-twilio's inbound connectors must use `InboundConnectorIds.TWILIO_SMS` (`"twilio-sms-inbound"`) and `InboundConnectorIds.WHATSAPP` (`"whatsapp-inbound"`) — existing `@ObservesAsync InboundMessage` consumers may filter by connectorId
 - Reimplement all capabilities in mobile-twilio's SPI
 
 **Inbound:** WebhookInboundConnector implementations fire InboundMessage CDI events (D14). Preserves existing L2 event bus pattern. channelType "sms" and "whatsapp" maintained for backward compatibility.
@@ -316,22 +343,34 @@ External platform → webhook POST → WebhookInboundConnector (HMAC verify)
 
 MobilePlatform adds structure to OUTBOUND (capability-based send/call). It does not change the inbound event model. Provider modules contribute WebhookInboundConnector implementations that fire InboundMessage events with appropriate channelTypes.
 
+**Connector ID continuity:** mobile-twilio's inbound connectors must reuse the exact `connectorId` strings from the absorbed connectors: `InboundConnectorIds.TWILIO_SMS` (`"twilio-sms-inbound"`) and `InboundConnectorIds.WHATSAPP` (`"whatsapp-inbound"`). Existing `@ObservesAsync InboundMessage` consumers may filter by `connectorId`. Changing these IDs would be a breaking change to downstream consumers.
+
 ## MCP Tools
 
-MobilePlatform operations exposed via `@McpDomain("connectors")` in ConnectorOperationsImpl:
+New `ConnectorMobileApi` class in the `graphql` module, following the per-domain API pattern established by `ConnectorMessagingApi` (`connectors/messaging`), `ConnectorVoiceApi` (`connectors/voice`), `ConnectorChatApi` (`connectors/chat`), etc.
 
-| Tool | Capability | Operation |
-|------|-----------|-----------|
-| `mobile_send_sms` | Sms | Send SMS to a number |
-| `mobile_call` | VoiceCall | Make a voice call (provider-managed) |
-| `mobile_call_agent` | VoiceCall | Make an agentic voice call (platform-managed) |
-| `mobile_hangup` | VoiceCallControl | Hang up a call |
-| `mobile_transfer` | VoiceCallControl | Transfer a call |
-| `mobile_list_voicemails` | Voicemail | List voicemails |
-| `mobile_transcribe_voicemail` | Voicemail | Transcribe a voicemail |
-| `mobile_send_message` | Messaging | Send WhatsApp/iMessage/RCS |
-| `mobile_list_numbers` | NumberInfo | List available numbers |
-| `mobile_lookup_number` | NumberInfo | Check number capabilities |
+```java
+@McpDomain(value = "connectors/mobile", app = "connectors",
+    basePath = "/api/connectors/mobile",
+    summary = "Mobile connector — SMS, voice calls, messaging, voicemail")
+@ApplicationScoped
+public class ConnectorMobileApi { ... }
+```
+
+| Method | Annotation | Capability | Operation |
+|--------|-----------|-----------|-----------|
+| `sendSms(to, body)` | `@PlatformMutation` | Sms | Send SMS to a number |
+| `call(to, instruction)` | `@PlatformMutation` | VoiceCall | Make a voice call (provider-managed) |
+| `callAgent(to, agentBrief)` | `@PlatformMutation` | VoiceCall | Make an agentic voice call (platform-managed) |
+| `hangUp(callId)` | `@PlatformMutation` | VoiceCallControl | Hang up a call |
+| `transfer(callId, transferTo)` | `@PlatformMutation` | VoiceCallControl | Transfer a call |
+| `listVoicemails()` | `@PlatformQuery` | Voicemail | List voicemails |
+| `transcribeVoicemail(id)` | `@PlatformMutation` | Voicemail | Transcribe a voicemail |
+| `sendMessage(to, body, channel)` | `@PlatformMutation` | Messaging | Send WhatsApp/iMessage/RCS |
+| `listNumbers()` | `@PlatformQuery` | NumberInfo | List available numbers |
+| `lookupNumber(number)` | `@PlatformQuery` | NumberInfo | Check number capabilities |
+
+Methods annotated with `@GeneratePlugin` produce `@Plugin` records for the playbook engine at compile time — no separate `mobile-pipeline-steps` module needed. The `mobile-call` and `mobile-send-sms` playbook steps in the dinner booking playbook are generated from these methods.
 
 ## Dinner Booking Playbook
 
@@ -400,6 +439,12 @@ For the playbook module, the `mobile-call` step uses eidos AgentDescriptor to de
   - Dial: real SMS send, real voice call (free $5 credit)
   - Twilio: real SMS send, real voice call (free $15 trial credit)
 - **Legacy absorption tests**: verify notification-bridge channelType compatibility after TwilioSmsConnector/WhatsAppInboundConnector removal
+
+## Deferred Scope (GitHub Issues)
+
+- connectors#207 — VoiceCallStreaming capability (v2, from D1)
+- connectors#208 — Numbrrs provider mobile-numbrrs (v2, from D6)
+- connectors#209 — Number provisioning and management (v2, from D10)
 
 ## References
 
