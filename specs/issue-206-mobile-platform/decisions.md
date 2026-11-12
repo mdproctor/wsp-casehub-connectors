@@ -67,8 +67,8 @@
 **Choice:** Include mobile-numbrrs in v1
 **Alternatives:**
 - Defer — two providers already validate the SPI
-**Rationale:** Three providers proves the SPI scales. Numbrrs is SMS-only and simple to implement — a third data point for SPI validation with minimal effort.
-**Trade-offs:** Additional module to maintain. Numbrrs is UK-only and SMS-only, so limited capability coverage.
+**Rationale:** Three providers proves the SPI scales. Numbrrs provides UK real-SIM numbers with SMS and voice call capabilities — a third data point validating the SPI across a different provider architecture (real SIM vs virtual numbers). Capabilities supported will match what Numbrrs offers (SMS, voice calls, potentially others).
+**Trade-offs:** Additional module to maintain. UK-focused provider.
 **Sources:** Numbrrs API (numbrrs.com), issue #206
 **Exploration:** quick
 **Status:** captured
