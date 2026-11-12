@@ -98,15 +98,27 @@
 **Exploration:** quick
 **Status:** captured
 
-## D9: Agentic call conversation management
+## D9: Agentic call conversation management via eidos agents
 
-**Choice:** CallAgent SPI callback — connectors handles transport, platform provides the agent
+**Choice:** Platform-managed calls take an AgentDescriptor — connectors depends on eidos-api and launches a proper agent
 **Alternatives:**
+- Custom CallAgent SPI callback — lighter dependency but reinvents agent infrastructure
 - CDI event-driven — looser coupling but complex event flow for real-time conversation
 - Built-in conversation loop — breaks the "pure delivery infrastructure" rule
-**Rationale:** Connectors stays pure delivery. `CallAgent` is an SPI: `onTranscriptUpdate(transcript) → AgentResponse` (text to speak, or tool action like "pause and check with human"). The platform wires in the LLM agent with tools. Connectors handles the WebSocket transport (Dial or Twilio), converts between provider protocol and CallAgent callbacks.
-**Trade-offs:** Platform must implement CallAgent — connectors can't run agentic calls standalone. For mobile-ref testing, a simple canned CallAgent implementation handles this.
-**Depends on:** D8 (platform-managed calls), D1 (instruction-based — CallAgent receives text, not audio)
-**Sources:** Connector SPI pattern (connectors provides interface, platform implements), InboundConnector CDI event pattern
+**Rationale:** The call agent IS a proper agent with goals, tools, disposition — not a custom callback. Connectors already depends on platform-api; adding eidos-api gives access to AgentDescriptor. Platform-managed calls accept an AgentDescriptor, and the provider launches the agent through the platform's agent infrastructure. The agent has full tool access mid-call (work queues, chat, APIs). Connectors handles WebSocket transport (Dial/Twilio), the agent handles conversation logic.
+**Trade-offs:** Connectors gains a dependency on eidos-api. This is a deliberate expansion — connectors is delivery infrastructure that can orchestrate agents for interactive channels. For mobile-ref testing, a simple canned agent descriptor with scripted responses handles CI.
+**Depends on:** D8 (platform-managed calls), D1 (instruction-based — agent receives text, not audio)
+**Sources:** eidos-api AgentDescriptor (casehub/platform), agent-config-core manifest loading, yaml-step-runtime AgentInvokeHandler pattern
+**Exploration:** quick
+**Status:** captured
+
+## D10: NumberManagement capability
+
+**Choice:** Include NumberManagement as a sixth capability in v1
+**Alternatives:**
+- Defer — handle number config externally
+**Rationale:** Agents need to know what numbers are available and what they can do (SMS, call, WhatsApp). Dial has full number provisioning APIs (list, provision, release, lookup capabilities). Operations: listNumbers, provisionNumber, releaseNumber, lookupCapabilities.
+**Trade-offs:** Adds provisioning operations that are more administrative than communication. But agents need this to autonomously set up communication channels.
+**Sources:** Dial Numbers API (POST/GET/DELETE /numbers, GET /lookup/number)
 **Exploration:** quick
 **Status:** captured
