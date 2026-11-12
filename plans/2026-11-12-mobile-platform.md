@@ -1224,12 +1224,19 @@ Add MobilePlatform quick start section: dependency, inject MobilePlatformService
 
 Add MobilePlatform architecture: capability sub-interfaces, ConversationHandler, provider implementation details.
 
-- [ ] **Step 5: Run full build**
+- [ ] **Step 5: File deferred scope issues**
+
+Create GitHub issues for deferred scope (from spec §Deferred Scope):
+- `gh issue create --repo casehubio/connectors --title "VoiceCallStreaming capability (v2)" --body "..."`
+- `gh issue create --repo casehubio/connectors --title "Numbrrs provider mobile-numbrrs (v2)" --body "..."`
+- `gh issue create --repo casehubio/connectors --title "Number provisioning and management (v2)" --body "..."`
+
+- [ ] **Step 6: Run full build**
 
 Run: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn clean install`
 Expected: Full build passes.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add integration-tests/ CLAUDE.md docs/
