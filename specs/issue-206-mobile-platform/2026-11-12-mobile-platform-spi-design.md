@@ -37,6 +37,8 @@ interface Sms {
 
 `SmsOptions`: fromNumberId, mediaUrls. `SmsMessage`: id, from, to, body, status, direction (INBOUND/OUTBOUND), timestamp.
 
+`SendResult`: MobilePlatform-specific result type in `mobile-spi` — `SendResult(boolean ok, String messageId, String status, String error)`. Distinct from `io.casehub.connectors.chat.model.SendResult` which contains chat-specific `ChatMessageRef`. Per-SPI result types follow the established pattern (TravelPlatform has `TransportBookingConfirmation`, BankPlatform has `InitiatedPayment`).
+
 ### VoiceCall
 
 Two modes at the SPI surface — both text-level, no audio exposed.
@@ -58,7 +60,7 @@ interface VoiceCall {
 
 `CallOptions`: fromNumberId, language (BCP-47), maxDurationSeconds, transferTo.
 
-`Call`: id, to, from, status (QUEUED/RINGING/IN_PROGRESS/COMPLETED/FAILED/BUSY/NO_ANSWER/CANCELLED), transcript (flat text), transcriptTurns (List\<TranscriptTurn\>), duration, startedAt, endedAt.
+`Call`: id, to, from, status (QUEUED/RINGING/IN_PROGRESS/COMPLETED/FAILED/BUSY/NO_ANSWER/CANCELLED), transcript (flat text), transcriptTurns (List\<TranscriptTurn\>), duration, startedAt, endedAt, failureReason (nullable String — populated when status is FAILED; contains the error message from handler exception, WebSocket disconnection, or provider-side failure).
 
 `TranscriptTurn`: speaker (AGENT/HUMAN/TRANSFER_TARGET), text, startMs, endMs.
 
@@ -106,7 +108,7 @@ External out-of-band call control — used by supervisors, timeout monitors, adm
 
 **WebSocket drops mid-conversation:** The provider detects the disconnection and invokes `onCallEnded()` with FAILED status. If the handler is blocked in `onHumanSpeech()`, the provider interrupts the handler's virtual thread. The handler should treat `InterruptedException` as a call termination signal.
 
-**VoicePlatform STT/TTS unavailable for platform-managed calls (mobile-twilio):** Hard failure, not graceful degradation. `initiate()` with a ConversationHandler must fail fast with `UnsupportedOperationException` if the injected VoicePlatformService has no real STT/TTS provider (i.e. only NoOpVoicePlatform). A NoOp STT returning empty text would produce a silent call — worse than failing. The check occurs at `initiate()` time, before the call is placed.
+**VoicePlatform STT/TTS unavailable for platform-managed calls (mobile-twilio):** Hard failure, not graceful degradation. `initiate()` with a ConversationHandler must fail fast with `UnsupportedCapabilityException` (from `connectors-api`, with structured fields: `operation`, `capability`, `provider`, `supportedCapabilities`) if the injected VoicePlatformService has no real STT/TTS provider (i.e. only NoOpVoicePlatform). A NoOp STT returning empty text would produce a silent call — worse than failing. The check occurs at `initiate()` time, before the call is placed. At the MCP surface, `ConnectorMobileApi` translates to `McpCapabilityException.unsupported(...)` following the `ConnectorVoiceApi.requireCapability()` pattern.
 
 **Handler blocks indefinitely:** No built-in timeout at the SPI level. The `maxDurationSeconds` in CallOptions applies to the overall call duration. Provider implementations enforce this via their platform's call timeout. When the call times out, the provider invokes `onCallEnded()` with COMPLETED or FAILED status.
 
@@ -361,7 +363,6 @@ public class ConnectorMobileApi { ... }
 |--------|-----------|-----------|-----------|
 | `sendSms(to, body)` | `@PlatformMutation` | Sms | Send SMS to a number |
 | `call(to, instruction)` | `@PlatformMutation` | VoiceCall | Make a voice call (provider-managed) |
-| `callAgent(to, agentBrief)` | `@PlatformMutation` | VoiceCall | Make an agentic voice call (platform-managed) |
 | `hangUp(callId)` | `@PlatformMutation` | VoiceCallControl | Hang up a call |
 | `transfer(callId, transferTo)` | `@PlatformMutation` | VoiceCallControl | Transfer a call |
 | `listVoicemails()` | `@PlatformQuery` | Voicemail | List voicemails |
@@ -369,6 +370,8 @@ public class ConnectorMobileApi { ... }
 | `sendMessage(to, body, channel)` | `@PlatformMutation` | Messaging | Send WhatsApp/iMessage/RCS |
 | `listNumbers()` | `@PlatformQuery` | NumberInfo | List available numbers |
 | `lookupNumber(number)` | `@PlatformQuery` | NumberInfo | Check number capabilities |
+
+**Platform-managed calls are programmatic-only** — not exposed as MCP tools. Platform-managed calls require a `ConversationHandler` callback (D9), which is a Java interface that receives multiple invocations during a call. An MCP tool caller (LLM) cannot provide a Java callback. The MCP surface exposes only provider-managed calls via `call(to, instruction)` — the LLM provides a goal, the provider's AI handles the conversation. Programmatic callers (engine, agency) construct a `ConversationHandler` and call `voiceCall().initiate(to, handler)` directly via the SPI. No existing platform SPI exposes callback-based operations through MCP tools.
 
 Methods annotated with `@GeneratePlugin` produce `@Plugin` records for the playbook engine at compile time — no separate `mobile-pipeline-steps` module needed. The `mobile-call` and `mobile-send-sms` playbook steps in the dinner booking playbook are generated from these methods.
 
