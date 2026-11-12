@@ -13,14 +13,18 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/connectors#188 — Issue #188 ← active
-  - [x] Batch 1: Model types and registry
-    - [x] Task 1: VoiceDescriptor VoiceCapability VoiceQuery
-    - [x] Task 2: VoiceRegistry MutableVoiceRegistry InMemoryVoiceRegistry
-  - [x] Batch 2: Manifest loading
-    - [x] Task 3: VoiceManifest types and VoiceManifestLoader
-  - [x] Batch 3: Routing and integration
-    - [x] Task 4: VoiceManifestProcessor RoutingVoicePlatformService
-    - [x] Task 5: Seed catalog CDI wiring plugin integration
+  - [ ] Batch 1: SPI Foundation
+    - [ ] Task 1: Model types and capabilities and Builder and NoOp and PlatformService
+  - [ ] Batch 2: Reference Impl
+    - [ ] Task 2: MobileBackend and InMemoryMobileBackend and seed data and RefMobilePlatform
+  - [ ] Batch 3: MCP and Playbook
+    - [ ] Task 3: ConnectorMobileApi and dinner booking playbook
+  - [ ] Batch 4: Dial Provider
+    - [ ] Task 4: DialClient and DialMobilePlatform REST and WebSocket
+  - [ ] Batch 5: Twilio and Absorption
+    - [ ] Task 5: TwilioClient and TwilioMobilePlatform and legacy absorption
+  - [ ] Batch 6: Integration and Docs
+    - [ ] Task 6: Integration tests and documentation
 
 ## Deferred
 - [x] Migrate speech implementations from agency (L / High) [casehubio/connectors#204]
