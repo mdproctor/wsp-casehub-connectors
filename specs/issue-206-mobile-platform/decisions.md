@@ -102,17 +102,17 @@
 
 ## D9: Platform-managed call conversation handling
 
-**Choice:** Platform-managed calls accept a ConversationHandler callback interface — connectors provides transport, caller provides conversation logic
+**Choice:** ConversationHandler callback at the SPI level — connectors provides transport, caller provides conversation logic. Playbooks module uses eidos AgentDescriptor to demonstrate best practice for LLM agent briefs.
 **Alternatives:**
-- AgentDescriptor from eidos-api — connectors depends on eidos-api and launches a proper agent. Violates the "pure delivery infrastructure" boundary: connectors would need to know about agent goals, tools, and disposition. Creates a cross-repo foundation dependency (eidos-api) that doesn't exist today. No other platform SPI launches agents — ChatPlatform doesn't, EmailPlatform doesn't, VoicePlatform doesn't.
+- AgentDescriptor from eidos-api at SPI level — connectors depends on eidos-api directly. Violates the "pure delivery infrastructure" boundary. No other platform SPI launches agents.
 - CDI event-driven — looser coupling but complex event flow for real-time conversation
 - Built-in conversation loop — breaks the "pure delivery infrastructure" rule
-**Rationale:** ARC42STORIES §1 states: "no business logic, routing, scheduling, templating, or retry orchestration. This library delivers messages, fires CDI events, and exposes chat capabilities. Everything else is a caller concern." Agent orchestration — launching an agent with goals, tools, and disposition — is "everything else." The clean architecture: connectors provides WebSocket transport to Dial/Twilio, and the caller provides a ConversationHandler that receives human text and returns response text. The caller (in casehub-engine or casehub-agency, which already depend on eidos-api) wraps an eidos agent in the handler. Connectors doesn't need to know what backs the handler — it could be an agent, a scripted conversation, or a simple echo. This follows the same pattern as WebhookInboundConnector: connectors handles transport, callers handle logic via CDI events.
-**Trade-offs:** Caller must wire the ConversationHandler to their agent infrastructure. This is a feature, not a cost — it keeps connectors transport-pure and lets callers use whatever conversation logic they want.
+**Rationale:** ARC42STORIES §1 states: "no business logic, routing, scheduling, templating, or retry orchestration." The clean architecture: connectors provides WebSocket transport to Dial/Twilio, and the caller provides a ConversationHandler that receives human text and returns response text. The caller (engine/agency) wraps an eidos agent in the handler. Connectors doesn't need to know what backs the handler. However, the playbooks module (which already has eidos-api as a dependency via yaml-step-runtime) should use AgentDescriptor when defining call agent briefs — this is best practice for any LLM invocation and the playbooks module is the right place to show it.
+**Trade-offs:** SPI-level callers must wire ConversationHandler to their agent infrastructure. Playbooks module gets the eidos best-practice pattern for free.
 **Depends on:** D8 (platform-managed calls), D1 (text-based SPI surface — handler receives text, not audio)
-**Sources:** ARC42STORIES.MD §1 library rule, ChatPlatform pattern (no agent dependency), existing callback patterns in connectors
+**Sources:** ARC42STORIES.MD §1 library rule, ChatPlatform pattern (no agent dependency), eidos-api AgentDescriptor, yaml-step-runtime AgentInvokeHandler
 **Exploration:** quick
-**Status:** revised — replaced AgentDescriptor/eidos-api with ConversationHandler callback to preserve boundary rule (from R1-03)
+**Status:** revised — ConversationHandler at SPI level, eidos AgentDescriptor in playbooks for best practice (from R1-03, user feedback)
 
 ## D10: NumberInfo capability
 
