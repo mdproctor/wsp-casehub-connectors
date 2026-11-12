@@ -13,12 +13,12 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/connectors#188 — Issue #188 ← active
-  - [ ] Batch 1: SPI Foundation
-    - [ ] Task 1: Model types and capabilities and Builder and NoOp and PlatformService
-  - [ ] Batch 2: Reference Impl
-    - [ ] Task 2: MobileBackend and InMemoryMobileBackend and seed data and RefMobilePlatform
-  - [ ] Batch 3: MCP and Playbook
-    - [ ] Task 3: ConnectorMobileApi and dinner booking playbook
+  - [x] Batch 1: SPI Foundation
+    - [x] Task 1: Model types and capabilities and Builder and NoOp and PlatformService
+  - [x] Batch 2: Reference Impl
+    - [x] Task 2: MobileBackend and InMemoryMobileBackend and seed data and RefMobilePlatform
+  - [x] Batch 3: MCP and Playbook
+    - [x] Task 3: ConnectorMobileApi and dinner booking playbook
   - [ ] Batch 4: Dial Provider
     - [ ] Task 4: DialClient and DialMobilePlatform REST and WebSocket
   - [ ] Batch 5: Twilio and Absorption
