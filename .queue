@@ -1,12 +1,12 @@
 # Work Plan — issue-188-real-time-inbound-channels
 
 ## State
-branch: issue-188-real-time-inbound-channels
+branch: issue-206-mobile-platform
 status: active
 project-sha: 
 date: 
 issue-repo: casehubio/connectors
-covers: 188
+covers: 206
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
