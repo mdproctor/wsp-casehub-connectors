@@ -14,11 +14,11 @@
 
 ## D2: Capability scope for v1
 
-**Choice:** All five capabilities — Sms, VoiceCall, VoiceCallControl, Voicemail, Messaging
+**Choice:** All six capabilities — Sms, VoiceCall, VoiceCallControl, Voicemail, Messaging, NumberInfo
 **Alternatives:**
 - Sms + VoiceCall + Messaging only — smaller surface, but VoiceCallControl and Voicemail are straightforward and Dial supports the underlying operations
 - Sms + VoiceCall only — minimal scope, leaves Dial's messaging and call control unused
-**Rationale:** Dial natively supports all five: SMS, instruction-based voice calls, call stop/transfer, and WhatsApp/iMessage messaging. Voicemail is list/get/transcribe over provider data. VoiceCallControl (stop, transfer) maps to Dial's call control endpoints and is orthogonal to the instruction-based conversation model.
+**Rationale:** Dial natively supports five capabilities: SMS, instruction-based voice calls, call stop/transfer, WhatsApp/iMessage messaging, and number queries. VoiceCallControl (stop, transfer) maps to Dial's call control endpoints and is orthogonal to the instruction-based conversation model. NumberInfo (D10) provides read-only number queries. Voicemail support from Dial is provider-specific and may not be natively available (see §Provider: mobile-dial capability mapping); if unsupported, Voicemail degrades to NoOp via the Builder pattern (D11).
 **Trade-offs:** Larger initial implementation surface. Mitigated by Dial covering all capabilities in one provider.
 **Sources:** Dial API docs — POST /calls/:id/stop, transferTo parameter, POST /messages with channel selection
 **Exploration:** quick
@@ -129,15 +129,17 @@
 
 ## D11: SPI composition pattern
 
-**Choice:** Composed capabilities with Builder and graceful degradation, following the ChatPlatform pattern
+**Choice:** New hybrid composition pattern — inner interfaces (TravelPlatform style) + Builder + graceful degradation (ChatPlatform style)
 **Alternatives:**
-- Flat capabilities (BankPlatform/VoicePlatform pattern) — id(), supports(Class<?>), direct capability accessor methods. No builder. Providers implement all methods; unsupported capabilities throw UnsupportedCapabilityException. Simpler for SPIs with 2 capabilities and homogeneous providers.
+- ChatPlatform pattern (Builder + top-level interfaces) — callers import `Sms` directly rather than `MobilePlatform.Sms`, but scatters 6+ capability interfaces across the package
+- TravelPlatform pattern (inner interfaces, no Builder) — clean namespace but no degradation defaults, providers must implement everything
+- Flat capabilities (BankPlatform/VoicePlatform pattern) — id(), supports(Class<?>), direct capability accessor methods. No builder. Simpler for SPIs with 2 capabilities and homogeneous providers.
 - Monolithic interface — single interface with all operations. Forces empty implementations everywhere.
-**Rationale:** MobilePlatform has 5+ capabilities and providers with heterogeneous capability profiles (Dial: all five; Twilio: SMS + voice + messaging; a future SMS-only provider: SMS only). The flat BankPlatform pattern (2 capabilities, all providers support both) doesn't scale to this heterogeneity. ChatPlatform faced the same problem (IRC: 3 native, Discord: 8 native, Slack: 10 native) and solved it with composed capabilities + Builder + NoOp degradation defaults. MobilePlatform should follow this proven pattern: Builder assembles from individual capability instances; unsupported capabilities get degradation defaults automatically; supports(Class<?>) reports what's native. Each provider uses the Builder, providing only the capabilities it supports. Callers never null-check — they call the method and get correct behaviour even when unsupported. For critical operations (voice calls, SMS) where silent no-op would be surprising, the NoOp implementations should log a WARNING and return a failure result rather than silently succeeding.
-**Trade-offs:** Builder adds ceremony vs flat interface. Justified by the heterogeneous provider landscape.
-**Sources:** ChatPlatform.Builder pattern, ChannelFallbackThreading, NoOpReactions, EmptyDiscovery degradation defaults
-**Exploration:** quick — surfaced by reviewer as implicit decision
-**Status:** captured (from R1-04)
+**Rationale:** MobilePlatform has 6 capabilities and providers with heterogeneous capability profiles (Dial: all six; Twilio: SMS + voice + messaging; a future SMS-only provider: SMS only). This requires two things: (1) Builder + degradation defaults (ChatPlatform's solution to heterogeneous providers), and (2) inner interfaces (TravelPlatform's solution to namespace cleanliness with many capabilities). Neither existing pattern alone fits — ChatPlatform has top-level interfaces (10 separate files in one package), TravelPlatform has no Builder (all providers implement everything). The hybrid combines inner interfaces for co-located capability definitions (`MobilePlatform.Sms`, `MobilePlatform.VoiceCall`) with Builder + NoOp degradation for heterogeneous providers. This is explicitly acknowledged as a new pattern in the connectors SPI family. Import trade-off: callers write `MobilePlatform.Sms` rather than `Sms` — this is acceptable for 6 capabilities and keeps the package clean.
+**Trade-offs:** New pattern introduces a precedent. Justified by MobilePlatform's unique combination of many capabilities with heterogeneous providers.
+**Sources:** ChatPlatform.Builder pattern, TravelPlatform inner interfaces, ChannelFallbackThreading, NoOpReactions, EmptyDiscovery degradation defaults
+**Exploration:** quick — surfaced by reviewer; original D11 underrepresented the design decision
+**Status:** revised — acknowledged as new hybrid pattern, not just "following ChatPlatform" (from R1-06)
 
 ## D12: MobilePlatform / VoicePlatform relationship
 

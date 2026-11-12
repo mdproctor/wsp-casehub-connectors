@@ -448,7 +448,7 @@ Expected: compilation failure — methods don't exist yet
 
 - [ ] **Step 4: Implement all remaining SignalClient methods**
 
-Add to `SignalClient.java` — `listGroups`, `getGroup`, `createGroup`, `deleteGroup`, `addMembers`, `removeMembers`, `addReaction`, `removeReaction`, `listContacts`, `downloadAttachment`. Each method follows the same pattern: build request, send via `http`, parse response via `MAPPER`. Group endpoints use URL path `"/v1/groups/" + number`, reaction endpoints use `"/v1/reactions/" + number`, contacts use `"/v1/contacts/" + number`, attachments use `"/v1/attachments/" + attachmentId`.
+Add to `SignalClient.java` — `listGroups`, `getGroup`, `createGroup`, `deleteGroup`, `addMembers`, `removeMembers`, `addReaction`, `removeReaction`, `list`, `downloadAttachment`. Each method follows the same pattern: build request, send via `http`, parse response via `MAPPER`. Group endpoints use URL path `"/v1/groups/" + number`, reaction endpoints use `"/v1/reactions/" + number`, contacts use `"/v1/contacts/" + number`, attachments use `"/v1/attachments/" + attachmentId`.
 
 Key implementation details:
 - `addReaction`/`removeReaction` body: `{"recipient": recipient, "reaction": emoji, "target_author": targetAuthor, "timestamp": targetTimestamp}`
