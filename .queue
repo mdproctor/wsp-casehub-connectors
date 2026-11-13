@@ -19,8 +19,8 @@ flyway-next-v:
     - [x] Task 2: MobileBackend and InMemoryMobileBackend and seed data and RefMobilePlatform
   - [x] Batch 3: MCP and Playbook
     - [x] Task 3: ConnectorMobileApi and dinner booking playbook
-  - [ ] Batch 4: Dial Provider
-    - [ ] Task 4: DialClient and DialMobilePlatform REST and WebSocket
+  - [x] Batch 4: Dial Provider
+    - [x] Task 4: DialClient and DialMobilePlatform REST and WebSocket
   - [ ] Batch 5: Twilio and Absorption
     - [ ] Task 5: TwilioClient and TwilioMobilePlatform and legacy absorption
   - [ ] Batch 6: Integration and Docs
