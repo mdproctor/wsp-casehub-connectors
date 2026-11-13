@@ -27,8 +27,8 @@ per-provider `@RequiresScopes` (D7).
 microsoft-graph-client/           # Shared module in connectors
   io.casehub.connectors.microsoft
     ├── MicrosoftGraphClient       # Base HTTP client: get/post/patch/delete
-    ├── GraphPage<T>               # Paginated response wrapper
     ├── GraphErrorHandler          # HTTP status → ProviderApiException
+    ├── TokenRetry                 # 401 → re-resolve token → single retry
     └── MicrosoftBeans             # CDI producer for MicrosoftGraphClient
 
 email-microsoft/
@@ -85,20 +85,29 @@ public class MicrosoftGraphClient {
     public void putBytes(String path, byte[] body, String contentType, String accessToken) { ... }
 
     // Paginated GET — follows @odata.nextLink, fail-soft on mid-loop error
-    public <T> GraphPage<T> getPage(String path, String accessToken,
+    public <T> Page<T> getPage(String path, String accessToken,
             Function<JsonObject, T> mapper, String cursor) { ... }
 }
 ```
 
 **Pagination:** Graph API returns `@odata.nextLink` (full URL for next page) and
-`value` (array of items). `getPage()` uses `@odata.nextLink` as the cursor.
+`value` (array of items). `getPage()` returns `Page<T>` from `connectors-api`
+directly — no intermediate type, since `Page<T>` already carries `items`,
+`nextCursor`, and `hasMore`. The `@odata.nextLink` value is stored as the cursor.
+
+**Cursor-vs-path behavior:** When `cursor` is non-null, `getPage()` uses `cursor`
+directly as the full request URL (it is an `@odata.nextLink` absolute URL) and
+ignores the `path` parameter. When `cursor` is null (first page), `getPage()` uses
+`BASE_URL + path`. This prevents malformed URL construction like
+`BASE_URL + @odata.nextLink`.
+
 On mid-loop failure: return accumulated partial results + WARNING log with
 page count, item count, and error string (protocol: PP-20260610-83747b).
 `MAX_PAGES = 50` constant caps pagination; cap-hit produces its own WARNING
 distinct from error WARNING.
 
 **Request construction:** Each method builds an `HttpRequest` with:
-- `BASE_URL + path` (or the full `@odata.nextLink` URL for pagination continuation)
+- `BASE_URL + path` for initial requests (or full `cursor` URL for continuation)
 - `Authorization: Bearer <accessToken>` header
 - `Content-Type: application/json` for POST/PATCH
 - `Accept: application/json`
@@ -106,30 +115,51 @@ distinct from error WARNING.
 **JSON parsing:** Uses `jakarta.json.JsonObject` (available in Quarkus).
 Domain clients parse into their own record types.
 
-### GraphPage\<T\>
-
-```java
-public record GraphPage<T>(List<T> items, String nextCursor, boolean hasMore) {}
-```
-
-Maps to `Page<T>` from `connectors-api` at the platform impl layer.
-
 ### GraphErrorHandler
 
-Delegates to `ProviderErrorMapping.mapStatusCode()` from `connectors-api`:
+Maps Graph API HTTP errors to platform exception types. Delegates to
+`ProviderErrorMapping.mapStatusCode()` for most status codes, but handles
+429 and 403 directly because Graph API uses different conventions than
+`ProviderErrorMapping`'s default expectations.
 
-| Graph HTTP Status | Maps to |
-|---|---|
-| 401 | `ProviderAuthException(TOKEN_EXPIRED)` |
-| 403 | `ProviderAuthException(INSUFFICIENT_SCOPE)` |
-| 404 | `NoSuchElementException` (SPI-specific handling) |
-| 410 | `SyncTokenExpiredException` (delta queries) |
-| 429 | `ProviderRateLimitedException(retryAfterSeconds)` — extracts `Retry-After` header |
-| 5xx | `ProviderApiException(statusCode, body, "microsoft")` |
+| Graph HTTP Status | Maps to | Handled by |
+|---|---|---|
+| 401 | `ProviderAuthException(TOKEN_EXPIRED)` | `ProviderErrorMapping` |
+| 403 | `ProviderAuthException(INSUFFICIENT_SCOPE)` or `ProviderAuthException(FORBIDDEN)` | `GraphErrorHandler` directly |
+| 404 | `NoSuchElementException` | `ProviderErrorMapping` |
+| 410 | `SyncTokenExpiredException` (delta queries) | `ProviderErrorMapping` |
+| 429 | `ProviderRateLimitedException(retryAfterSeconds)` | `GraphErrorHandler` directly |
+| 5xx | `ProviderApiException(statusCode, body, "microsoft")` | `ProviderErrorMapping` |
+
+**403 handling:** `ProviderErrorMapping` checks for the Google-specific string
+`"insufficientPermissions"` to distinguish `INSUFFICIENT_SCOPE` from `FORBIDDEN`.
+Graph API uses different error codes (`"Authorization_RequestDenied"`,
+`"ErrorAccessDenied"`, `"AccessDenied"`). `GraphErrorHandler` maps these Graph
+error codes to `INSUFFICIENT_SCOPE` before constructing the exception:
+
+```java
+private static AuthFailureReason map403Reason(String graphErrorCode) {
+    return switch (graphErrorCode) {
+        case "Authorization_RequestDenied",
+             "ErrorAccessDenied",
+             "AccessDenied" -> AuthFailureReason.INSUFFICIENT_SCOPE;
+        default -> AuthFailureReason.FORBIDDEN;
+    };
+}
+```
+
+**429 handling:** `ProviderErrorMapping.mapStatusCode()` hardcodes
+`DEFAULT_RETRY_AFTER_SECONDS = 30`. `GraphErrorHandler` bypasses
+`ProviderErrorMapping` for 429 and constructs `ProviderRateLimitedException`
+directly with the actual `Retry-After` header value:
+
+```java
+int retryAfter = parseRetryAfter(response.headers(), 30);
+throw new ProviderRateLimitedException(retryAfter, providerId);
+```
 
 Graph API error responses include a JSON body with `error.code` and `error.message`.
-`GraphErrorHandler.handle(HttpResponse<?> response)` extracts these before delegating
-to `ProviderErrorMapping`.
+`GraphErrorHandler.handle(HttpResponse<?> response)` extracts these before mapping.
 
 ## email-microsoft — EmailPlatform (Outlook Mail)
 
@@ -138,10 +168,10 @@ to `ProviderErrorMapping`.
 | EmailPlatform method | Graph API endpoint |
 |---|---|
 | `listMailboxes()` | `GET /me/mailFolders` |
-| `listMessages(mailboxId, pagination)` | `GET /me/mailFolders/{id}/messages?$top=N&$skip=M` |
-| `getMessage(messageId)` | `GET /me/messages/{id}` (with `$expand=attachments`) |
-| `getAttachment(messageId, attachmentId)` | `GET /me/messages/{id}/attachments/{id}` |
-| `search(query, pagination)` | `GET /me/messages?$search="query"` |
+| `listMessages(mailboxId, from, to, pagination)` | `GET /me/mailFolders/{id}/messages?$top=N&$filter=receivedDateTime ge ... and receivedDateTime lt ...` with `@odata.nextLink` continuation |
+| `getMessage(mailboxId, messageId)` | `GET /me/messages/{id}` (with `$expand=attachments`) |
+| `getAttachmentContent(mailboxId, messageId, attachmentId)` | `GET /me/messages/{id}/attachments/{id}/$value` (returns `byte[]`) |
+| `search(query, pagination)` | `GET /me/messages?$search="query"` with `@odata.nextLink` continuation |
 
 ### MicrosoftMailClient
 
@@ -152,12 +182,12 @@ public class MicrosoftMailClient {
     private final MicrosoftGraphClient graph;
 
     public List<JsonObject> listMailFolders(String accessToken) { ... }
-    public GraphPage<JsonObject> listMessages(String folderId, String accessToken,
-            int top, String cursor) { ... }
+    public Page<JsonObject> listMessages(String folderId, String accessToken,
+            Instant from, Instant to, int top, String cursor) { ... }
     public JsonObject getMessage(String messageId, String accessToken) { ... }
-    public JsonObject getAttachment(String messageId, String attachmentId,
+    public byte[] getAttachmentContent(String messageId, String attachmentId,
             String accessToken) { ... }
-    public GraphPage<JsonObject> searchMessages(String query, String accessToken,
+    public Page<JsonObject> searchMessages(String query, String accessToken,
             int top, String cursor) { ... }
 }
 ```
@@ -289,7 +319,7 @@ public class MicrosoftDriveClient {
     }
 
     // All drive CRUD operations use basePath
-    public GraphPage<JsonObject> listChildren(String folderId, String accessToken,
+    public Page<JsonObject> listChildren(String folderId, String accessToken,
             int top, String cursor) { ... }
     public JsonObject getItem(String itemId, String accessToken) { ... }
     public byte[] downloadContent(String itemId, String accessToken) { ... }
@@ -318,7 +348,26 @@ The configuration approach is simplest and consistent with how other providers
 handle deployment-specific settings (e.g., Slack workspace, Discord guild).
 The site ID is injected into `SharePointDrivePlatform` via the CDI producer.
 
+**Limitation:** This scopes `SharePointDrivePlatform` to a single SharePoint
+site per deployment. Multi-site support (organizations with dozens to hundreds
+of sites) is deferred — see casehubio/connectors#218.
+
 ## chat-teams — ChatPlatform (Teams)
+
+### Team Discovery
+
+`Discovery.listChannels()` takes no parameters. Graph API requires a teamId
+for `GET /teams/{id}/channels`. The approach follows the same pattern as
+Discord (which discovers guilds dynamically via `client.listBotGuilds(token)`):
+
+- With the delegated user token: `GET /me/joinedTeams` → list of teams the
+  user belongs to
+- Then `GET /teams/{id}/channels` for each joined team
+- Channels are identified by compound `teamId:channelId` (consistent with
+  the Channel Model below)
+
+This scopes discovery to teams the authenticated user has access to — the
+same implicit scoping that Discord uses for guilds.
 
 ### Capability Mapping
 
@@ -326,7 +375,7 @@ The site ID is injected into `SharePointDrivePlatform` via the CDI producer.
 |---|---|---|---|
 | **Messaging** | `POST /teams/{id}/channels/{id}/messages` | Application (`ChannelMessage.Send`) | Native |
 | **Threading** | `POST .../messages/{id}/replies` | Application (`ChannelMessage.Send`) | Native |
-| **Discovery** | `GET /teams/{id}/channels` | Delegated (`Channel.ReadBasic.All`) | Native |
+| **Discovery** | `GET /me/joinedTeams` → `GET /teams/{id}/channels` | Delegated (`Team.ReadBasic.All`, `Channel.ReadBasic.All`) | Native |
 | **Presence** | `GET /users/{id}/presence` | Delegated (`Presence.Read.All`) | Native |
 | **Members** | `GET /teams/{id}/members` | Delegated (`TeamMember.Read.All`) | Native |
 | **ChannelManagement** | `POST /teams/{id}/channels`, `DELETE` | Delegated (`Channel.Create`, `Channel.Delete.All`) | Native |
@@ -347,16 +396,36 @@ delegated permissions (user context required).
 
 `ServiceConnectionProvider` handles this via the provider name convention:
 - Delegated: `getAccessToken(actorId, "microsoft", tenancyId)` — user-scoped token
-- Application: `getAccessToken(null, "microsoft-app", tenancyId)` — tenant-scoped token
+- Application: `getAccessToken(APPLICATION_ACTOR, "microsoft-app", tenancyId)` — tenant-scoped token
 
 The `"microsoft-app"` provider name signals application-level credentials
-(client_credentials grant). This is an extension of the existing SPI —
-`getAccessToken` with `null` actorId and a distinct provider name.
+(client_credentials grant).
 
-If `ServiceConnectionProvider` does not yet support null actorId, this will
-need a minor SPI extension or a sentinel actorId value. The implementation
-detail is owned by the `ServiceConnectionProvider` implementor, not the
-connector module.
+**Application-level actorId:** Application credentials have no user. Rather
+than passing `null` as actorId (which propagates null through
+`OAuthTokenManagerCore` → `OAuthTokenStore.findByActorId()` and relies on
+string concatenation of `"null"` for key construction), use a sentinel
+constant:
+
+```java
+public static final String APPLICATION_ACTOR = "__application__";
+```
+
+Defined on `ServiceConnectionProvider` or in `microsoft-graph-client`. The
+`OAuthTokenStore` record for application credentials uses this sentinel as
+its actorId. This works with all existing `OAuthTokenStore` implementations
+without modification — the sentinel is a normal non-null string.
+
+**Prerequisite — `@RequiresScopes` must be `@Repeatable`:** The current
+`@RequiresScopes` annotation takes a single `provider` string and is not
+`@Repeatable`. Teams needs scopes registered for both `"microsoft"` (delegated)
+and `"microsoft-app"` (application). This requires:
+1. Create container annotation `@RequiresScopesList`
+2. Add `@Repeatable(RequiresScopesList.class)` to `@RequiresScopes`
+3. Update `AuthnBeans.scopeRegistryCore()` to use `getAnnotationsByType()`
+4. Update `AuthnSpringAutoConfiguration` similarly
+
+This is a platform-api change — see casehubio/platform#TBD.
 
 ### TeamsClient
 
@@ -369,10 +438,11 @@ public class TeamsClient {
             String content, String appAccessToken) { ... }
     public JsonObject replyToMessage(String teamId, String channelId,
             String messageId, String content, String appAccessToken) { ... }
-    public GraphPage<JsonObject> listMessages(String teamId, String channelId,
+    public Page<JsonObject> listMessages(String teamId, String channelId,
             String appAccessToken, String cursor) { ... }
 
     // Delegated permission operations
+    public List<JsonObject> listJoinedTeams(String userAccessToken) { ... }
     public List<JsonObject> listChannels(String teamId, String userAccessToken) { ... }
     public JsonObject getPresence(String userId, String userAccessToken) { ... }
     public List<JsonObject> listMembers(String teamId, String userAccessToken) { ... }
@@ -392,13 +462,16 @@ Teams channels map to `Channel` SPI model:
 
 ```java
 @RequiresScopes(provider = "microsoft", scopes = {
-    "Channel.ReadBasic.All", "Presence.Read.All",
+    "Team.ReadBasic.All", "Channel.ReadBasic.All", "Presence.Read.All",
     "TeamMember.Read.All", "Channel.Create", "Channel.Delete.All",
     "TeamMember.ReadWrite.All"
 })
-// Application scopes declared separately:
-// ChannelMessage.Send, ChannelMessage.Read.All
+@RequiresScopes(provider = "microsoft-app", scopes = {
+    "ChannelMessage.Send", "ChannelMessage.Read.All"
+})
 ```
+
+Requires `@RequiresScopes` to be `@Repeatable` (prerequisite above).
 
 ## Auth Model
 
@@ -409,10 +482,28 @@ All five providers inject `ServiceConnectionProvider` and call
 SPI method invocation. The returned `ServiceAccessToken.accessToken()` is
 passed as the `accessToken` parameter to `MicrosoftGraphClient` methods.
 
+### ActorId Resolution
+
+The SPI methods (`listMailboxes()`, `listCalendars()`, etc.) take no
+actorId parameter — this is consistent with all existing providers. The
+actorId comes from the platform layer that invokes SPI methods, not from
+the SPI itself.
+
+The current Google providers (`GoogleEmailPlatform`, `GoogleCalendarPlatform`)
+have the same gap: `GoogleCalendarPlatform.buildService(actorId)` exists but
+has no call sites. ActorId resolution is an open platform-level design
+problem, not specific to this spec.
+
+For implementation, each Microsoft platform impl follows the same pattern
+as the Google providers: inject `ServiceConnectionProvider`, resolve the
+token within each SPI method, and pass it down. The mechanism for obtaining
+actorId (CDI `@RequestScoped` context, interceptor injection, or another
+platform mechanism) will be resolved as a cross-cutting platform concern.
+
 ```java
-// In each platform impl
-private String resolveToken(String userId) {
-    return connectionProvider.getAccessToken(userId, "microsoft", "default")
+// In each platform impl — actorId source TBD at platform level
+private String resolveToken(String actorId) {
+    return connectionProvider.getAccessToken(actorId, "microsoft", "default")
             .accessToken();
 }
 ```
@@ -431,18 +522,48 @@ These details are NOT in the connector modules — they're in the
 ### Token Refresh on 401
 
 When `MicrosoftGraphClient` receives a 401, it throws
-`ProviderAuthException(TOKEN_EXPIRED)`. The calling platform code can
-catch this and request a fresh token from `ServiceConnectionProvider`.
-This is a single retry — if the second attempt also fails, propagate
-the exception.
+`ProviderAuthException(TOKEN_EXPIRED)`. All five platform impls need the
+same retry pattern: catch `TOKEN_EXPIRED`, re-resolve the token, retry once.
+
+Shared utility in `microsoft-graph-client`:
+
+```java
+public class TokenRetry {
+    public static <T> T withTokenRetry(Supplier<String> tokenSupplier,
+                                        Function<String, T> operation) {
+        try {
+            return operation.apply(tokenSupplier.get());
+        } catch (ProviderAuthException e) {
+            if (e.reason() == AuthFailureReason.TOKEN_EXPIRED) {
+                return operation.apply(tokenSupplier.get());
+            }
+            throw e;
+        }
+    }
+}
+```
+
+Platform impls use this uniformly:
+
+```java
+// In MicrosoftEmailPlatform
+public EmailMessage getMessage(String mailboxId, String messageId) {
+    return TokenRetry.withTokenRetry(
+        () -> resolveToken(actorId),
+        token -> MailMapper.toEmailMessage(
+            mailClient.getMessage(messageId, token), mailboxId));
+}
+```
 
 ## Error Handling
 
 ### ProviderErrorMapping Reuse
 
-`MicrosoftGraphClient.GraphErrorHandler` extracts HTTP status code, response
-body, and Graph error code from responses, then delegates to
-`ProviderErrorMapping.mapStatusCode(statusCode, body, providerId, errorCode)`.
+`GraphErrorHandler` extracts HTTP status code, response body, and Graph
+error code from responses. For most status codes (401, 404, 410, 5xx),
+it delegates to `ProviderErrorMapping.mapStatusCode(statusCode, body,
+providerId, errorCode)`. For 403 and 429, it handles mapping directly
+(see GraphErrorHandler section above for details and rationale).
 
 Graph API error response format:
 ```json
@@ -459,12 +580,6 @@ Graph API error response format:
 ```
 
 `GraphErrorHandler` extracts `error.code` and `error.message` before mapping.
-
-### 429 Rate Limiting
-
-Graph API returns `Retry-After` header (seconds). `GraphErrorHandler`
-extracts this and creates `ProviderRateLimitedException(retryAfterSeconds)`.
-If header is missing, defaults to 30 seconds.
 
 ## MCP Surface
 
@@ -497,6 +612,46 @@ developer sandbox credentials).
 `HttpClient` level (test constructor) or mock `MicrosoftGraphClient` itself
 for domain client tests.
 
+## Scope Divergence from Issue #211
+
+Issue #211 lists `document-sharepoint` as a separate module. This spec merges
+it into `document-microsoft` (D3 revised) — the same Graph API drive operations
+with a different base path do not justify a separate module. The issue's
+`document-sharepoint` checkbox maps to `SharePointDrivePlatform` within
+`document-microsoft`.
+
+Issue #211 does not include `chat-teams`. This spec adds it (D4) because the
+shared client and credential infrastructure will be built regardless, and
+completing the Microsoft integration in one pass avoids a second context-loading
+cost. The issue scope items should be updated accordingly.
+
+## Decisions Summary
+
+| ID | Decision | Status |
+|---|---|---|
+| D1 | Raw HTTP via `HttpHelper.CLIENT` — no Microsoft Graph SDK | Captured |
+| D2 | `ServiceConnectionProvider` for credential resolution | Captured |
+| D3 | Single `document-microsoft` module with two CDI beans (revised from separate modules) | Revised |
+| D4 | Include `chat-teams` in scope | Captured |
+| D5 | Thin base client + domain-specific clients per module | Captured |
+| D6 | Composed `MicrosoftDriveClient` with basePath parameter (revised from abstract base) | Revised |
+| D7 | Per-provider `@RequiresScopes` declarations | Captured |
+
+Full decision rationale: `wksp/specs/issue-211-microsoft-graph-providers/decisions.md`
+
+## Deliverables
+
+### ARC42STORIES Chapter
+
+Adding 5 new modules and new layers requires a new Chapter entry in
+`ARC42STORIES.MD` — following the pattern established by Chapters 1–11.
+
+**Chapter title:** Microsoft Graph Providers
+**Layers touched:** Shared HTTP Client, Email, Calendar, Document, Chat
+**What this delivers:** Five Platform SPI providers backed by Microsoft Graph
+REST API, completing the second provider family (alongside Google) for email,
+calendar, and documents, plus the first Teams integration for chat.
+
 ## Implementation Order
 
 1. `microsoft-graph-client` — shared HTTP client, pagination, error handling
@@ -506,6 +661,13 @@ for domain client tests.
 5. `chat-teams` — dual permission model, most complex auth
 
 Each step is independently testable and deployable.
+
+## Prerequisites
+
+1. **`@RequiresScopes` made `@Repeatable`** — required for `chat-teams` dual-provider
+   scope declarations (platform-api change)
+2. **ActorId resolution mechanism** — platform-level design for how SPI methods
+   obtain the current user identity (affects all providers, not just Microsoft)
 
 ## References
 
