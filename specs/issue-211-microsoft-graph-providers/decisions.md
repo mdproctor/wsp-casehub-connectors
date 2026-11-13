@@ -21,16 +21,17 @@
 **Exploration:** quick
 **Status:** captured
 
-## D3: Separate modules for OneDrive and SharePoint
+## D3: Single document-microsoft module with two CDI beans (REVISED)
 
-**Choice:** `document-microsoft` (OneDrive, user-scoped) and `document-sharepoint` (SharePoint, site-scoped) as separate Maven modules
+**Choice:** One `document-microsoft` Maven module containing two `@ApplicationScoped` CDI beans: `MicrosoftDrivePlatform` (id = `"microsoft-onedrive"`, user-scoped `/me/drive/*`) and `SharePointDrivePlatform` (id = `"microsoft-sharepoint"`, site-scoped `/sites/{id}/drive/*`). Shared drive logic via composed `MicrosoftDriveClient` taking `basePath` constructor parameter (composition over inheritance).
 **Alternatives:**
-- Single module with config — less code but muddies identity (`id()` returns what?), different credential scopes, different discovery model (user drive vs site drive)
-**Rationale:** OneDrive is user-scoped (`/me/drive/*`), SharePoint is site-scoped (`/sites/{id}/drive/*`). Different `id()` values, different OAuth2 scopes, different deployment profiles. Clean separation lets deployments include only what they need. Shared code lives in `microsoft-graph-client` via abstract base class (see D6).
-**Trade-offs:** Two modules with similar code. Mitigated by shared abstract base in `microsoft-graph-client`.
-**Sources:** Spec (docs/specs/issue-211-microsoft-graph/README.md §Module Structure), DocumentPlatform SPI
+- Separate modules (`document-microsoft` + `document-sharepoint`) + shared abstract base — over-decomposed; two modules for a single-parameter difference. When you need a shared base class to de-duplicate two modules, the two modules should be one.
+- Single module with config — muddies identity (`id()` returns what?)
+**Rationale:** Google handles personal drives and shared drives in a single `document-google` module. OneDrive and SharePoint use identical Graph API drive operations — only the base path differs. Two CDI beans in one module gives distinct `id()` values and `@RequiresScopes` per bean without module proliferation. Composition (`MicrosoftDriveClient` with basePath parameter) is simpler than inheritance for a single-string difference.
+**Trade-offs:** Both beans share a module, so a deployment wanting only SharePoint must include OneDrive code (but not register the bean). Acceptable for the code sharing benefit.
+**Sources:** Spec (docs/specs/issue-211-microsoft-graph/README.md §Module Structure), DocumentPlatform SPI, Google precedent (single document-google module), decision review R1-03
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (from: separate modules)
 
 ## D4: Include chat-teams in scope
 
@@ -55,18 +56,18 @@
 **Exploration:** quick
 **Status:** captured
 
-## D6: Shared abstract base for OneDrive/SharePoint drive operations
+## D6: Composed DriveClient with basePath parameter (REVISED)
 
-**Choice:** `AbstractDrivePlatform` in `microsoft-graph-client` implements all `DocumentPlatform` capability sub-interfaces with a `driveBasePath()` template method. `MicrosoftDrivePlatform` and `SharePointPlatform` extend it, providing their path.
+**Choice:** `MicrosoftDriveClient` in `document-microsoft` module — a composed helper class that takes `basePath` as a constructor parameter and implements all drive CRUD operations. Both `MicrosoftDrivePlatform` and `SharePointDrivePlatform` create their own `MicrosoftDriveClient` instance with their respective base path.
 **Alternatives:**
-- Independent implementations — no coupling but significant duplication of identical drive CRUD logic
-- Shared utility class (composition) — `DriveOperations` helper that both delegate to. Similar coupling to base class but loses polymorphic dispatch
-**Rationale:** The Graph API drive operations are identical for OneDrive and SharePoint — only the base path differs. A template method pattern captures this precisely. If SharePoint-specific features emerge (e.g. site discovery), the subclass can override individual methods.
-**Trade-offs:** Coupling between OneDrive and SharePoint implementations via shared base. If APIs diverge significantly, the base class becomes a liability. Currently unlikely — Microsoft explicitly documents them as the same API.
-**Sources:** DocumentPlatform SPI (document-spi), Google DocumentPlatform inner class pattern
-**Depends on:** D3 (separate modules)
+- Abstract base class with template method — inheritance for a single-string difference is over-engineered. The two platform beans don't need to be polymorphic with each other, only with `DocumentPlatform`.
+- Independent implementations — duplication of identical logic
+**Rationale:** Composition over inheritance. `MicrosoftDriveClient("/me/drive")` vs `MicrosoftDriveClient("/sites/{siteId}/drive")` — the difference is a constructor argument, not a class hierarchy.
+**Trade-offs:** None significant. If SharePoint-specific operations emerge, `SharePointDrivePlatform` can add methods directly without the composed client.
+**Sources:** Decision review R1-06, DocumentPlatform SPI
+**Depends on:** D3 (revised — single module)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (from: shared abstract base)
 
 ## D7: Per-provider OAuth2 scope declarations
 
