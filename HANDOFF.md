@@ -2,16 +2,16 @@
 
 ## Last Session
 
-Continuing MobilePlatform SPI (#206) implementation — batches 1-4 complete.
+Continuing MobilePlatform SPI (#206) implementation — batches 1-5 complete.
 
 **This session:**
-- Built mobile-dial module (Batch 4) — Dial provider for MobilePlatform SPI
-- DialClient: REST client for Dial API (SMS, messaging, voice calls, number queries) with Bearer auth and ProviderErrorMapping error handling
-- DialWebSocket: self-hosted LLM WebSocket client for platform-managed voice calls via ConversationHandler — handles response_required/response protocol, sealed ConversationAction dispatch
-- DialMobilePlatform: wires DialClient to 5 capabilities (Sms, VoiceCall, VoiceCallControl, Messaging, NumberInfo) via Builder. No Voicemail — Dial doesn't support it natively
-- DialBeans: CDI producer using StaticCredentialStore for credential resolution
-- 53 new tests (6 DialClient JSON mapping + 47 DialMobilePlatform mapping/wiring), all passing
-- Full build chain (mobile-spi → mobile-ref → mobile-dial → graphql → connectors-spring) green
+- Built mobile-dial module (Batch 4) — Dial provider with REST client + self-hosted LLM WebSocket
+- Built mobile-twilio module (Batch 5) — Twilio provider with REST client, TwilioSmsBridge, TwilioWhatsAppBridge
+- Legacy absorption: deleted TwilioSmsConnector, WhatsAppConnector, TwilioSmsInboundConnector, WhatsAppInboundConnector
+- Cleaned up ConnectorsBeans, ConnectorsAutoConfiguration, WebhookBeans, ConnectorMessagingApi
+- Removed sendSms/sendWhatsapp from ConnectorMessagingApi (now via ConnectorMobileApi)
+- Preserved connectorId continuity: "twilio-sms-inbound" and "whatsapp-inbound"
+- 85 new tests across mobile-dial (53) and mobile-twilio (32), all passing
 
 **Pre-existing failures (not from this session):**
 - voice-pipeline-steps: TTS tests expect kokoro voice platform not available locally
@@ -20,7 +20,7 @@ Continuing MobilePlatform SPI (#206) implementation — batches 1-4 complete.
 
 ## Immediate Next Step
 
-**Batch 5: Twilio Provider + Legacy Absorption (mobile-twilio).** TwilioClient, TwilioMediaStreams (WebSocket + VoicePlatform STT/TTS for platform-managed calls), TwilioMobilePlatform, legacy TwilioSmsConnector/WhatsAppInboundConnector absorption. Then Batch 6: Integration tests and docs. Plan: `plans/2026-11-12-mobile-platform.md`.
+**Batch 6: Integration Tests + Documentation.** MobileRefIntegrationTest in integration-tests, CLAUDE.md module table update, consumer/contributor guide updates, deferred scope issue filing. Plan: `plans/2026-11-12-mobile-platform.md`.
 
 ## Cross-Module
 
