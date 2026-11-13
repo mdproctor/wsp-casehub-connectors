@@ -26,3 +26,11 @@ batch4: done
     - [x] Task 5: TeamsChatPlatform Teams
   - [x] Batch 6: Integration
     - [x] Task 6: Integration tests and docs
+- [ ] casehubio/connectors#219 — configurable SSRF CDN allow-list
+- [ ] casehubio/connectors#224 — resumable upload test coverage
+- [ ] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
+- [ ] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
+- [ ] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
+- [ ] casehubio/connectors#225 — PlatformExtensible base interface with as()
+- [ ] casehubio/connectors#220 — Teams inbound via Bot Framework
+- [ ] casehubio/connectors#223 — actorId resolution for per-user OAuth
