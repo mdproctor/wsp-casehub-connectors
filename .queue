@@ -10,6 +10,7 @@ date:
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
+batch4: done
 
 ## Queue
 - [ ] casehubio/connectors#188 — Issue #188 ← active
@@ -19,8 +20,8 @@ flyway-next-v:
     - [x] Task 2: MicrosoftEmailPlatform Outlook Mail
   - [x] Batch 3: Calendar
     - [x] Task 3: MicrosoftCalendarPlatform Outlook Calendar
-  - [ ] Batch 4: Document
-    - [ ] Task 4: MicrosoftDrivePlatform OneDrive SharePoint
+  - [x] Batch 4: Document
+    - [x] Task 4: MicrosoftDrivePlatform OneDrive SharePoint
   - [ ] Batch 5: Chat
     - [ ] Task 5: TeamsChatPlatform Teams
   - [ ] Batch 6: Integration
