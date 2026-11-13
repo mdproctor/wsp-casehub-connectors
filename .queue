@@ -1,30 +1,36 @@
-# Work Plan — issue-188-real-time-inbound-channels
+# Work Plan — Work Plan —
 
 ## State
-branch: issue-206-mobile-platform
+branch: issue-211-microsoft-graph-providers
+issue-repo: casehubio/connectors
 status: active
+covers: 211
 project-sha: 
 date: 
-issue-repo: casehubio/connectors
-covers: 206
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
+batch4: done
 
 ## Queue
 - [ ] casehubio/connectors#188 — Issue #188 ← active
-  - [x] Batch 1: SPI Foundation
-    - [x] Task 1: Model types and capabilities and Builder and NoOp and PlatformService
-  - [x] Batch 2: Reference Impl
-    - [x] Task 2: MobileBackend and InMemoryMobileBackend and seed data and RefMobilePlatform
-  - [x] Batch 3: MCP and Playbook
-    - [x] Task 3: ConnectorMobileApi and dinner booking playbook
-  - [x] Batch 4: Dial Provider
-    - [x] Task 4: DialClient and DialMobilePlatform REST and WebSocket
-  - [x] Batch 5: Twilio and Absorption
-    - [x] Task 5: TwilioClient and TwilioMobilePlatform and legacy absorption
-  - [x] Batch 6: Integration and Docs
-    - [x] Task 6: Integration tests and documentation
-
-## Deferred
-- [x] Migrate speech implementations from agency (L / High) [casehubio/connectors#204]
+  - [x] Batch 1: Foundation
+    - [x] Task 1: MicrosoftGraphClient GraphErrorHandler TokenRetry
+  - [x] Batch 2: Email
+    - [x] Task 2: MicrosoftEmailPlatform Outlook Mail
+  - [x] Batch 3: Calendar
+    - [x] Task 3: MicrosoftCalendarPlatform Outlook Calendar
+  - [x] Batch 4: Document
+    - [x] Task 4: MicrosoftDrivePlatform OneDrive SharePoint
+  - [x] Batch 5: Chat
+    - [x] Task 5: TeamsChatPlatform Teams
+  - [x] Batch 6: Integration
+    - [x] Task 6: Integration tests and docs
+- [ ] casehubio/connectors#219 — configurable SSRF CDN allow-list
+- [ ] casehubio/connectors#224 — resumable upload test coverage
+- [ ] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
+- [ ] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
+- [ ] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
+- [ ] casehubio/connectors#225 — PlatformExtensible base interface with as()
+- [ ] casehubio/connectors#220 — Teams inbound via Bot Framework
+- [ ] casehubio/connectors#223 — actorId resolution for per-user OAuth
