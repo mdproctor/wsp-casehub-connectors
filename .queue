@@ -22,7 +22,7 @@ batch4: done
     - [x] Task 3: MicrosoftCalendarPlatform Outlook Calendar
   - [x] Batch 4: Document
     - [x] Task 4: MicrosoftDrivePlatform OneDrive SharePoint
-  - [ ] Batch 5: Chat
-    - [ ] Task 5: TeamsChatPlatform Teams
+  - [x] Batch 5: Chat
+    - [x] Task 5: TeamsChatPlatform Teams
   - [ ] Batch 6: Integration
     - [ ] Task 6: Integration tests and docs
