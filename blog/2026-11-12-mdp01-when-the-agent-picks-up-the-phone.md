@@ -19,7 +19,7 @@ Telephony breaks that model. A phone call is a sustained, stateful interaction w
 
 The conventional approach to programmable voice is bidirectional audio streaming — your code receives raw audio bytes, runs speech-to-text, decides what to say, generates speech, sends audio bytes back. You own the entire conversation pipeline. It's powerful and it's a lot of plumbing.
 
-Modern telephony APIs like [Dial](https://docs.getdial.ai) offer something more interesting: instruction-based calls. You provide a goal — "call this restaurant and book a table for 2 at 7pm, name is Smith" — and the provider's AI handles the entire conversation. It says hello, explains the booking, negotiates availability, confirms details, and hangs up. Your agent gets back a structured transcript with speaker turns and timing.
+Providers like Dial have inverted this. You give the provider an instruction — a goal, not a script — and the provider's AI handles the entire conversation. It says hello, explains the booking, negotiates availability, confirms details, and hangs up. Your agent gets back a structured transcript with speaker turns and timing.
 
 ```java
 Call call = platform.voiceCall().initiate(
@@ -97,10 +97,42 @@ steps:
 
 Each step is a different connector platform. Each platform has a reference implementation for testing — no API keys, no network, deterministic results in CI. The voice call step matches the instruction against canned conversation scripts in seed data and returns a pre-built transcript. Same SPI interface, same playbook syntax, real or simulated backends selected by deployment.
 
+## Absorbing the Legacy
+
+The old `TwilioSmsConnector` was a 47-line fire-and-forget connector. `WhatsAppConnector` was 72 lines. Both implemented the original `Connector` SPI — `send(to, body)` and done. They worked, but they lived in `connectors-api`, they had no capability introspection, and adding voice calls alongside them would have produced a bag of unrelated methods on an already-crowded interface.
+
+The absorption moved SMS and WhatsApp delivery into `MobilePlatform` capabilities, but it couldn't just delete the old connectors and walk away. The notification bridge — the system that routes alerts to users via their preferred channel — discovers `Connector` beans by `channelType()` at startup. Delete `TwilioSmsConnector`, and every deployment that sends SMS notifications silently stops delivering them. No error. No log. Just missing messages.
+
+The fix is a pair of thin bridge connectors that implement the old `Connector` interface but delegate to the new `MobilePlatform`:
+
+```java
+public class TwilioSmsConnectorBridge implements Connector {
+    @Override public String id() { return "twilio-sms"; }
+    @Override public String channelType() { return "sms"; }
+
+    @Override public boolean send(ConnectorMessage message) {
+        return platform.sms()
+            .send(message.destination(), message.body()).ok();
+    }
+}
+```
+
+Same channel type, same connector ID, same notification behaviour — but the actual delivery now routes through the capability-based platform. The bridge is the seam between the old world and the new one. Downstream code doesn't know or care which side of the seam it's talking to.
+
+## What the Code Review Caught
+
+The WebSocket client for platform-managed calls via Dial had a lifecycle bug that wouldn't have shown up in a unit test. `handler.onCallConnected()` fired before the WebSocket connection was even established — so if DNS resolution failed, the handler would receive `onCallConnected()` followed immediately by `onCallEnded(FAILED)`. Two contradictory lifecycle events for a call that never existed.
+
+The fix was straightforward — move the callback into the WebSocket's `onOpen` handler — but the bug was invisible until someone traced the callback sequence. The same review caught a WebSocket resource leak: on timeout, the connection was never closed, so repeated call timeouts would exhaust the HTTP connection pool. And a URL construction bug in the number lookup API: `jsonEscape` on a phone number passes `+` as-is, which HTTP interprets as a space.
+
+None of these would have caused a test failure. The reference implementation doesn't use WebSockets. The Twilio client doesn't connect to Dial. The tests exercise the mapping layer, not the transport. This is the gap between "tests pass" and "the code is correct" — the gap that a structured review covers.
+
 ## Why Telephony Needs a Platform SPI
 
-The old `TwilioSmsConnector` in the codebase was a fire-and-forget connector — `send(to, body)` and done. No capability introspection, no provider abstraction, no graceful degradation. Adding voice calls, voicemail, WhatsApp messaging, and number management to that model would have produced a bag of unrelated methods on a monolithic interface.
+`MobilePlatform` follows the same composition pattern as `ChatPlatform` — a Builder assembles capabilities, unsupported ones get NoOp degradation defaults, `supports()` tells you what's real. Six capabilities: `Sms`, `VoiceCall`, `VoiceCallControl`, `Voicemail`, `Messaging`, `NumberInfo`. Each provider declares what it supports. Dial gets five. Twilio gets five. A future SMS-only provider gets one. The SPI doesn't care.
 
-`MobilePlatform` follows the same composition pattern as `ChatPlatform` — a Builder assembles capabilities, unsupported ones get NoOp degradation defaults, `supports()` tells you what's real. Six capabilities: `Sms`, `VoiceCall`, `VoiceCallControl`, `Voicemail`, `Messaging`, `NumberInfo`. Each provider declares what it supports. Dial gets all six. A future SMS-only provider gets one. The SPI doesn't care.
+The alternative — a monolithic `TelephonyService` with methods for every operation across every channel — is what every telephony SDK looks like before it collapses under its own weight. Twilio's client libraries have hundreds of methods because they model the API surface, not the capability structure. When your agent needs to know "can I send WhatsApp through this provider?" the answer should be `platform.supports(Messaging.class)`, not a try-catch around an HTTP 400.
 
-The SPI, reference implementation, and MCP tools are working. What remains is the production providers — Dial for instruction-based calls and SMS, Twilio for the full audio pipeline — and the legacy connector absorption that consolidates SMS and WhatsApp delivery into the new platform pattern.
+For agent systems, capability introspection isn't a convenience — it's how the agent decides what to do. An LLM agent selecting between providers needs structured metadata, not documentation. The `supports()` method and the `UnsupportedCapabilityException` with its recovery fields (`operation`, `capability`, `provider`, `supportedCapabilities`) give the agent everything it needs to self-correct: "Dial doesn't support voicemail, but Twilio does" is a structured fact the agent can act on, not a string it has to parse from an error message.
+
+Thirteen platform SPIs now. The pattern holds.
