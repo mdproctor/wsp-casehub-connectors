@@ -38,8 +38,6 @@ The reality fell apart on closer inspection. casehub's playbook executor already
 
 For REST APIs (the bulk of the n8n gap), OpenAPI specs plus `HttpHelper` are cleaner and more current than Camel wrappers. For protocol infrastructure (Kafka, Redis, MongoDB, MQTT), Quarkus already has native extensions that integrate natively with CDI. For the handful of genuinely obscure protocols (FTP, LDAP, SMPP), thin wrappers over the underlying library are simpler than the camel-quarkus dependency chain.
 
-Camel's 500 million annual Maven downloads look impressive until you realise that's existing enterprise Java deployments pulling transitive dependencies — not new adoption. Six thousand GitHub stars for a 19-year-old project, against n8n's 206,000 in five years. It's a zombie project, alive through entrenchment rather than momentum.
-
 ## The federation insight
 
 The SPI architecture enables something none of the flat-connector platforms can do: federated plugins.
