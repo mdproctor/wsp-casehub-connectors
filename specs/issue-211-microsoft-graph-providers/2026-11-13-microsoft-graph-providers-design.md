@@ -214,11 +214,11 @@ Maps Graph API JSON responses to `EmailPlatform` SPI model types (`Mailbox`,
 | CalendarPlatform method | Graph API endpoint |
 |---|---|
 | `listCalendars()` | `GET /me/calendars` |
-| `listEvents(calendarId, start, end)` | `GET /me/calendars/{id}/calendarView?startDateTime=...&endDateTime=...` |
-| `getEvent(eventId)` | `GET /me/events/{id}` |
-| `createEvent(calendarId, event)` | `POST /me/calendars/{id}/events` |
-| `updateEvent(eventId, event)` | `PATCH /me/events/{id}` |
-| `deleteEvent(eventId)` | `DELETE /me/events/{id}` |
+| `listEvents(calendarId, from, to)` | `GET /me/calendars/{id}/calendarView?startDateTime=...&endDateTime=...` |
+| `getEvent(calendarId, eventId)` | `GET /me/events/{id}` |
+| `createEvent(calendarId, details)` | `POST /me/calendars/{id}/events` |
+| `updateEvent(calendarId, eventId, details)` | `PATCH /me/events/{id}` |
+| `deleteEvent(calendarId, eventId)` | `DELETE /me/events/{id}` |
 | `listEventsSync(calendarId, syncRequest)` | `GET /me/calendarView/delta` |
 
 ### Delta Sync
@@ -289,13 +289,13 @@ Following the Google pattern (inner classes):
 |---|---|
 | `FileOperations.list(folderId, pagination)` | `GET {basePath}/items/{folderId}/children` |
 | `FileOperations.get(fileId)` | `GET {basePath}/items/{fileId}` |
-| `FileOperations.download(fileId)` | `GET {basePath}/items/{fileId}/content` (302 redirect → follow) |
-| `FileOperations.upload(folderId, filename, content)` | `PUT {basePath}/items/{folderId}:/{filename}:/content` |
+| `FileOperations.download(fileId)` | `GET {basePath}/items/{fileId}/content` (302 → manual redirect, see below) |
+| `FileOperations.upload(folderId, name, contentType, content)` | Simple: `PUT {basePath}/items/{folderId}:/{name}:/content` (≤4MB); Resumable: upload session (>4MB, see below) |
 | `FileOperations.delete(fileId)` | `DELETE {basePath}/items/{fileId}` |
 | `FileOperations.listSync(syncRequest)` | `GET {basePath}/root/delta` |
-| `FolderOperations.list(parentId, pagination)` | `GET {basePath}/items/{parentId}/children` (filter folders) |
+| `FolderOperations.list(parentId)` | `GET {basePath}/items/{parentId}/children` (filter folders, returns `List<Folder>` — no pagination) |
 | `FolderOperations.create(parentId, name)` | `POST {basePath}/items/{parentId}/children` (folder facet) |
-| `FolderOperations.move(fileId, newParentId)` | `PATCH {basePath}/items/{fileId}` (parentReference) |
+| `FolderOperations.move(fileId, targetFolderId)` | `PATCH {basePath}/items/{fileId}` (parentReference) |
 | `SearchOperations.search(query, pagination)` | `POST {basePath}/root/search(q='query')` |
 | `SharingOperations.getShareLink(fileId)` | `POST {basePath}/items/{fileId}/createLink` |
 
@@ -305,6 +305,54 @@ Graph Drive delta (`{basePath}/root/delta`) follows the same pattern as calendar
 - `@odata.deltaLink` for incremental token
 - HTTP 410 → `SyncTokenExpiredException`
 - Deleted items identified by `deleted` facet
+
+### File Download — 302 Redirect Handling
+
+Graph API file content endpoint (`GET {basePath}/items/{fileId}/content`)
+returns HTTP 302 with a `Location` header pointing to a pre-authenticated
+CDN URL. `HttpHelper.CLIENT` is constructed without `.followRedirects()`
+and defaults to `Redirect.NEVER`.
+
+`MicrosoftDriveClient.downloadContent()` handles the redirect explicitly
+rather than using a separate `HttpClient` (which would violate protocol
+PP-20260607-9794cb) or changing `HttpHelper.CLIENT` globally (which could
+have unintended effects on existing connectors):
+
+```java
+public byte[] downloadContent(String itemId, String accessToken) {
+    var response = graph.getRaw(basePath + "/items/" + itemId + "/content", accessToken);
+    if (response.statusCode() == 302) {
+        String location = response.headers().firstValue("Location").orElseThrow();
+        return graph.getBytesFromUrl(location);
+    }
+    return response.body();
+}
+```
+
+This adds `getRaw()` (returns `HttpResponse<byte[]>` without error handler
+dispatch) and `getBytesFromUrl()` (GET on an absolute URL without
+`BASE_URL` prefix and without `Authorization` header — the CDN URL is
+pre-authenticated via query parameters) to `MicrosoftGraphClient`.
+
+### File Upload — Size-Dependent Path
+
+Graph API simple upload (`PUT .../content`) supports files up to 4MB.
+Files larger than 4MB require a resumable upload session.
+
+`MicrosoftDriveClient.uploadContent()` detects the boundary:
+
+- **≤4MB:** Simple upload — `PUT {basePath}/items/{folderId}:/{name}:/content`
+  with `Content-Type` set to the file's content type and the byte array as body.
+- **>4MB:** Resumable upload session:
+  1. `POST {basePath}/items/{folderId}:/{name}:/createUploadSession` → returns
+     `uploadUrl`
+  2. `PUT` byte ranges to `uploadUrl` in chunks (recommended chunk size:
+     5–10MB, must be multiples of 320KiB)
+  3. Final chunk returns the created `DriveItem` metadata
+
+The 4MB threshold comes from Microsoft's documentation. The `byte[]`
+parameter from the SPI supports arbitrarily large files (limited only by JVM
+heap), so the upload implementation must handle both paths transparently.
 
 ### MicrosoftDriveClient
 
@@ -540,8 +588,24 @@ public class TokenRetry {
             throw e;
         }
     }
+
+    public static void withTokenRetryVoid(Supplier<String> tokenSupplier,
+                                           Consumer<String> operation) {
+        try {
+            operation.accept(tokenSupplier.get());
+        } catch (ProviderAuthException e) {
+            if (e.reason() == AuthFailureReason.TOKEN_EXPIRED) {
+                operation.accept(tokenSupplier.get());
+                return;
+            }
+            throw e;
+        }
+    }
 }
 ```
+
+`withTokenRetry` for operations that return a value (getMessage, listEvents,
+etc.). `withTokenRetryVoid` for void operations (deleteEvent, delete, move).
 
 Platform impls use this uniformly:
 
