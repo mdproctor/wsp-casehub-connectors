@@ -24,5 +24,5 @@ batch4: done
     - [x] Task 4: MicrosoftDrivePlatform OneDrive SharePoint
   - [x] Batch 5: Chat
     - [x] Task 5: TeamsChatPlatform Teams
-  - [ ] Batch 6: Integration
-    - [ ] Task 6: Integration tests and docs
+  - [x] Batch 6: Integration
+    - [x] Task 6: Integration tests and docs
