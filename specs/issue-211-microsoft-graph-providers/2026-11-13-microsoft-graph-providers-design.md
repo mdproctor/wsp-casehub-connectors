@@ -84,6 +84,12 @@ public class MicrosoftGraphClient {
     public byte[] getBytes(String path, String accessToken) { ... }
     public void putBytes(String path, byte[] body, String contentType, String accessToken) { ... }
 
+    // Raw response (no error handler) — for redirect handling
+    public HttpResponse<byte[]> getRaw(String path, String accessToken) { ... }
+
+    // Absolute-URL fetch (no BASE_URL, no Authorization) — for CDN redirects
+    public byte[] getBytesFromUrl(String absoluteUrl) { ... }
+
     // Paginated GET — follows @odata.nextLink, fail-soft on mid-loop error
     public <T> Page<T> getPage(String path, String accessToken,
             Function<JsonObject, T> mapper, String cursor) { ... }
@@ -230,8 +236,26 @@ Graph Calendar delta query (`/me/calendarView/delta`) returns:
 
 Maps to existing `SyncResult<CalendarEvent>(items, deletedIds, syncToken, hasMore)`.
 
-Initial sync: call delta with `startDateTime` and `endDateTime`, no token.
-Incremental sync: call delta with stored `deltaLink` token.
+**Initial sync:** Graph Calendar delta requires `startDateTime` and
+`endDateTime` query parameters for the initial call (unlike Google Calendar
+delta, which returns all events without a time range). `SyncRequest` has no
+date range fields — it carries only `syncToken` and `pageSize`.
+
+`MicrosoftCalendarPlatform.listEventsSync()` uses hardcoded defaults for
+initial sync when `request.syncToken()` is null:
+
+- `startDateTime` = 6 months before now
+- `endDateTime` = 12 months after now
+
+These defaults provide a reasonable sync window for typical calendar usage.
+The Google provider implicitly syncs all events (no time range) — the
+Microsoft provider's bounded window is a pragmatic accommodation of the
+Graph API's requirement, not a design difference. If the window proves
+too narrow, it can be moved to config without SPI changes.
+
+**Incremental sync:** call delta with stored `deltaLink` token (no date
+range needed — the token encodes the original window).
+
 Deleted events: identified by `@removed` property in delta response.
 
 ### CalendarMapper
@@ -269,11 +293,20 @@ public class DocumentMicrosoftBeans {
 
     @Produces @ApplicationScoped
     SharePointDrivePlatform sharePoint(MicrosoftGraphClient graph,
-            ServiceConnectionProvider connectionProvider) {
-        return new SharePointDrivePlatform(graph, connectionProvider);
+            ServiceConnectionProvider connectionProvider,
+            @ConfigProperty(name = "casehub.connectors.sharepoint.site-id",
+                            defaultValue = "") String siteId) {
+        return new SharePointDrivePlatform(graph, connectionProvider, siteId);
     }
 }
 ```
+
+`SharePointDrivePlatform` constructor takes `siteId` and constructs its
+`MicrosoftDriveClient` with base path `/sites/{siteId}/drive`. When `siteId`
+is blank, the platform logs a WARNING and operates in degraded mode
+(all operations throw `IllegalStateException`) — consistent with the
+credential-config-ownership protocol (PP-20260609-0c3e24: blank config →
+WARNING + no-op).
 
 `MicrosoftDrivePlatform` (id = `"microsoft-onedrive"`) uses base path `/me/drive`.
 `SharePointDrivePlatform` (id = `"microsoft-sharepoint"`) uses base path `/sites/{siteId}/drive`.
@@ -319,15 +352,31 @@ PP-20260607-9794cb) or changing `HttpHelper.CLIENT` globally (which could
 have unintended effects on existing connectors):
 
 ```java
+private static final Set<String> ALLOWED_CDN_HOSTS = Set.of(
+    "*.sharepoint.com", "*.1drv.com", "*.blob.core.windows.net");
+
 public byte[] downloadContent(String itemId, String accessToken) {
     var response = graph.getRaw(basePath + "/items/" + itemId + "/content", accessToken);
     if (response.statusCode() == 302) {
         String location = response.headers().firstValue("Location").orElseThrow();
+        validateRedirectHost(location);
         return graph.getBytesFromUrl(location);
     }
     return response.body();
 }
 ```
+
+**SSRF defense:** Before following the redirect, `validateRedirectHost()`
+checks the `Location` URL's host against `ALLOWED_CDN_HOSTS`. If the host
+does not match, the method throws `IllegalStateException` and logs a
+WARNING. This follows the Discord precedent (`DiscordClient.downloadAttachment()`
+validates against `allowedCdnHosts` before fetching — ARC42STORIES §L8).
+
+The allowlist uses suffix matching (e.g., `*.sharepoint.com` matches
+`myorg-my.sharepoint.com`). The set is configurable via
+`casehub.connectors.microsoft.allowed-cdn-hosts` config property (with the
+above defaults), consistent with Discord's
+`casehub.discord.attachment.allowed-cdn-hosts`.
 
 This adds `getRaw()` (returns `HttpResponse<byte[]>` without error handler
 dispatch) and `getBytesFromUrl()` (GET on an absolute URL without
