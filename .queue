@@ -1,12 +1,12 @@
-# Work Plan — issue-188-real-time-inbound-channels
+# Work Plan — 
 
 ## State
-branch: issue-206-mobile-platform
+branch: issue-211-microsoft-graph-providers
+issue-repo: casehubio/connectors
 status: active
+covers: 211
 project-sha: 
 date: 
-issue-repo: casehubio/connectors
-covers: 206
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
@@ -25,6 +25,3 @@ flyway-next-v:
     - [x] Task 5: TwilioClient and TwilioMobilePlatform and legacy absorption
   - [x] Batch 6: Integration and Docs
     - [x] Task 6: Integration tests and documentation
-
-## Deferred
-- [x] Migrate speech implementations from agency (L / High) [casehubio/connectors#204]
