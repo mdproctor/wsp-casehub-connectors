@@ -23,8 +23,8 @@ flyway-next-v:
     - [x] Task 4: DialClient and DialMobilePlatform REST and WebSocket
   - [x] Batch 5: Twilio and Absorption
     - [x] Task 5: TwilioClient and TwilioMobilePlatform and legacy absorption
-  - [ ] Batch 6: Integration and Docs
-    - [ ] Task 6: Integration tests and documentation
+  - [x] Batch 6: Integration and Docs
+    - [x] Task 6: Integration tests and documentation
 
 ## Deferred
 - [x] Migrate speech implementations from agency (L / High) [casehubio/connectors#204]

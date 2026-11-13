@@ -2,30 +2,36 @@
 
 ## Last Session
 
-Continuing MobilePlatform SPI (#206) implementation — batches 1-5 complete.
+Completed MobilePlatform SPI (#206) — all 6 batches done.
 
-**This session:**
-- Built mobile-dial module (Batch 4) — Dial provider with REST client + self-hosted LLM WebSocket
-- Built mobile-twilio module (Batch 5) — Twilio provider with REST client, TwilioSmsBridge, TwilioWhatsAppBridge
-- Legacy absorption: deleted TwilioSmsConnector, WhatsAppConnector, TwilioSmsInboundConnector, WhatsAppInboundConnector
-- Cleaned up ConnectorsBeans, ConnectorsAutoConfiguration, WebhookBeans, ConnectorMessagingApi
-- Removed sendSms/sendWhatsapp from ConnectorMessagingApi (now via ConnectorMobileApi)
-- Preserved connectorId continuity: "twilio-sms-inbound" and "whatsapp-inbound"
-- 85 new tests across mobile-dial (53) and mobile-twilio (32), all passing
+**This session (batches 4-6):**
+- Built mobile-dial module (Batch 4) — Dial provider with REST client + self-hosted LLM WebSocket, 53 tests
+- Built mobile-twilio module (Batch 5) — Twilio provider with REST client + legacy absorption, 32 tests
+- Legacy absorption: deleted TwilioSmsConnector, WhatsAppConnector, TwilioSmsInboundConnector, WhatsAppInboundConnector; cleaned up ConnectorsBeans, ConnectorsAutoConfiguration, WebhookBeans, ConnectorMessagingApi
+- Integration tests and documentation (Batch 6) — MobileRefIntegrationTest (10 tests), CLAUDE.md/consumer/contributor guide updates
 
-**Pre-existing failures (not from this session):**
-- voice-pipeline-steps: TTS tests expect kokoro voice platform not available locally
-- integration-tests: VoiceRoundTripTest same kokoro dependency
-- playbooks: dinner booking tests from batch 3 need investigation
+**All sessions combined:**
+- mobile-spi: 6 capabilities, Builder, NoOp, PlatformService (15 tests)
+- mobile-ref: in-memory switchboard, canned conversations, seed data (16 tests)
+- mobile-dial: Dial REST + WebSocket (53 tests)
+- mobile-twilio: Twilio REST + legacy absorption (32 tests)
+- ConnectorMobileApi: 9 MCP tools (144 graphql tests)
+- MobileRefIntegrationTest: 10 integration tests
+- Total: 270 tests across all mobile modules
 
 ## Immediate Next Step
 
-**Batch 6: Integration Tests + Documentation.** MobileRefIntegrationTest in integration-tests, CLAUDE.md module table update, consumer/contributor guide updates, deferred scope issue filing. Plan: `plans/2026-11-12-mobile-platform.md`.
+**Branch is ready for work-end.** All batches complete, all tests passing. Deferred scope issues already filed (#207 VoiceCallStreaming, #208 Numbrrs, #209 Number provisioning).
+
+**Pre-existing failures (not from #206):**
+- voice-pipeline-steps: TTS tests expect kokoro voice platform not available locally
+- integration-tests/VoiceRoundTripTest: same kokoro dependency
+- playbooks: dinner booking tests from batch 3 need investigation
 
 ## Cross-Module
 
 - **Blocked by** — none
-- **Blocks** — dinner booking playbook needs mobile-ref on classpath (already wired)
+- **Blocks** — none
 
 ## References
 
