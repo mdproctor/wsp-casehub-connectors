@@ -1,7 +1,7 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-219-configurable-ssrf-cdn-allow-list
+branch: 
 issue-repo: casehubio/connectors
 status: active
 covers: 219
@@ -15,10 +15,10 @@ batch4: done
 ## Queue
 - [x] casehubio/connectors#188 — Issue #188
 - [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
-- [ ] casehubio/connectors#224 — resumable upload test coverage ← active
-- [ ] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
-- [ ] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
-- [ ] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
-- [ ] casehubio/connectors#225 — PlatformExtensible base interface with as()
+- [x] casehubio/connectors#224 — resumable upload test coverage
+- [x] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
+- [x] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
+- [x] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
+- [ ] casehubio/connectors#225 — PlatformExtensible base interface with as() ← active
 - [ ] casehubio/connectors#220 — Teams inbound via Bot Framework
 - [ ] casehubio/connectors#223 — actorId resolution for per-user OAuth
