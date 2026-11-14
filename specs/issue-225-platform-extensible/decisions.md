@@ -1,11 +1,11 @@
 ## D1: Simulation processor handling of as() delegation
 
-**Choice:** Detect `PlatformExtensible` super-interface by name and generate a simple `as()` delegation override in the decorator
+**Choice:** Use existing `collectAllMethods(spiClass, index)` to traverse the full super-interface hierarchy, with method-name deduplication — inherited methods like `as()` get standard `generateSimulatedMethod()` wrapping, whose fallthrough path calls `delegate.as(extensionType)` where `this` is the real bean
 **Alternatives:**
-- Traverse all super-interfaces for all inherited default methods — too broad, risks conflicting with simulation wrapping logic
+- Detect `PlatformExtensible` by qualified name string and generate pure delegation — fragile cross-repo coupling, not forward-compatible, the `supports()` "precedent" is architecturally different (active simulation integration vs pure delegation)
 - Skip processor change, require explicit `as()` on each SPI — defeats the purpose of a shared base interface
-**Rationale:** Minimal targeted change with precedent — the processor already has special-case handling for `supports()`. Forward-compatible for future `PlatformExtensible` methods.
-**Trade-offs:** Requires updating the processor each time a new method is added to `PlatformExtensible` (unlikely to be frequent)
-**Sources:** SimulationDecoratorProcessor.java:216-219 (supports() special case), ChatPlatform.java (SPI pattern), issue #225
+**Rationale:** `collectAllMethods()` already exists in the processor for capability wrapper inner classes. The standard simulation fallthrough path naturally fixes the `this` identity problem. No name-based string detection needed. Handles any future inherited default methods automatically.
+**Trade-offs:** Inherited methods become simulation-configurable (via `strategyFor()`), which is a feature not a limitation — consistent with how all other methods work
+**Sources:** SimulationDecoratorProcessor.java:594-615 (collectAllMethods/collectMethodsRecursive), SimulationDecoratorProcessor.java:362-457 (generateSimulatedMethod with generic type parameter support), decision review R1-02, issue #225
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (from name-based detection, after decision review R1-02)

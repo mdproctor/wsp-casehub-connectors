@@ -67,22 +67,19 @@ The extension type is an interface (e.g., `MicrosoftDriveExtensions`), not the c
 
 **Repo:** casehubio/platform (simulation-generator module)
 
-The `SimulationDecoratorProcessor` generates CDI `@Decorator` classes that wrap each SPI. It iterates `spiClass.methods()` (Jandex — direct methods only) and generates simulation-wrapped overrides. Methods inherited from super-interfaces are NOT currently overridden.
+The `SimulationDecoratorProcessor` generates CDI `@Decorator` classes that wrap each SPI. It currently iterates `spiClass.methods()` (Jandex — direct methods only) and generates simulation-wrapped overrides. Methods inherited from super-interfaces are NOT currently overridden.
 
 If `as()` is inherited via `PlatformExtensible`, the decorator would inherit the default implementation, which checks `extensionType.isInstance(this)` — but `this` is the decorator, not the real implementation. Result: `as()` always returns `Optional.empty()`.
 
-**Fix:** After the existing `supports()` special-case handling (line 216-219), add detection for `PlatformExtensible` as a super-interface. When found, generate a simple delegation override:
+**Fix:** Change the main generation loop in `generateDecoratorSource()` from `spiClass.methods()` to `collectAllMethods(spiClass, index)` — which already exists in the processor for capability wrapper inner classes. Add method-name deduplication (pattern established in `addParameterEntries()` with `seen.add(method.name())`).
 
-```java
-@Override
-public <T> Optional<T> as(Class<T> extensionType) {
-    return delegate.as(extensionType);
-}
-```
+Inherited methods like `as()` go through the standard `generateSimulatedMethod()` path. The generated fallthrough code calls `delegate.as(extensionType)`, where `this` is the real bean — `extensionType.isInstance(this)` correctly evaluates against the concrete implementation.
 
-This is NOT wrapped with simulation logic — it's pure delegation. The precedent is the `supports()` method which also gets special handling rather than standard simulation wrapping.
-
-The detection uses Jandex interface traversal: check if any super-interface in the hierarchy has the qualified name `io.casehub.connectors.PlatformExtensible`.
+This is strictly better than name-based detection because:
+1. No hardcoded qualified name string — no cross-repo coupling
+2. Handles any future inherited default methods automatically
+3. Makes inherited methods simulation-configurable (consistent with all other methods)
+4. Uses existing, tested infrastructure (`collectAllMethods`, `generateSimulatedMethod` with generic type parameter support)
 
 ### CDI proxies
 
@@ -107,13 +104,15 @@ Each SPI's `NoOp*` or `Default*` implementation does not implement any extension
 
 ## Testing
 
-1. **Unit test in simulation-generator:** Verify that when a `@SimulationEligible` interface extends `PlatformExtensible`, the generated decorator includes the `as()` delegation override
+1. **Unit test in simulation-generator:** Verify that when a `@SimulationEligible` interface extends a super-interface with default methods, the generated decorator includes overrides for those inherited methods (via `collectAllMethods`)
 2. **Integration test in connectors:** Verify `as()` works through CDI proxy and simulation wrapper layers — inject the SPI, call `as()` with a known extension type, confirm correct Optional result
 
 ## References
 
-- `SimulationDecoratorProcessor.java:212-223` — main method generation loop
-- `SimulationDecoratorProcessor.java:216-219` — `supports()` special-case precedent
+- `SimulationDecoratorProcessor.java:212-223` — main method generation loop (change from `spiClass.methods()` to `collectAllMethods()`)
+- `SimulationDecoratorProcessor.java:594-615` — `collectAllMethods`/`collectMethodsRecursive` (reuse for main loop)
+- `SimulationDecoratorProcessor.java:362-457` — `generateSimulatedMethod` with generic type parameter support
+- Decision review R1-02 — generic approach vs name-based detection
 - `ChatPlatform.java` — representative SPI interface pattern
 - `DocumentPlatform.java` — capability sub-interface pattern
 - casehubio/connectors#225 — issue specification
