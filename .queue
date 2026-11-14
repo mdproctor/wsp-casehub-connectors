@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: 
+branch: issue-219-configurable-ssrf-cdn-allow-list
 issue-repo: casehubio/connectors
 status: active
-covers: 211
+covers: 219
 project-sha: 
 date: 
 design-repo: 
@@ -14,8 +14,8 @@ batch4: done
 
 ## Queue
 - [x] casehubio/connectors#188 — Issue #188
-- [ ] casehubio/connectors#219 — configurable SSRF CDN allow-list ← active
-- [ ] casehubio/connectors#224 — resumable upload test coverage
+- [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
+- [ ] casehubio/connectors#224 — resumable upload test coverage ← active
 - [ ] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
 - [ ] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
 - [ ] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
