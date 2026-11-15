@@ -64,15 +64,15 @@
 
 ## D6: Command integration model
 
-**Choice:** Message-embedded dispatch — commands arrive as message activities, connector parses command prefix, dispatches to CommandService. Both sync and async response paths supported.
+**Choice:** Message-embedded dispatch — commands arrive as message activities, connector parses command prefix, dispatches to CommandService. All command responses go through BotFrameworkClient outbound API.
 **Alternatives:**
 - Separate TeamsCommandEndpoint — artificial separation since Bot Framework doesn't have a separate command API.
-**Rationale:** Matches how bots actually work in Teams. All activities arrive through the same webhook. Sync path: return `CommandResponse.Immediate` reply in HTTP response body via `WebhookResult.Responded` (lower latency). Async path: return 200 OK immediately, send `CommandResponse.Deferred` reply via `BotFrameworkClient` (required for long-running commands). Mirrors `DiscordInteractionEndpoint`'s dual-path model (type 4 sync / type 5 async) and `SlackCommandEndpoint`'s immediate/deferred split.
-**Trade-offs:** Command parsing is text-based (prefix matching), less structured than Discord/Slack's typed command parameters. Sync path requires the `WebhookResult.Responded` variant (D4).
-**Sources:** chat-discord/src/main/java/.../discord/DiscordInteractionEndpoint.java (sync type 4 + async type 5), chat-slack/src/main/java/.../slack/SlackCommandEndpoint.java (immediate + deferred), chat-spi/src/main/java/.../chat/command/CommandResponse.java (Immediate / Deferred sealed variants)
+**Rationale:** Matches how bots actually work in Teams. All activities arrive through the same webhook. Bot Framework discards the HTTP response body for message activities — command replies must always go through outbound API calls (`BotFrameworkClient.replyToActivity()`). `CommandResponse.Immediate` replies synchronously before returning; `CommandResponse.Deferred` spawns a virtual thread. This differs from Discord/Slack where the HTTP response body carries the reply.
+**Trade-offs:** Command parsing is text-based (prefix matching), less structured than Discord/Slack's typed command parameters. Both Immediate and Deferred responses require outbound API call (slightly higher latency than HTTP response body for Immediate, but Bot Framework gives no alternative for message activities).
+**Sources:** chat-discord/src/main/java/.../discord/DiscordInteractionEndpoint.java (sync type 4 + async type 5 — NOT analogous, Discord reads response body), chat-slack/src/main/java/.../slack/SlackCommandEndpoint.java (immediate + deferred), chat-spi/src/main/java/.../chat/command/CommandResponse.java (Immediate / Deferred sealed variants)
 **Exploration:** quick
 **Status:** revised
-**Revision:** Updated per R1-08 to explicitly support both sync (HTTP response body) and async (Bot Framework REST API) command response paths. Coupled with D4's WebhookResult.Responded variant for the sync path.
+**Revision:** Originally proposed sync (HTTP response body) and async paths. Self-review corrected: Bot Framework discards HTTP response body for message activities. All command replies go through BotFrameworkClient outbound API. WebhookResult.Responded is only used for invoke activities.
 
 ## D7: Bot Framework client abstraction
 

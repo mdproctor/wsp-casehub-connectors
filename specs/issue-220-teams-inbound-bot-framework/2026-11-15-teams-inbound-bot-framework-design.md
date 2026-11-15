@@ -11,7 +11,7 @@ Replace the existing `TeamsInboundConnector` (Outgoing Webhooks model with HMAC-
 1. **Inbound messages** — Bot Framework `message` activities parsed into `InboundMessage` and translated to `ReceivedMessage` via a new `TeamsInboundTranslator`
 2. **Inbound reaction events** — `messageReaction` activities delivered as `InboundMessage` with reaction metadata
 3. **Slash commands** — commands embedded in message activities, dispatched to `CommandService`, with sync and async response paths
-4. **Bot Framework client** — outbound REST API for reply, proactive messaging, and deferred command responses
+4. **Bot Framework client** — outbound REST API for reply and command responses
 
 The existing `TeamsInboundConnector` in the `webhook` module is removed. The new implementation lives entirely in `chat-teams`.
 
@@ -27,7 +27,7 @@ The existing `TeamsInboundConnector` in the `webhook` module is removed. The new
 | `BotFrameworkAuth` | JWT validation — OpenID metadata discovery, JWKS key cache with 24h refresh + kid-mismatch refresh, RS256 signature + claims checking via nimbus-jose-jwt |
 | `BotFrameworkClient` | Outbound Bot Framework REST API v3 — reply to activity, send to conversation. Auth via `ServiceConnectionProvider("microsoft-bot")`. SSRF defense on `serviceUrl`. Uses `HttpHelper.CLIENT` |
 | `TeamsInboundTranslator` | `InboundTranslator` — `connectorType() = "teams"`, translates `InboundMessage` (Bot Framework Activity JSON in metadata) → `ReceivedMessage` with proper `ChatChannelRef` (compound `teamId:channelId`), `ChatMessageRef`, `MemberRef`, `ChatContent` |
-| `TeamsCommands` | `Commands` SPI — registers bot commands via `BotFrameworkClient` (not applicable — Teams bot commands are registered in the app manifest, not via API). Handles command dispatch from message activities |
+| `TeamsCommands` | `Commands` SPI — caches registered command definitions for prefix matching. Teams bot commands are registered in the Azure Bot app manifest, not via API. Dispatch flows through `CommandService` |
 
 **`connectors-api` (modified):**
 
@@ -71,8 +71,10 @@ POST /connectors/teams-inbound/webhook
         ├── "message"
         │     ├── Check for command prefix (registered command names)
         │     │     ├── YES → CommandService.dispatch()
-        │     │     │         ├── Immediate → reply via WebhookResult.Responded (sync)
-        │     │     │         └── Deferred  → reply via BotFrameworkClient (async), return Ignored
+        │     │     │         ├── Immediate → reply via BotFrameworkClient.replyToActivity(), return Ignored
+        │     │     │         └── Deferred  → spawn virtual thread, reply via BotFrameworkClient, return Ignored
+        │     │     │         (Bot Framework discards HTTP response body for message activities —
+        │     │     │          all command replies must go through outbound API calls)
         │     │     └── NO → Return Delivered(InboundMessage)
         │     │                → ChatInboundAdapter → TeamsInboundTranslator → ReceivedMessage
         │
@@ -100,7 +102,7 @@ Bot Framework Activity fields mapped to `InboundMessage`:
 | `connectorId` | `InboundConnectorIds.TEAMS_INBOUND` (`"teams-inbound"`) |
 | `connectorType` | `InboundConnectorTypes.TEAMS` (`"teams"`) |
 | `externalSenderId` | `activity.from.aadObjectId` (preferred) or `activity.from.id` |
-| `externalChannelRef` | `channelData.team.id` + `:` + `channelData.channel.id` (compound format matching existing `TeamsMapper.parseTeamAndChannel`) |
+| `externalChannelRef` | Channel context: `channelData.team.id` + `:` + `channelData.channel.id` (compound format matching existing `TeamsMapper.parseTeamAndChannel`). Personal/1:1 context: `activity.conversation.id` (no team/channel in channelData) |
 | `content` | `activity.text` (with bot mention stripped — Teams prepends `<at>BotName</at>`) |
 | `attachments` | `List.of()` (attachment download deferred to future work) |
 | `receivedAt` | `Instant.parse(activity.timestamp)` |
@@ -196,8 +198,8 @@ Command dispatch flow (inside `TeamsInboundConnector`):
 3. Check if remaining text starts with a registered command name
 4. If match: create `CommandInvocation(commandName, arguments, userId, channelId, "microsoft-teams", metadata)`
 5. Dispatch to `CommandService.dispatch()`
-6. Handle response:
-   - `Immediate` → build Activity reply JSON, return `WebhookResult.Responded`
+6. Handle response (Bot Framework discards HTTP response body for message activities — all replies go through outbound API):
+   - `Immediate` → call `BotFrameworkClient.replyToActivity()` synchronously, return `WebhookResult.Ignored`
    - `Deferred` → return `WebhookResult.Ignored`, spawn virtual thread to send reply via `BotFrameworkClient.replyToActivity()`
 
 ### CDI Wiring (TeamsBeans)
