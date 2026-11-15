@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-230-teams-url-sanitisation
+branch: issue-229-teams-file-attachments
 issue-repo: casehubio/connectors
 status: active
-covers: 230
+covers: 229
 project-sha: 
 date: 
 design-repo: 
@@ -22,8 +22,8 @@ batch4: done
 - [x] casehubio/connectors#225 — PlatformExtensible base interface with as()
 - [x] casehubio/connectors#220 — Teams inbound via Bot Framework
 - [x] casehubio/connectors#223 — actorId resolution for per-user OAuth
-- [ ] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links ← active
-- [ ] casehubio/connectors#229 — file attachment support in toMessageBody
+- [x] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links
+- [ ] casehubio/connectors#229 — file attachment support in toMessageBody ← active
 - [ ] casehubio/connectors#232 — Outbound reactions via Graph API
 - [ ] casehubio/connectors#238 — inbound HTML to markdown conversion
 - [ ] casehubio/connectors#233 — Attachment download from Bot Framework activities
