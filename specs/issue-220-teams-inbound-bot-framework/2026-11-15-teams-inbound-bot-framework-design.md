@@ -78,6 +78,8 @@ POST /connectors/teams-inbound/webhook
   └── Route by activity.type:
         │
         ├── "message"
+        │     ├── If activity.text is null, use empty string (attachment-only
+        │     │   messages have null text — no mention stripping needed)
         │     ├── Strip bot mention from text (entity-based):
         │     │     find mention entity in activity.entities[] where
         │     │     type="mention" and mentioned.id matches appId,
