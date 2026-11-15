@@ -27,7 +27,7 @@ The existing `TeamsInboundConnector` in the `webhook` module is removed. The new
 | `BotFrameworkAuth` | JWT validation — OpenID metadata discovery, JWKS key cache with 24h refresh + kid-mismatch refresh, RS256 signature + claims checking via nimbus-jose-jwt |
 | `BotFrameworkClient` | Outbound Bot Framework REST API v3 — reply to activity, send to conversation. Auth via `ServiceConnectionProvider("microsoft-bot")`. SSRF defense on `serviceUrl`. Uses `HttpHelper.CLIENT` |
 | `TeamsInboundTranslator` | `InboundTranslator` — `connectorType() = "teams"`, translates `InboundMessage` (Bot Framework Activity JSON in metadata) → `ReceivedMessage` with proper `ChatChannelRef` (compound `teamId:channelId`), `ChatMessageRef`, `MemberRef`, `ChatContent` |
-| `TeamsCommands` | `Commands` SPI — caches registered command definitions for prefix matching. Teams bot commands are registered in the Azure Bot app manifest, not via API. Dispatch flows through `CommandService` |
+| `TeamsCommands` | `Commands` SPI — logs available commands on registration. Teams bot commands are registered in the Azure Bot app manifest, not via API — `registerAll()` has no outbound effect (same pattern as `SlackCommands`). Command prefix matching uses `CommandService.definitions()` |
 
 **`webhook` (modified):**
 
@@ -59,11 +59,11 @@ Removal of the old `TeamsInboundConnector` from `webhook` and addition of the ne
 ```
 POST /connectors/teams-inbound/webhook
   │
-  ├── BotFrameworkAuth.validate(Authorization header)
+  ├── BotFrameworkAuth.validate(Authorization header, activity.serviceUrl)
   │     ├── Fetch OpenID metadata (cached): https://login.botframework.com/v1/.well-known/openidconfiguration
   │     ├── Fetch JWKS (cached 24h, refresh on kid mismatch — rate-limited): https://login.botframework.com/v1/.well-known/keys
   │     ├── Validate RS256 signature against matching kid
-  │     ├── Check claims: iss=https://api.botframework.com, aud=APP_ID, exp
+  │     ├── Check claims: iss=configured issuer, aud=APP_ID, serviceurl=activity.serviceUrl, exp
   │     └── Dev-mode: skip validation, log SECURITY WARNING per request
   │
   ├── Parse Activity JSON (jakarta.json)
@@ -75,7 +75,11 @@ POST /connectors/teams-inbound/webhook
   └── Route by activity.type:
         │
         ├── "message"
-        │     ├── Strip bot mention (<at>BotName</at>) from text
+        │     ├── Strip bot mention from text (entity-based):
+        │     │     find mention entity in activity.entities[] where
+        │     │     type="mention" and mentioned.id matches appId,
+        │     │     remove that entity's text value from activity.text,
+        │     │     then trim. Preserves mentions of other users.
         │     ├── Check for command prefix (first word matched case-insensitively
         │     │   against CommandService.definitions() names)
         │     │     ├── YES → CommandService.dispatch(commandName, invocation)
@@ -94,11 +98,18 @@ POST /connectors/teams-inbound/webhook
         │     │                → ChatInboundAdapter → TeamsInboundTranslator → ReceivedMessage
         │
         ├── "messageReaction"
-        │     └── Return Delivered(InboundMessage)
-        │           metadata keys:
-        │             teams-reaction-type: like|heart|laugh|surprised|sad|angry
-        │             teams-reaction-action: added|removed
-        │             teams-reaction-message-id: <replyToId of reacted message>
+        │     └── Flatten reactionsAdded[] and reactionsRemoved[] arrays:
+        │           emit one InboundMessage per individual reaction entry.
+        │           Return Delivered(List<InboundMessage>)
+        │           Per-reaction InboundMessage:
+        │             content: "" (empty string — reactions have no text)
+        │             metadata keys:
+        │               teams-reaction-type: like|heart|laugh|surprised|sad|angry
+        │               teams-reaction-action: "added" or "removed"
+        │               teams-reaction-message-id: activity.replyToId
+        │           (CloudEvent consumers use teams-activity-type to identify reactions;
+        │            the chat pipeline — TeamsInboundTranslator — rejects non-message
+        │            activities, so reactions flow only through CloudEvents)
         │
         ├── "conversationUpdate"
         │     └── Return Ignored (log member join/leave at INFO)
@@ -121,7 +132,7 @@ Bot Framework Activity fields mapped to `InboundMessage`:
 | `connectorType` | `InboundConnectorTypes.TEAMS` (`"teams"`) |
 | `externalSenderId` | `activity.from.aadObjectId` (preferred) or `activity.from.id` |
 | `externalChannelRef` | Channel context: `channelData.team.id` + `:` + `channelData.channel.id` (compound format matching existing `TeamsMapper.parseTeamAndChannel`). Personal/1:1 context: `"personal:" + activity.conversation.id` (no team/channel in channelData). The `personal:` prefix distinguishes personal refs from compound `teamId:channelId` — `TeamsMapper.parseTeamAndChannel` will reject personal refs with a clear error since outbound personal messaging requires `BotFrameworkClient`, not Graph API (tracked as casehubio/connectors#237). |
-| `content` | `activity.text` (with bot mention stripped — Teams prepends `<at>BotName</at>`) |
+| `content` | For `message` activities: `activity.text` (with bot mention stripped via entity-based removal — see below). For `messageReaction` activities: `""` (empty string — reactions have no text field). |
 | `attachments` | `List.of()` (attachment download deferred to future work) |
 | `receivedAt` | `Instant.parse(activity.timestamp)` |
 | `tenancyId` | `channelData.tenant.id` |
@@ -144,7 +155,9 @@ Bot Framework Activity fields mapped to `InboundMessage`:
 
 ### TeamsInboundTranslator
 
-Translates `InboundMessage` → `ReceivedMessage` for the chat pipeline:
+**Activity type guard:** `translate()` checks `metadata["teams-activity-type"]`. Only `"message"` activities are translatable. For any other type (e.g. `"messageReaction"`), the translator throws `IllegalArgumentException("Non-message activity type: <type> — not translatable to ReceivedMessage")`. `ChatInboundAdapter` catches and logs this (line 48-50), so non-message `InboundMessage` events flow only through the CloudEvent pipeline (`ConnectorsCloudEventAdapter`), which correctly serializes all metadata including reaction details.
+
+Translates `InboundMessage` → `ReceivedMessage` for the chat pipeline (message activities only):
 
 | ReceivedMessage field | Source |
 |----------------------|--------|
@@ -180,19 +193,22 @@ JWT validation using nimbus-jose-jwt:
 ```
 BotFrameworkAuth(appId, devMode)
   │
-  ├── validate(authorizationHeader) → boolean
+  ├── validate(authorizationHeader, activityServiceUrl) → boolean
   │     ├── If devMode → log SECURITY WARNING, return true
   │     ├── Extract Bearer token
   │     ├── Parse JWT header → get kid
   │     ├── Look up RSA key from cached JWKS (refresh on kid miss)
   │     ├── Verify RS256 signature
   │     └── Check claims:
-  │           iss = "https://api.botframework.com"
+  │           iss = configured issuer (default: "https://api.botframework.com")
   │           aud = appId
+  │           serviceurl = activityServiceUrl (cryptographic proof the token
+  │                        was issued for this specific service URL)
   │           exp > now (with 5-minute clock skew)
   │
   └── Key management:
-        ├── OpenID metadata URL: https://login.botframework.com/v1/.well-known/openidconfiguration
+        ├── OpenID metadata URL: configurable (default: https://login.botframework.com/v1/.well-known/openidconfiguration)
+        │     GCC High: https://login.botframework.us/v1/.well-known/openidconfiguration
         ├── JWKS URL: from metadata.jwks_uri
         ├── Cache duration: 24 hours
         └── On kid mismatch: force refresh JWKS
@@ -207,17 +223,18 @@ BotFrameworkAuth(appId, devMode)
 
 ```java
 public class TeamsCommands implements Commands {
-    void registerAll(List<CommandDefinition> commands);
-    // Stores command definitions for prefix matching.
-    // Teams bot commands are registered in the Azure Bot app manifest,
-    // not via API — registerAll() caches locally for dispatch routing.
+    @Override
+    public void registerAll(List<CommandDefinition> commands) {
+        LOG.info("teams: " + commands.size()
+                + " commands available (register via Azure Bot app manifest)");
+    }
 }
 ```
 
 Command dispatch flow (inside `TeamsInboundConnector`):
 
 1. Receive `message` activity
-2. Strip bot mention (`<at>BotName</at>`) from text
+2. Strip bot mention from text using entity-based removal: find the mention entity in `activity.entities[]` where `type = "mention"` and `mentioned.id` matches the configured `appId`, remove that entity's `text` value from `activity.text`, then trim. This preserves mentions of other users (unlike regex `<at>.*?</at>` which strips all mentions).
 3. Extract the first whitespace-delimited word from the remaining text
 4. Match case-insensitively against registered command names from `CommandService.definitions()`
 5. If match:
@@ -253,9 +270,13 @@ WebhookInboundConnector teamsInboundConnector(
     @ConfigProperty(name = "casehub.connectors.teams-bot.dev-mode", defaultValue = "false") boolean devMode,
     @ConfigProperty(name = "casehub.connectors.teams-bot.service-url-allowlist",
                     defaultValue = "*.botframework.com,smba.trafficmanager.net") String allowlist,
+    @ConfigProperty(name = "casehub.connectors.teams-bot.openid-metadata-url",
+                    defaultValue = "https://login.botframework.com/v1/.well-known/openidconfiguration") String metadataUrl,
+    @ConfigProperty(name = "casehub.connectors.teams-bot.issuer",
+                    defaultValue = "https://api.botframework.com") String issuer,
     CommandService commandService,
     ServiceConnectionProvider connectionProvider) {
-    var auth = new BotFrameworkAuth(appId, devMode);
+    var auth = new BotFrameworkAuth(appId, devMode, metadataUrl, issuer);
     var client = new BotFrameworkClient(connectionProvider, allowlist);
     return new TeamsInboundConnector(auth, client, commandService, appId);
 }
@@ -291,8 +312,9 @@ ChatPlatform teamsChatPlatform(MicrosoftGraphClient graph,
 | JWT forgery | RS256 signature validation against Azure AD JWKS keys |
 | Key rotation | 24h cache with on-demand refresh on kid mismatch (rate-limited) |
 | Expired token acceptance | `exp` claim validation with 5-minute clock skew tolerance. Replay of valid (non-expired) tokens within their validity window is an accepted risk — HTTPS provides transport-layer replay protection. Bot Framework JWTs do not include a `jti` claim for nonce tracking. |
-| Issuer spoofing | Hardcoded issuer check: `https://api.botframework.com` |
+| Issuer spoofing | Configurable issuer check (default: `https://api.botframework.com`; GCC High: `https://api.botframework.us`) |
 | Audience confusion | `aud` must match configured `app-id` |
+| Service URL binding | JWT `serviceurl` claim must match `activity.serviceUrl` — cryptographic proof the token was issued for this specific channel service URL. Complements SSRF hostname allowlist with per-request origin verification. |
 
 ### Outbound SSRF Defense
 
@@ -316,6 +338,10 @@ casehub.connectors.teams-bot.app-id=<Azure Bot App ID — also used as JWT audie
 
 # SSRF defense (defaults shown)
 casehub.connectors.teams-bot.service-url-allowlist=*.botframework.com,smba.trafficmanager.net
+
+# Bot Framework auth (defaults for public cloud — override for sovereign/GCC High)
+casehub.connectors.teams-bot.openid-metadata-url=https://login.botframework.com/v1/.well-known/openidconfiguration
+casehub.connectors.teams-bot.issuer=https://api.botframework.com
 
 # Local development only — NEVER enable in production
 casehub.connectors.teams-bot.dev-mode=false
@@ -359,11 +385,11 @@ This follows the established pattern — `TeamsChatPlatform` already uses `"micr
 ## Testing Strategy
 
 **Unit tests:**
-- `BotFrameworkAuthTest` — valid JWT, expired JWT, wrong issuer, wrong audience, kid mismatch → key refresh, kid mismatch during rate-limit cooldown → reject, dev-mode bypass, malformed token
-- `TeamsInboundConnectorTest` — message/messageReaction/conversationUpdate/unknown activity routing, signature pass/fail, command prefix detection and dispatch (Immediate + Deferred with DeferredReply), self-message filtering (from.id = app-id → Ignored), bot mention stripping, personal vs channel context channel ref format
+- `BotFrameworkAuthTest` — valid JWT, expired JWT, wrong issuer, wrong audience, wrong serviceurl claim, kid mismatch → key refresh, kid mismatch during rate-limit cooldown → reject, dev-mode bypass, malformed token, configurable issuer/metadata URL
+- `TeamsInboundConnectorTest` — message/messageReaction/conversationUpdate/unknown activity routing, messageReaction flattening (multiple reactions per activity → multiple InboundMessages), signature pass/fail, command prefix detection and dispatch (Immediate + Deferred with DeferredReply), self-message filtering (from.id = app-id → Ignored), entity-based bot mention stripping (preserves other user mentions), personal vs channel context channel ref format
 - `BotFrameworkClientTest` — outbound call construction, SSRF defense (allowed/blocked hosts), auth header via ServiceConnectionProvider
-- `TeamsInboundTranslatorTest` — Activity → ReceivedMessage field mapping, compound channel ID, personal channel ID (`personal:` prefix), threading (replyToId), reaction metadata
-- `TeamsCommandsTest` — registerAll caching, case-insensitive first-word matching, argument extraction (Slack "text" pattern)
+- `TeamsInboundTranslatorTest` — Activity → ReceivedMessage field mapping, compound channel ID, personal channel ID (`personal:` prefix), threading (replyToId), activity type guard (messageReaction → throws IllegalArgumentException)
+- `TeamsCommandsTest` — registerAll logging, case-insensitive first-word matching, argument extraction (Slack "text" pattern)
 
 **Integration test (in `integration-tests` module):**
 - End-to-end: signed Bot Framework Activity POST → `InboundMessage` delivery → `ReceivedMessage` translation → verify all fields
