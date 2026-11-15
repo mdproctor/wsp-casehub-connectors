@@ -22,6 +22,20 @@ batch4: done
 - [x] casehubio/connectors#225 — PlatformExtensible base interface with as()
 - [x] casehubio/connectors#220 — Teams inbound via Bot Framework
 - [ ] casehubio/connectors#223 — actorId resolution for per-user OAuth ← active
+  - [ ] Batch 1: Calendar
+    - [ ] Task 1: SPI+NoOp+Ref
+    - [ ] Task 2: Google+Microsoft impls
+    - [ ] Task 3: GraphQL callers
+  - [ ] Batch 2: Document
+    - [ ] Task 4: SPI+NoOp+Ref
+    - [ ] Task 5: Google+Microsoft impls
+    - [ ] Task 6: GraphQL callers
+  - [ ] Batch 3: Email
+    - [ ] Task 7: SPI+NoOp+Ref
+    - [ ] Task 8: Google+Microsoft impls
+    - [ ] Task 9: GraphQL callers
+  - [ ] Batch 4: Verification
+    - [ ] Task 10: Full build+docs
 - [ ] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links
 - [ ] casehubio/connectors#229 — file attachment support in toMessageBody
 - [ ] casehubio/connectors#232 — Outbound reactions via Graph API
