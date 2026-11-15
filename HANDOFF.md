@@ -2,49 +2,30 @@
 
 ## Last Session
 
-Replaced the Outgoing Webhooks `TeamsInboundConnector` with a full Bot Framework integration. JWT validation via nimbus-jose-jwt, activity routing (message, messageReaction, conversationUpdate), command dispatch embedded in the connector, SSRF defense on outbound `serviceUrl`, entity-based bot mention stripping, and personal/1:1 chat support.
+Retrofitted three platform SPIs (CalendarPlatform, DocumentPlatform, EmailPlatform) with user-scoped capability accessors so per-user OAuth tokens can be resolved. The same pattern already used by seven other SPIs (ContactsPlatform, BankPlatform, ProjectPlatform, etc.) — CalendarPlatform and EmailPlatform got inner `CalendarOperations`/`EmailOperations` interfaces behind `calendarOps(userId)`/`emailOps(userId)` accessors; DocumentPlatform added `String userId` to its existing `files()`/`folders()`/`search()`/`sharing()` accessors.
 
-**Branch:** `issue-220-teams-inbound-bot-framework` — ready for work-end
+All Google implementations build per-user API clients inside the accessor. All Microsoft implementations capture userId and resolve tokens per-call via `TokenRetry`. MCP/GraphQL boundary classes inject `CurrentPrincipal` and pass `actorId()`.
+
+**Branch:** `issue-223-actor-id-resolution` — ready for work-end
 
 **Issues closed this session:**
 
 | # | Title | What changed |
 |---|-------|-------------|
-| #220 | Teams inbound via Bot Framework | `BotFrameworkAuth` (JWT/JWKS + dev-mode), `BotFrameworkClient` (outbound REST + SSRF), `TeamsInboundConnector` (activity routing + command dispatch), `TeamsInboundTranslator`, `TeamsCommands`; old connector removed from `webhook` module; `TeamsChatPlatform.withCommands()` wired; contributor guide updated |
+| #223 | Cross-SPI actorId resolution for per-user OAuth | 3 SPI interfaces restructured, 6 provider implementations updated (3 Google, 3 Microsoft), 3 NoOp + 3 Ref implementations updated, 3 GraphQL API classes wired with CurrentPrincipal; 42 files changed across 13 modules |
 
-**New classes (all in `chat-teams`):**
-
-| Class | Responsibility |
-|-------|---------------|
-| `BotFrameworkAuth` | JWT validation — nimbus-jose-jwt, OpenID metadata discovery, JWKS cache (24h + kid-miss refresh), RS256 + claims, dev-mode bypass |
-| `BotFrameworkClient` | Bot Framework REST API v3 — replyToActivity, sendToConversation. SSRF hostname allowlist. Auth via ServiceConnectionProvider("microsoft-bot") |
-| `TeamsInboundConnector` | `WebhookInboundConnector` — activity routing, self-filter, mention stripping, command dispatch (Immediate + Deferred) |
-| `TeamsInboundTranslator` | `InboundTranslator` — Activity → ReceivedMessage with activity type guard |
-| `TeamsCommands` | `Commands` SPI — logging-only registration (matches SlackCommands pattern) |
-
-**Removed:**
-- `webhook/TeamsInboundConnector` (old Outgoing Webhooks model)
-- `webhook/TeamsInboundConnectorTest`
-- `WebhookBeans` Teams producer
-- `WebhookRouterTest.get_teamsConnector_returns200Ignored` (coverage moved to chat-teams)
-
-**Config namespace:** `casehub.connectors.teams-bot.*` (app-id, dev-mode, service-url-allowlist, openid-metadata-url, issuer)
-
-**Issues filed for deferred scope:**
+**Issues filed this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #232 | Outbound reactions (Reactions SPI) via Bot Framework | M | Med |
-| #233 | Attachment download from Bot Framework activities | S | Low |
-| #234 | Proactive messaging (bot-initiated conversations) | M | Med |
-| #235 | Adaptive Card action handling (invoke activities) | M | High |
-| #236 | Messaging extensions support | L | High |
-| #237 | Personal/1:1 chat outbound messaging via BotFrameworkClient | S | Med |
+| #239 | Plugin framework userId resolution for playbook steps | S | Med |
+| #240 | Google Document/Email NetHttpTransport reuse | XS | Low |
+| #241 | Update consumer and contributor guides for user-scoped accessor pattern | S | Low |
 
 **Queue state after this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #223 | actorId resolution for per-user OAuth | M | Med |
+| #230 | toMessageBody URL sanitisation for markdown links | S | Low |
 
-**To resume:** `work continue` for #223.
+**To resume:** `work continue` for #230.
