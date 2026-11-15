@@ -21,17 +21,17 @@ batch4: done
 - [x] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
 - [x] casehubio/connectors#225 — PlatformExtensible base interface with as()
 - [ ] casehubio/connectors#220 — Teams inbound via Bot Framework ← active
-  - [ ] Batch 1: Auth
-    - [ ] Task 1: BotFrameworkAuth JWT validation
-  - [ ] Batch 2: Client
-    - [ ] Task 2: BotFrameworkClient SSRF defense
-  - [ ] Batch 3: Chat
-    - [ ] Task 3: TeamsInboundTranslator
-    - [ ] Task 4: TeamsCommands
-  - [ ] Batch 4: Connector
-    - [ ] Task 5: TeamsInboundConnector activity routing
-  - [ ] Batch 5: Wiring
-    - [ ] Task 6: CDI wiring and old connector removal
-  - [ ] Batch 6: Docs
-    - [ ] Task 7: Contributor guide update
+  - [x] Batch 1: Auth
+    - [x] Task 1: BotFrameworkAuth JWT validation
+  - [x] Batch 2: Client
+    - [x] Task 2: BotFrameworkClient SSRF defense
+  - [x] Batch 3: Chat
+    - [x] Task 3: TeamsInboundTranslator
+    - [x] Task 4: TeamsCommands
+  - [x] Batch 4: Connector
+    - [x] Task 5: TeamsInboundConnector activity routing
+  - [x] Batch 5: Wiring
+    - [x] Task 6: CDI wiring and old connector removal
+  - [x] Batch 6: Docs
+    - [x] Task 7: Contributor guide update
 - [ ] casehubio/connectors#223 — actorId resolution for per-user OAuth
