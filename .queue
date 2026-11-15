@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: 
+branch: issue-223-actor-id-resolution
 issue-repo: casehubio/connectors
 status: active
-covers: 220
+covers: 223
 project-sha: 
 date: 
 design-repo: 
