@@ -59,14 +59,17 @@ Removal of the old `TeamsInboundConnector` from `webhook` and addition of the ne
 ```
 POST /connectors/teams-inbound/webhook
   │
+  ├── Parse Activity JSON (jakarta.json)
+  │     (Parsing untrusted JSON before authentication is standard practice —
+  │      the Bot Framework SDK does the same. Jakarta JSON does not execute
+  │      arbitrary code, and Quarkus enforces HTTP body size limits.)
+  │
   ├── BotFrameworkAuth.validate(Authorization header, activity.serviceUrl)
   │     ├── Fetch OpenID metadata (cached): https://login.botframework.com/v1/.well-known/openidconfiguration
   │     ├── Fetch JWKS (cached 24h, refresh on kid mismatch — rate-limited): https://login.botframework.com/v1/.well-known/keys
   │     ├── Validate RS256 signature against matching kid
   │     ├── Check claims: iss=configured issuer, aud=APP_ID, serviceurl=activity.serviceUrl, exp
   │     └── Dev-mode: skip validation, log SECURITY WARNING per request
-  │
-  ├── Parse Activity JSON (jakarta.json)
   │
   ├── Self-filter: if activity.from.id matches configured app-id → return Ignored
   │     (defense-in-depth — Bot Framework does not normally echo outbound messages,
@@ -132,7 +135,7 @@ Bot Framework Activity fields mapped to `InboundMessage`:
 | `connectorType` | `InboundConnectorTypes.TEAMS` (`"teams"`) |
 | `externalSenderId` | `activity.from.aadObjectId` (preferred) or `activity.from.id` |
 | `externalChannelRef` | Channel context: `channelData.team.id` + `:` + `channelData.channel.id` (compound format matching existing `TeamsMapper.parseTeamAndChannel`). Personal/1:1 context: `"personal:" + activity.conversation.id` (no team/channel in channelData). The `personal:` prefix distinguishes personal refs from compound `teamId:channelId` — `TeamsMapper.parseTeamAndChannel` will reject personal refs with a clear error since outbound personal messaging requires `BotFrameworkClient`, not Graph API (tracked as casehubio/connectors#237). |
-| `content` | For `message` activities: `activity.text` (with bot mention stripped via entity-based removal — see below). For `messageReaction` activities: `""` (empty string — reactions have no text field). |
+| `content` | For `message` activities: `activity.text` (with bot mention stripped via entity-based removal — see below). If `activity.text` is null (attachment-only messages), use `""` — no mention stripping needed. For `messageReaction` activities: `""` (empty string — reactions have no text field). |
 | `attachments` | `List.of()` (attachment download deferred to future work) |
 | `receivedAt` | `Instant.parse(activity.timestamp)` |
 | `tenancyId` | `channelData.tenant.id` |
@@ -191,7 +194,7 @@ Outbound REST API calls to `{serviceUrl}/v3/conversations/...`:
 JWT validation using nimbus-jose-jwt:
 
 ```
-BotFrameworkAuth(appId, devMode)
+BotFrameworkAuth(appId, devMode, metadataUrl, issuer)
   │
   ├── validate(authorizationHeader, activityServiceUrl) → boolean
   │     ├── If devMode → log SECURITY WARNING, return true
@@ -234,7 +237,7 @@ public class TeamsCommands implements Commands {
 Command dispatch flow (inside `TeamsInboundConnector`):
 
 1. Receive `message` activity
-2. Strip bot mention from text using entity-based removal: find the mention entity in `activity.entities[]` where `type = "mention"` and `mentioned.id` matches the configured `appId`, remove that entity's `text` value from `activity.text`, then trim. This preserves mentions of other users (unlike regex `<at>.*?</at>` which strips all mentions).
+2. If `activity.text` is null (attachment-only messages), set text to `""` and skip to step 3 (no mention stripping needed). Otherwise, strip bot mention from text using entity-based removal: find the mention entity in `activity.entities[]` where `type = "mention"` and `mentioned.id` matches the configured `appId`, remove that entity's `text` value from `activity.text`, then trim. This preserves mentions of other users (unlike regex `<at>.*?</at>` which strips all mentions).
 3. Extract the first whitespace-delimited word from the remaining text
 4. Match case-insensitively against registered command names from `CommandService.definitions()`
 5. If match:
