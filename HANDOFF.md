@@ -2,48 +2,56 @@
 
 ## Last Session
 
-Four Teams issues landed in one session, bringing Teams from 8 to 9 native capabilities and closing the gap between "text in channels" and a proper bi-directional chat platform.
+Proactive messaging (#234) — the bot can now initiate 1:1 conversations with users who haven't messaged it, using the Bot Framework REST API `POST /v3/conversations`. Also captures `ConversationReference` data from inbound `conversationUpdate` activities.
 
-**Key architectural change:** `TeamsChatPlatform` now routes outbound messages through two different APIs based on the channel reference prefix. Team channels (`teamId:channelId`) go through `TeamsClient` → Graph API with application tokens. Personal channels (`personal:conversationId`) go through `BotFrameworkClient` → Bot Framework REST v3 with bot tokens. The routing decision is a single `isPersonalChannel()` check in `sendMessage`/`replyToMessage`.
+**Key architectural change:** `TeamsChatPlatform.sendMessage()` now has three-way routing based on channel prefix:
+- `personal:<conversationId>` → Bot Framework `sendToConversation` (existing conversations)
+- `user:<aadObjectId>` → **new**: resolve via `ConversationReferenceStore` or cold-start `createConversation`, then send
+- `teamId:channelId` → Graph API (team channels)
 
-**Reactions (#232):** Graph API `setReaction`/`unsetReaction` on messages, plus `getMessage` to read the `reactions` array for `list()`. Unlike Slack/Discord which use emoji names, Teams uses a fixed set of reaction types (like, heart, laugh, surprised, sad, angry).
+The `user:` path returns `personal:<conversationId>` in `SendResult`, so callers can use the direct conversation ID for subsequent messages.
 
-**HTML-to-markdown (#238):** Bot Framework delivers HTML content (`<b>`, `<i>`, `<at>`, `<a href>`). `TeamsInboundTranslator` now converts to both markdown and plain text for `ChatContent(text, markdown)`. Entity decode ordering fix applied — `&amp;` decoded last to prevent double-decode of `&amp;lt;`.
+**ConversationReferenceStore SPI:** CDI interface with `InMemoryConversationReferenceStore` (`@DefaultBean`, `ConcurrentHashMap`). Follows the `HistoryStore` pattern from `email-google-inbound`. Persistence is optional — the cold-start path covers recovery from lost refs.
 
-**Attachment download (#233):** `BotFrameworkClient.downloadAttachment` does an authenticated GET on the activity's `contentUrl`. Failed downloads are logged and skipped — partial delivery preferred over failing the message.
+**conversationUpdate handling:** `TeamsInboundConnector` now handles `conversationUpdate` activities instead of ignoring them. Stores non-bot member refs and fires `InboundMessage` with `teams-activity-type: conversationUpdate` metadata. Store failures are try-caught (best-effort optimisation). `membersRemoved` events do not delete stored refs.
 
-**Personal chat outbound (#237):** `withBotClient()` wires `BotFrameworkClient` into `TeamsChatPlatform`. `TeamsBeans` creates the client when `casehub.connectors.teams-bot.default-service-url` is configured. Currently sends plain text only — rich content is a known gap (#248).
+**New config properties:**
+- `casehub.connectors.teams-bot.default-tenant-id` — required for cold-start proactive messaging
+- `casehub.connectors.teams-bot.app-id` — already existed for inbound, now also used for `createConversation` body
 
-**Branch:** `issue-237-teams-personal-chat-outbound` — covers all four issues (landed sequentially on main before branching for #237)
+**Branch:** `issue-234-teams-proactive-messaging`
+
+**Commits:**
+- `e6f872d3` — ConversationReferenceStore SPI with InMemory default
+- `5eb5eb96` — BotFrameworkClient.createConversation for proactive messaging
+- `8d5391b2` — user: channel prefix for proactive messaging in TeamsChatPlatform
+- `d0f8bc64` — handle conversationUpdate — store refs and fire events
+- `80d6279a` — review fixes — try-catch store, scope variables, membersRemoved test
 
 **Issues closed this session:**
 
 | # | Title | What changed |
 |---|-------|-------------|
-| #232 | Outbound reactions via Graph API | TeamsClient setReaction/unsetReaction/getMessage, TeamsReactions inner class, 9th capability |
-| #238 | Inbound HTML to markdown conversion | TeamsInboundTranslator htmlToMarkdown/htmlToPlainText/containsHtml |
-| #233 | Attachment download from Bot Framework | BotFrameworkClient.downloadAttachment, TeamsInboundConnector.downloadAttachments |
-| #237 | Personal 1:1 chat outbound messaging | TeamsChatPlatform.withBotClient, isPersonalChannel routing, sendPersonalMessage |
+| #234 | Proactive messaging bot-initiated conversations | ConversationReferenceStore SPI, BotFrameworkClient.createConversation, user: prefix routing, conversationUpdate handling |
 
 **Issues filed this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #246 | SSRF defense on BotFrameworkClient attachment download | XS | Low |
-| #247 | Attachment download size limit | XS | Low |
-| #248 | Personal channel sends lose rich content (markdown, cards, attachments) | S | Med |
-| #249 | Personal send returns empty messageId in SendResult | XS | Low |
-| #250 | Nested HTML tags not handled in htmlToMarkdown | S | Med |
-| #251 | Personal channel refs crash listMembers, reactions, messageHistory | XS | Low |
+| #252 | Integration test for proactive messaging flow | S | Low |
+| #253 | replyToMessage should handle user: channel prefix | XS | Low |
 
 **Queue state after this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #234 | Proactive messaging bot-initiated conversations | M | High |
 | #235 | Adaptive Card action handling invoke activities | M | High |
 | #236 | Messaging extensions support | L | High |
 
-**To resume:** `work continue` for #234 (next in queue).
+**To resume:** `work continue` for #235 (next in queue).
 
-**Configuration prerequisite for personal chat outbound:** Set `casehub.connectors.teams-bot.default-service-url` (e.g. `https://smba.trafficmanager.net/teams/`). Without it, personal sends throw `UnsupportedOperationException`. The existing `service-url-allowlist` applies to the BotFrameworkClient for SSRF validation on outbound calls.
+**Configuration for proactive messaging:**
+- `casehub.connectors.teams-bot.default-service-url` — Bot Framework service URL (also needed for personal: sends)
+- `casehub.connectors.teams-bot.default-tenant-id` — Azure AD tenant ID for cold-start
+- `casehub.connectors.teams-bot.app-id` — bot application ID (shared with inbound JWT validation)
+- `casehub.connectors.teams-bot.service-url-allowlist` — SSRF defence (default: `*.botframework.com,smba.trafficmanager.net`)
