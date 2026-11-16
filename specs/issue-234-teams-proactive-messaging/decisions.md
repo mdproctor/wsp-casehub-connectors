@@ -50,3 +50,16 @@
 **Sources:** TeamsInboundConnector.java lines 86-89 (currently ignored), Bot Framework conversationUpdate activity schema
 **Exploration:** quick
 **Status:** captured
+
+## D5: Tenant ID resolution for cold-start createConversation
+
+**Choice:** Config default tenant ID via `casehub.connectors.teams-bot.default-tenant-id`
+**Alternatives:**
+- Compound channel ref `user:<tenantId>:<aadObjectId>` — multi-tenant from day one but uglier refs, callers must know tenant
+- Lookup from store then fall back to config — hybrid but adds complexity
+**Rationale:** Most bots are single-tenant. Clean `user:<aadObjectId>` format. Consistent with existing `default-service-url` config pattern. Multi-tenant can be added later if needed.
+**Trade-offs:** Single-tenant assumption. Multi-tenant bots would need enhancement.
+**Depends on:** D3 (user: prefix format)
+**Sources:** TeamsBeans.java config properties, Bot Framework createConversation API (tenantId required in body)
+**Exploration:** quick
+**Status:** captured
