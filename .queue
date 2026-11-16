@@ -24,6 +24,14 @@ batch4: done
 - [x] casehubio/connectors#223 — actorId resolution for per-user OAuth
 - [x] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links
 - [ ] casehubio/connectors#229 — file attachment support in toMessageBody ← active
+  - [x] Batch 1: Mapper+Types
+    - [x] Task 1: UploadedRef + toMessageBody 2-arg
+  - [x] Batch 2: Upload Methods
+    - [x] Task 2: getChannelFilesFolder + simple upload
+    - [x] Task 3: Resumable upload path
+  - [x] Batch 3: Orchestration+Docs
+    - [x] Task 4: Pre-upload in TeamsChatPlatform
+    - [x] Task 5: Consumer guide Files.ReadWrite.All
 - [ ] casehubio/connectors#232 — Outbound reactions via Graph API
 - [ ] casehubio/connectors#238 — inbound HTML to markdown conversion
 - [ ] casehubio/connectors#233 — Attachment download from Bot Framework activities
