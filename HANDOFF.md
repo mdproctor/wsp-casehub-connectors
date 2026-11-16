@@ -2,56 +2,50 @@
 
 ## Last Session
 
-Proactive messaging (#234) — the bot can now initiate 1:1 conversations with users who haven't messaged it, using the Bot Framework REST API `POST /v3/conversations`. Also captures `ConversationReference` data from inbound `conversationUpdate` activities.
+Adaptive Card action handling (#235) — invoke activities (Adaptive Card `Action.Submit`, task module `task/fetch`, `task/submit`) now have full support through three layers: a new `WebhookResult.Responded` transport variant, an `InvokeHandler` CDI SPI for response construction, and invoke routing in `TeamsInboundConnector`.
 
-**Key architectural change:** `TeamsChatPlatform.sendMessage()` now has three-way routing based on channel prefix:
-- `personal:<conversationId>` → Bot Framework `sendToConversation` (existing conversations)
-- `user:<aadObjectId>` → **new**: resolve via `ConversationReferenceStore` or cold-start `createConversation`, then send
-- `teamId:channelId` → Graph API (team channels)
+**Key architectural addition:** `WebhookResult.Responded` is the sixth sealed variant — the only one that both delivers `InboundMessage`s AND returns an HTTP response body. The router handles it in a single operation: deliver messages to observers, return body to caller.
 
-The `user:` path returns `personal:<conversationId>` in `SendResult`, so callers can use the direct conversation ID for subsequent messages.
+**InvokeHandler SPI (chat-teams):**
+- `InvokeHandler` — CDI bean interface: `name()` returns the invoke activity name, `handle(InvokeRequest)` returns `InvokeResponse`
+- `InvokeService` — discovers handlers via `@All List<InvokeHandler>`, dispatches by name, catches exceptions (falls back to `Accepted()`), detects duplicate handler names at startup
+- `InvokeResponse` — sealed interface with 6 variants constraining consumers to valid Bot Framework response schemas: `Accepted`, `CardUpdate`, `Message`, `TaskModuleContinue`, `TaskModuleMessage`, `Error`
+- `InvokeResponseSerializer` — package-private, maps variants to Bot Framework JSON (two different envelopes: `statusCode/type/value` for card actions, `task` wrapper for task modules)
 
-**ConversationReferenceStore SPI:** CDI interface with `InMemoryConversationReferenceStore` (`@DefaultBean`, `ConcurrentHashMap`). Follows the `HistoryStore` pattern from `email-google-inbound`. Persistence is optional — the cold-start path covers recovery from lost refs.
+**TeamsInboundConnector changes:**
+- New `case "invoke"` in the activity type switch
+- `handleInvoke` constructs InboundMessage (always delivered), dispatches to InvokeService, serializes response with guard try-catch (falls back to Accepted on serialization failure)
+- 6-arg constructor with `InvokeService` (5-arg chains to it with null for backward compat)
 
-**conversationUpdate handling:** `TeamsInboundConnector` now handles `conversationUpdate` activities instead of ignoring them. Stores non-bot member refs and fires `InboundMessage` with `teams-activity-type: conversationUpdate` metadata. Store failures are try-caught (best-effort optimisation). `membersRemoved` events do not delete stored refs.
+**TeamsBeans changes:**
+- New `InvokeService` producer via `@All List<InvokeHandler>` CDI discovery
+- `teamsInboundConnector` producer now injects `InvokeService`
 
-**New config properties:**
-- `casehub.connectors.teams-bot.default-tenant-id` — required for cold-start proactive messaging
-- `casehub.connectors.teams-bot.app-id` — already existed for inbound, now also used for `createConversation` body
-
-**Branch:** `issue-234-teams-proactive-messaging`
-
-**Commits:**
-- `e6f872d3` — ConversationReferenceStore SPI with InMemory default
-- `5eb5eb96` — BotFrameworkClient.createConversation for proactive messaging
-- `8d5391b2` — user: channel prefix for proactive messaging in TeamsChatPlatform
-- `d0f8bc64` — handle conversationUpdate — store refs and fire events
-- `80d6279a` — review fixes — try-catch store, scope variables, membersRemoved test
+**Commits (3, squashed from 6):**
+- `d0bc67a6` — WebhookResult.Responded variant + WebhookRouter handling
+- `45dd2338` — InvokeHandler SPI with typed response serialization
+- `bcdb85cb` — wire invoke activity handling in TeamsInboundConnector
+- `ba2b27f1` — docs: add Responded HTTP mapping to WebhookResult Javadoc
 
 **Issues closed this session:**
 
 | # | Title | What changed |
 |---|-------|-------------|
-| #234 | Proactive messaging bot-initiated conversations | ConversationReferenceStore SPI, BotFrameworkClient.createConversation, user: prefix routing, conversationUpdate handling |
+| #235 | Adaptive Card action handling invoke activities | WebhookResult.Responded, InvokeHandler/InvokeService SPI, InvokeResponse sealed variants, TeamsInboundConnector invoke routing |
 
 **Issues filed this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #252 | Integration test for proactive messaging flow | S | Low |
-| #253 | replyToMessage should handle user: channel prefix | XS | Low |
+| #254 | docs: update CLAUDE.md, ARC42STORIES, guides for Responded and InvokeHandler | S | Low |
+| #255 | chat-teams: InvokeHandler integration test | S | Low |
 
 **Queue state after this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #235 | Adaptive Card action handling invoke activities | M | High |
 | #236 | Messaging extensions support | L | High |
 
-**To resume:** `work continue` for #235 (next in queue).
+**To resume:** `work continue` for #236 (next in queue). #236 builds on the `WebhookResult.Responded` and invoke infrastructure from #235, extending it to `composeExtension/*` activity subtypes.
 
-**Configuration for proactive messaging:**
-- `casehub.connectors.teams-bot.default-service-url` — Bot Framework service URL (also needed for personal: sends)
-- `casehub.connectors.teams-bot.default-tenant-id` — Azure AD tenant ID for cold-start
-- `casehub.connectors.teams-bot.app-id` — bot application ID (shared with inbound JWT validation)
-- `casehub.connectors.teams-bot.service-url-allowlist` — SSRF defence (default: `*.botframework.com,smba.trafficmanager.net`)
+**Blog:** "When the Card Talks Back" — covers the invoke activity design, the tension between pure delivery infrastructure and request-response semantics, and why Discord solved it differently.
