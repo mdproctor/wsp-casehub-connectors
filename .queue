@@ -31,7 +31,7 @@ batch4: done
 - [x] casehubio/connectors#234 — Proactive messaging bot-initiated conversations
 - [ ] casehubio/connectors#235 — Adaptive Card action handling invoke activities ← active
   - [ ] Batch 1: Transport
-    - [ ] Task 1: WebhookResult.Responded + WebhookRouter
+    - [x] Task 1: WebhookResult.Responded + WebhookRouter
     - [ ] Task 2: Invoke SPI types
   - [ ] Batch 2: Handler infra
     - [ ] Task 3: InvokeResponseSerializer
