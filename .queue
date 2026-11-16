@@ -1,18 +1,3 @@
-# Work Plan —
-
-## State
-branch: issue-235-teams-adaptive-card-actions
-issue-repo: casehubio/connectors
-status: active
-covers: 235
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-batch4: done
-
-## Queue
 - [x] casehubio/connectors#188 — Issue #188
 - [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
 - [x] casehubio/connectors#224 — resumable upload test coverage
@@ -29,7 +14,7 @@ batch4: done
 - [x] casehubio/connectors#233 — Attachment download from Bot Framework activities
 - [x] casehubio/connectors#237 — Personal 1:1 chat outbound messaging
 - [x] casehubio/connectors#234 — Proactive messaging bot-initiated conversations
-- [ ] casehubio/connectors#235 — Adaptive Card action handling invoke activities ← active
+- [x] casehubio/connectors#235 — Adaptive Card action handling invoke activities
   - [x] Batch 1: Transport
     - [x] Task 1: WebhookResult.Responded + WebhookRouter
     - [x] Task 2: Invoke SPI types
@@ -38,4 +23,16 @@ batch4: done
     - [x] Task 4: InvokeService
   - [x] Batch 3: Connector wiring
     - [x] Task 5: TeamsInboundConnector + TeamsBeans
-- [ ] casehubio/connectors#236 — Messaging extensions support
+- [ ] casehubio/connectors#236 — Messaging extensions support        ← active
+
+## State
+branch: issue-235-teams-adaptive-card-actions
+issue-repo: casehubio/connectors
+status: active
+covers: 235
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+batch4: done
