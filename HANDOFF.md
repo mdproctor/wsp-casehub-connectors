@@ -11,7 +11,7 @@ Implemented end-to-end file attachment support for Microsoft Teams (`ChatContent
 
 Code review fixed two bugs before close: `uploadResumable` was using URL-encoded filename as the JSON `name` field (session body gets human-readable name; URL path gets encoded); `uploadAttachments` was using `item.getString("name")` from Graph response instead of the locally-computed display name.
 
-**Branch:** `issue-229-teams-file-attachments` — pending work-end
+**Branch:** `issue-229-teams-file-attachments` — landed as `12c7b188`, closed
 
 **Issues closed this session:**
 
@@ -42,6 +42,6 @@ Code review fixed two bugs before close: `uploadResumable` was using URL-encoded
 | #235 | Adaptive Card action handling invoke activities | M | High |
 | #236 | Messaging extensions support | L | High |
 
-**To resume:** `work continue` for #232 (next in queue after #229 closes).
+**To resume:** `work continue` for #232 (next in queue).
 
 **Permission prerequisite for Teams file attachments:** Teams app registration needs `Files.ReadWrite.All` application permission (admin-granted). Without it, sends with attachments throw `ProviderAuthException` (403); sends without attachments are unaffected.
