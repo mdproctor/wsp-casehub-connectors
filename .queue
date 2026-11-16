@@ -11,14 +11,14 @@
 - [x] casehubio/connectors#229 — file attachment support in toMessageBody
 - [x] casehubio/connectors#232 — Outbound reactions via Graph API
 - [x] casehubio/connectors#238 — inbound HTML to markdown conversion
-- [ ] casehubio/connectors#233 — Attachment download from Bot Framework activities        ← active
-- [ ] casehubio/connectors#237 — Personal 1:1 chat outbound messaging
+- [x] casehubio/connectors#233 — Attachment download from Bot Framework activities
+- [ ] casehubio/connectors#237 — Personal 1:1 chat outbound messaging        ← active
 - [ ] casehubio/connectors#234 — Proactive messaging bot-initiated conversations
 - [ ] casehubio/connectors#235 — Adaptive Card action handling invoke activities
 - [ ] casehubio/connectors#236 — Messaging extensions support
 
 ## State
-branch: issue-238-teams-inbound-html-to-markdown
+branch: issue-233-teams-attachment-download
 issue-repo: casehubio/connectors
 status: active
 covers: 232
