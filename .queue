@@ -33,9 +33,9 @@ batch4: done
   - [x] Batch 1: Transport
     - [x] Task 1: WebhookResult.Responded + WebhookRouter
     - [x] Task 2: Invoke SPI types
-  - [ ] Batch 2: Handler infra
-    - [ ] Task 3: InvokeResponseSerializer
-    - [ ] Task 4: InvokeService
+  - [x] Batch 2: Handler infra
+    - [x] Task 3: InvokeResponseSerializer
+    - [x] Task 4: InvokeService
   - [ ] Batch 3: Connector wiring
     - [ ] Task 5: TeamsInboundConnector + TeamsBeans
 - [ ] casehubio/connectors#236 — Messaging extensions support
