@@ -73,7 +73,8 @@ public sealed interface InvokeResponse {
     record Accepted() implements InvokeResponse {}
     record CardUpdate(String cardJson) implements InvokeResponse {}
     record Message(String text) implements InvokeResponse {}
-    record TaskModule(String taskInfoJson) implements InvokeResponse {}
+    record TaskModuleContinue(String title, String cardJson) implements InvokeResponse {}
+    record TaskModuleMessage(String text) implements InvokeResponse {}
     record Error(int statusCode, String message) implements InvokeResponse {}
 }
 ```
@@ -82,8 +83,9 @@ Each variant maps to exactly one Bot Framework response schema:
 - `Accepted` → `{ "statusCode": 200 }`
 - `CardUpdate` → `{ "statusCode": 200, "type": "application/vnd.microsoft.card.adaptive", "value": <parsed cardJson> }`
 - `Message` → `{ "statusCode": 200, "type": "application/vnd.microsoft.activity.message", "value": "<text>" }`
-- `TaskModule` → `{ "statusCode": 200, "type": "application/vnd.microsoft.card.adaptive", "value": { "task": { "type": "continue", "value": <parsed taskInfoJson> } } }`
-- `Error` → `{ "status": <statusCode>, "body": "<message>" }`
+- `TaskModuleContinue` → `{ "task": { "type": "continue", "value": { "title": "<title>", "card": { "contentType": "application/vnd.microsoft.card.adaptive", "content": <parsed cardJson> } } } }`
+- `TaskModuleMessage` → `{ "task": { "type": "message", "value": "<text>" } }`
+- `Error` → `{ "statusCode": <statusCode>, "type": "application/vnd.microsoft.error", "value": { "code": "Error", "message": "<message>" } }`
 
 The connector handles JSON serialization — consumers work with typed Java.
 

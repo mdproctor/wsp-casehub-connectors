@@ -38,11 +38,11 @@
 
 ## D4: InvokeResponse as sealed interface with typed variants
 
-**Choice:** Sealed interface with variants: Accepted, CardUpdate, Message, TaskModule, Error
+**Choice:** Sealed interface with variants: Accepted, CardUpdate, Message, TaskModuleContinue, TaskModuleMessage, Error
 **Alternatives:**
 - Raw JSON string — consumers construct the response body directly. Maximum flexibility but no compile-time safety, easy to produce invalid responses, no self-documenting API.
 - Single record with optional fields — `InvokeResponse(int statusCode, String type, String value)`. Flat but lossy — doesn't enforce which combinations are valid.
-**Rationale:** Constrains consumers to valid Bot Framework response shapes. Each variant maps to exactly one response schema: `Accepted` → `{ "statusCode": 200 }`, `CardUpdate` → card replacement, `Message` → text message, `TaskModule` → task module continue/message, `Error` → status code + message. The connector handles JSON serialization — consumers work with typed Java, not JSON strings. Pattern-matching in the connector makes the mapping exhaustive.
+**Rationale:** Constrains consumers to valid Bot Framework response shapes. Each variant maps to exactly one response schema: `Accepted` → `{ "statusCode": 200 }`, `CardUpdate` → card replacement, `Message` → text message, `TaskModuleContinue` → show task module with card, `TaskModuleMessage` → show text in task module, `Error` → error with status code + message. The connector handles JSON serialization — consumers work with typed Java, not JSON strings. Pattern-matching in the connector makes the mapping exhaustive.
 **Trade-offs:** Adding new response types (if Bot Framework adds them) requires a new sealed variant — additive but forces recompilation. Acceptable since Bot Framework response types change infrequently.
 **Sources:** chat-spi/src/main/java/.../chat/command/CommandResponse.java (sealed Immediate/Deferred — same pattern), connectors-api/.../WebhookResult.java (sealed pattern for transport results)
 **Exploration:** quick
