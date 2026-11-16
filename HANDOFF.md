@@ -2,46 +2,48 @@
 
 ## Last Session
 
-Implemented end-to-end file attachment support for Microsoft Teams (`ChatContent.attachments()` → SharePoint upload → Teams message reference). Also landed the Teams markdown URL sanitisation fix (#230) earlier in the same session.
+Four Teams issues landed in one session, bringing Teams from 8 to 9 native capabilities and closing the gap between "text in channels" and a proper bi-directional chat platform.
 
-**Teams file attachments flow:**
-1. `TeamsChatPlatform.sendMessage/replyToMessage` pre-uploads each attachment: `getChannelFilesFolder` (Graph API) → `uploadToChannelFolder` (simple ≤4MB PUT; resumable >4MB via `createUploadSession` + pre-authenticated chunk PUTs — no Authorization header on chunks)
-2. `TeamsMapper.toMessageBody(content, uploadedRefs)` builds the Teams reference attachment JSON and HTML `<attachment id="file-N">` placeholders alongside existing card attachments
-3. Upload failure fails the whole send; no partial delivery
+**Key architectural change:** `TeamsChatPlatform` now routes outbound messages through two different APIs based on the channel reference prefix. Team channels (`teamId:channelId`) go through `TeamsClient` → Graph API with application tokens. Personal channels (`personal:conversationId`) go through `BotFrameworkClient` → Bot Framework REST v3 with bot tokens. The routing decision is a single `isPersonalChannel()` check in `sendMessage`/`replyToMessage`.
 
-Code review fixed two bugs before close: `uploadResumable` was using URL-encoded filename as the JSON `name` field (session body gets human-readable name; URL path gets encoded); `uploadAttachments` was using `item.getString("name")` from Graph response instead of the locally-computed display name.
+**Reactions (#232):** Graph API `setReaction`/`unsetReaction` on messages, plus `getMessage` to read the `reactions` array for `list()`. Unlike Slack/Discord which use emoji names, Teams uses a fixed set of reaction types (like, heart, laugh, surprised, sad, angry).
 
-**Branch:** `issue-229-teams-file-attachments` — landed as `12c7b188`, closed
+**HTML-to-markdown (#238):** Bot Framework delivers HTML content (`<b>`, `<i>`, `<at>`, `<a href>`). `TeamsInboundTranslator` now converts to both markdown and plain text for `ChatContent(text, markdown)`. Entity decode ordering fix applied — `&amp;` decoded last to prevent double-decode of `&amp;lt;`.
+
+**Attachment download (#233):** `BotFrameworkClient.downloadAttachment` does an authenticated GET on the activity's `contentUrl`. Failed downloads are logged and skipped — partial delivery preferred over failing the message.
+
+**Personal chat outbound (#237):** `withBotClient()` wires `BotFrameworkClient` into `TeamsChatPlatform`. `TeamsBeans` creates the client when `casehub.connectors.teams-bot.default-service-url` is configured. Currently sends plain text only — rich content is a known gap (#248).
+
+**Branch:** `issue-237-teams-personal-chat-outbound` — covers all four issues (landed sequentially on main before branching for #237)
 
 **Issues closed this session:**
 
 | # | Title | What changed |
 |---|-------|-------------|
-| #230 | toMessageBody URL sanitisation for markdown links | Reject `javascript:` URLs, escape `"` in href attributes; 5 new tests in TeamsMapperTest |
-| #229 | File attachment support in toMessageBody | UploadedRef record, TeamsClient upload methods, TeamsChatPlatform pre-upload, TeamsMapper 2-arg toMessageBody, consumer guide permission note |
+| #232 | Outbound reactions via Graph API | TeamsClient setReaction/unsetReaction/getMessage, TeamsReactions inner class, 9th capability |
+| #238 | Inbound HTML to markdown conversion | TeamsInboundTranslator htmlToMarkdown/htmlToPlainText/containsHtml |
+| #233 | Attachment download from Bot Framework | BotFrameworkClient.downloadAttachment, TeamsInboundConnector.downloadAttachments |
+| #237 | Personal 1:1 chat outbound messaging | TeamsChatPlatform.withBotClient, isPersonalChannel routing, sendPersonalMessage |
 
 **Issues filed this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #242 | Guard against missing parentReference.driveId in filesFolder response | XS | Low |
-| #243 | Guard uploadResumable against zero-length content | XS | Low |
-| #244 | Test coverage for safeAttachmentName null/blank fallback and extensionFromMimeType | XS | Low |
-| #245 | Test coverage for replyToMessage with file attachments | XS | Low |
+| #246 | SSRF defense on BotFrameworkClient attachment download | XS | Low |
+| #247 | Attachment download size limit | XS | Low |
+| #248 | Personal channel sends lose rich content (markdown, cards, attachments) | S | Med |
+| #249 | Personal send returns empty messageId in SendResult | XS | Low |
+| #250 | Nested HTML tags not handled in htmlToMarkdown | S | Med |
+| #251 | Personal channel refs crash listMembers, reactions, messageHistory | XS | Low |
 
 **Queue state after this session:**
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|-----------|
-| #229 | File attachment support in toMessageBody | M | Med | ← active (pending close)
-| #232 | Outbound reactions via Graph API | S | Low |
-| #238 | Inbound HTML to markdown conversion | S | Med |
-| #233 | Attachment download from Bot Framework activities | M | Med |
-| #237 | Personal 1:1 chat outbound messaging | S | Med |
 | #234 | Proactive messaging bot-initiated conversations | M | High |
 | #235 | Adaptive Card action handling invoke activities | M | High |
 | #236 | Messaging extensions support | L | High |
 
-**To resume:** `work continue` for #232 (next in queue).
+**To resume:** `work continue` for #234 (next in queue).
 
-**Permission prerequisite for Teams file attachments:** Teams app registration needs `Files.ReadWrite.All` application permission (admin-granted). Without it, sends with attachments throw `ProviderAuthException` (403); sends without attachments are unaffected.
+**Configuration prerequisite for personal chat outbound:** Set `casehub.connectors.teams-bot.default-service-url` (e.g. `https://smba.trafficmanager.net/teams/`). Without it, personal sends throw `UnsupportedOperationException`. The existing `service-url-allowlist` applies to the BotFrameworkClient for SSRF validation on outbound calls.
