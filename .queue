@@ -1,3 +1,18 @@
+# Work Plan —
+
+## State
+branch: issue-234-teams-proactive-messaging
+issue-repo: casehubio/connectors
+status: active
+covers: 232
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+batch4: done
+
+## Queue
 - [x] casehubio/connectors#188 — Issue #188
 - [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
 - [x] casehubio/connectors#224 — resumable upload test coverage
@@ -13,18 +28,14 @@
 - [x] casehubio/connectors#238 — inbound HTML to markdown conversion
 - [x] casehubio/connectors#233 — Attachment download from Bot Framework activities
 - [x] casehubio/connectors#237 — Personal 1:1 chat outbound messaging
-- [ ] casehubio/connectors#234 — Proactive messaging bot-initiated conversations        ← active
+- [ ] casehubio/connectors#234 — Proactive messaging bot-initiated conversations ← active
+  - [ ] Batch 1: SPI+createConversation
+    - [ ] Task 1: ConversationReferenceStore SPI
+    - [ ] Task 2: BotFrameworkClient.createConversation
+  - [ ] Batch 2: Proactive routing+conversationUpdate
+    - [ ] Task 3: TeamsChatPlatform user: routing
+    - [ ] Task 4: conversationUpdate handling
+  - [ ] Batch 3: Build verification
+    - [ ] Task 5: Full build and cleanup
 - [ ] casehubio/connectors#235 — Adaptive Card action handling invoke activities
 - [ ] casehubio/connectors#236 — Messaging extensions support
-
-## State
-branch: issue-237-teams-personal-chat-outbound
-issue-repo: casehubio/connectors
-status: active
-covers: 232
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-batch4: done
