@@ -1,4 +1,21 @@
-# Work Plan —
+- [x] casehubio/connectors#188 — Issue #188
+- [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
+- [x] casehubio/connectors#224 — resumable upload test coverage
+- [x] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
+- [x] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
+- [x] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
+- [x] casehubio/connectors#225 — PlatformExtensible base interface with as()
+- [x] casehubio/connectors#220 — Teams inbound via Bot Framework
+- [x] casehubio/connectors#223 — actorId resolution for per-user OAuth
+- [x] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links
+- [x] casehubio/connectors#229 — file attachment support in toMessageBody
+- [x] casehubio/connectors#232 — Outbound reactions via Graph API
+- [ ] casehubio/connectors#238 — inbound HTML to markdown conversion        ← active
+- [ ] casehubio/connectors#233 — Attachment download from Bot Framework activities
+- [ ] casehubio/connectors#237 — Personal 1:1 chat outbound messaging
+- [ ] casehubio/connectors#234 — Proactive messaging bot-initiated conversations
+- [ ] casehubio/connectors#235 — Adaptive Card action handling invoke activities
+- [ ] casehubio/connectors#236 — Messaging extensions support
 
 ## State
 branch: issue-232-teams-outbound-reactions
@@ -11,23 +28,3 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 batch4: done
-
-## Queue
-- [x] casehubio/connectors#188 — Issue #188
-- [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
-- [x] casehubio/connectors#224 — resumable upload test coverage
-- [x] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
-- [x] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
-- [x] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
-- [x] casehubio/connectors#225 — PlatformExtensible base interface with as()
-- [x] casehubio/connectors#220 — Teams inbound via Bot Framework
-- [x] casehubio/connectors#223 — actorId resolution for per-user OAuth
-- [x] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links
-- [x] casehubio/connectors#229 — file attachment support in toMessageBody
-- [ ] casehubio/connectors#232 — Outbound reactions via Graph API ← active
-- [ ] casehubio/connectors#238 — inbound HTML to markdown conversion
-- [ ] casehubio/connectors#233 — Attachment download from Bot Framework activities
-- [ ] casehubio/connectors#237 — Personal 1:1 chat outbound messaging
-- [ ] casehubio/connectors#234 — Proactive messaging bot-initiated conversations
-- [ ] casehubio/connectors#235 — Adaptive Card action handling invoke activities
-- [ ] casehubio/connectors#236 — Messaging extensions support
