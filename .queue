@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-279-cardbuilder-tap-action
+branch: issue-274-dry-card-content-json-builder
 issue-repo: casehubio/connectors
-status: drained
-covers: 279
+status: active
+covers: 274,275
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -17,9 +17,9 @@ flyway-next-v: none
 - [x] casehubio/connectors#270 — hero-thumbnail-factory-methods
 - [x] casehubio/connectors#271 — invoke-handler-cdi-integration-test
 - [x] casehubio/connectors#272 — ref-search-handler-query-filtering
-- [ ] casehubio/connectors#273 — chat-teams ComposeAttachment convenience overloads
-- [ ] casehubio/connectors#276 — preview convenience overload
-- [ ] casehubio/connectors#277 — CardBuilder buttons support
-- [ ] casehubio/connectors#279 — CardBuilder tap action
-- [ ] casehubio/connectors#274 — DRY card content JSON builder
+- [x] casehubio/connectors#273 — chat-teams ComposeAttachment convenience overloads
+- [x] casehubio/connectors#276 — preview convenience overload
+- [x] casehubio/connectors#277 — CardBuilder buttons support
+- [x] casehubio/connectors#279 — CardBuilder tap action
+- [x] casehubio/connectors#274 — DRY card content JSON builder
 - [ ] casehubio/connectors#275 — CardBuilder round-trip test
