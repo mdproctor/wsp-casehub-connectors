@@ -31,3 +31,8 @@ flyway-next-v: none
 - [x] casehubio/connectors#285 — defensive-metadata-copy
 - [x] casehubio/connectors#286 — CardBuilder-preview-imageUrl-overload
 - [x] casehubio/connectors#287 — InboundMessage-defensive-metadata-copy
+- [ ] casehubio/connectors#231 — fix-document-microsoft-double-encoding-filenames
+- [ ] casehubio/connectors#260 — fix-speaker-plugin-wav-header-assumptions
+- [ ] casehubio/connectors#261 — fix-voice-playbook-speaker-id-payment-gate
+- [ ] casehubio/connectors#262 — fix-connector-voice-api-base64-valueof-crash
+- [ ] casehubio/connectors#186 — fix-discord-awaitility-timeout-1C
