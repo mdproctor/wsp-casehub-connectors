@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <style>
+      .box { stroke: #374151; stroke-width: 1.5; rx: 6; }
+      .builder-zone { fill: #eff6ff; }
+      .caller-zone { fill: #fef3c7; }
+      .label { font-weight: 600; font-size: 12; fill: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+      .field { font-size: 13; fill: #1f2937; }
+      .field-key { font-weight: 600; }
+      .zone-label { font-size: 11; fill: #9ca3af; font-style: italic; }
+      .arrow { stroke: #6b7280; stroke-width: 1.2; fill: none; marker-end: url(#arrowhead); }
+      .title { font-size: 15; font-weight: 700; fill: #111827; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="340" y="28" text-anchor="middle" class="title">Attachment JSON — what the builder handles vs. what the caller provides</text>
+
+  <!-- Outer attachment envelope — builder zone -->
+  <rect x="40" y="50" width="600" height="350" class="box builder-zone"/>
+  <text x="60" y="72" class="label">ComposeAttachment builds this</text>
+
+  <!-- contentType field -->
+  <text x="60" y="100" class="field"><tspan class="field-key">"contentType":</tspan> "application/vnd.microsoft.card.adaptive"</text>
+
+  <!-- content block — caller zone -->
+  <rect x="60" y="115" width="560" height="80" class="box caller-zone"/>
+  <text x="80" y="137" class="field"><tspan class="field-key">"content":</tspan></text>
+  <text x="100" y="157" class="field">{ "type": "AdaptiveCard", "body": [ ... ] }</text>
+  <text x="100" y="177" class="zone-label">↑ caller provides this — any valid adaptive card JSON</text>
+
+  <!-- preview block — builder zone -->
+  <rect x="60" y="210" width="560" height="175" class="box builder-zone"/>
+  <text x="80" y="232" class="field"><tspan class="field-key">"preview":</tspan></text>
+
+  <!-- preview contentType -->
+  <text x="100" y="258" class="field"><tspan class="field-key">"contentType":</tspan> "application/vnd.microsoft.card.thumbnail"</text>
+
+  <!-- preview content -->
+  <rect x="100" y="272" width="500" height="98" class="box caller-zone"/>
+  <text x="120" y="294" class="field"><tspan class="field-key">"content":</tspan></text>
+  <text x="140" y="314" class="field"><tspan class="field-key">"title":</tspan> "Contoso Widget"</text>
+  <text x="140" y="334" class="field"><tspan class="field-key">"subtitle":</tspan> "£29.99"</text>
+  <text x="140" y="354" class="zone-label">↑ caller provides title, subtitle, optional imageUrl</text>
+
+  <!-- Legend -->
+  <rect x="60" y="400" width="12" height="12" fill="#eff6ff" stroke="#374151" stroke-width="1" rx="2"/>
+  <text x="78" y="411" class="zone-label" style="fill: #374151;">Protocol boilerplate (builder handles)</text>
+  <rect x="320" y="400" width="12" height="12" fill="#fef3c7" stroke="#374151" stroke-width="1" rx="2"/>
+  <text x="338" y="411" class="zone-label" style="fill: #374151;">Caller content (passed as arguments)</text>
+</svg>
