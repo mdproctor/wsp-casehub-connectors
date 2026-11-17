@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-277-cardbuilder-buttons-support
+branch: issue-279-cardbuilder-tap-action
 issue-repo: casehubio/connectors
 status: drained
-covers: 277
+covers: 279
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
