@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-258-reference-invoke-handlers
+branch: issue-273-compose-attachment-convenience-overloads
 issue-repo: casehubio/connectors
-status: drained
-covers: 258
+status: active
+covers: 273
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -17,3 +17,4 @@ flyway-next-v: none
 - [x] casehubio/connectors#270 — hero-thumbnail-factory-methods
 - [x] casehubio/connectors#271 — invoke-handler-cdi-integration-test
 - [x] casehubio/connectors#272 — ref-search-handler-query-filtering
+- [ ] casehubio/connectors#273 — chat-teams ComposeAttachment convenience overloads
