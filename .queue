@@ -1,11 +1,7 @@
-- [x] casehubio/connectors#94 — Issue #94
-- [ ] casehubio/connectors#236 — chat-teams-messaging-extensions-support
-- [ ] casehubio/connectors#257 — bot-manifest-app-registration
-- [ ] casehubio/connectors#259 — messaging-extension-preview-card-model
-- [ ] casehubio/connectors#258 — reference-invoke-handler-implementations
+# Work Plan —
 
 ## State
-branch: issue-257-teams-manifest-messaging-ext
+branch: issue-259-teams-preview-card-model
 issue-repo: casehubio/connectors
 status: active
 covers: 236
@@ -14,3 +10,10 @@ date: 2026-09-15
 design-repo: project
 design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
 flyway-next-v: none
+
+## Queue
+- [x] casehubio/connectors#94 — Issue #94
+- [ ] casehubio/connectors#236 — chat-teams-messaging-extensions-support
+- [ ] casehubio/connectors#257 — bot-manifest-app-registration
+- [ ] casehubio/connectors#259 — messaging-extension-preview-card-model
+- [ ] casehubio/connectors#258 — reference-invoke-handler-implementations
