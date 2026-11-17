@@ -5,7 +5,7 @@ date: 2026-11-17
 entry_type: note
 subtype: diary
 projects: [casehubio/connectors]
-tags: [teams, bot-framework, messaging-extensions, builder-pattern, spi-design]
+tags: [teams, bot-framework, messaging-extensions, builder-pattern, spi-design, api-design]
 series: issue-258-reference-invoke-handlers
 ---
 
@@ -42,6 +42,22 @@ The builder handles everything the protocol dictates — `contentType` values, t
 ![What ComposeAttachment handles vs. what the caller provides](images/compose-attachment-boundary.svg)
 
 The boundary is clean because it tracks a real distinction: protocol structure vs. caller content. If the builder had tried to model the adaptive card body — text blocks, images, actions — it would have crossed into content territory. The card body is the caller's business. The attachment envelope is the protocol's.
+
+## Progressive disclosure
+
+Hero and thumbnail cards follow the same principle at a smaller scale. `ComposeAttachment.hero(title, subtitle, imageUrl)` builds a standalone hero card — no adaptive card body, no preview layer, just the card type and its three fields.
+
+The 3-arg form shipped first because it's the complete specification. But most hero cards in practice don't use all three arguments. A search result heading needs a title. A product listing needs title and price. The image is the rarer case, not the common one.
+
+```java
+ComposeAttachment.hero("Search Result").build()
+ComposeAttachment.hero("Contoso Widget", "£29.99").build()
+ComposeAttachment.hero("Contoso Widget", "£29.99", imageUrl).build()
+```
+
+Each overload delegates to the 3-arg form — the same `CardBuilder`, the same JSON envelope, the same protocol mechanics. The API surface grows without widening the builder's boundary. What changes is the noise at the call site: a title-only hero card no longer carries two trailing `null` arguments that mean nothing to the reader.
+
+This is a general pattern worth naming. Ship the full-spec form first — it's correct and complete. Then add the progressive overloads once you can see what callers actually need. The overloads are cheaper to get right because the full-spec form already handles all the edge cases. They just peel off the common shapes.
 
 ## Reference handlers
 
