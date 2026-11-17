@@ -78,6 +78,14 @@ This is a deliberate trade-off. An enum would catch typos at compile time, but i
 
 The same shape appears again in `tap` — a card-level action that fires when the entire card is tapped, not just a button. Same three fields, same boundary split. The difference is structural: `tap` is a single object (last call wins), while `buttons` is an array (each call appends). The protocol dictates which — a card has one tap target but can have many buttons — and the builder follows.
 
+Internally, the builder stored each action as a `String[]` — `new String[]{type, title, value}`, accessed by index in `build()`. It worked, but it's the kind of code where a reader has to remember that `b[0]` is the type and `b[2]` is the value. The protocol names these fields. The code should too.
+
+```java
+private record CardAction(String type, String title, String value) {}
+```
+
+`buttons` becomes `List<CardAction>`, `tap` becomes `CardAction`, and the JSON construction reads as it should: `b.type()`, `b.title()`, `b.value()`. The public API — `button(String, String, String)` and `tap(String, String, String)` — doesn't change. The improvement is entirely internal: the builder's implementation now reflects the protocol's vocabulary instead of hiding it behind positional access.
+
 The broader point: a clean protocol boundary doesn't always divide neatly at the method level. Sometimes the builder owns the shape of a structure while the caller owns what goes into it. The question isn't "does the builder handle this feature or not?" It's "what part of this feature is the same for every caller, and what part varies?"
 
 ## The shape underneath
@@ -105,6 +113,8 @@ The return type matters. `CardBuilder.build()` needs to extend the builder with 
 The builder outputs a JSON string. `InvokeResponseSerializer` parses it back and nests it inside the Bot Framework response envelope. If the builder produces JSON the serializer can't traverse — an unexpected nesting, a structure it doesn't anticipate — the card is silently lost. The adaptive card builder already had a round-trip test for this. Hero and thumbnail cards didn't.
 
 The fix is mechanical but the principle isn't. A builder that produces JSON for a serializer to consume is a contract across two code paths. Testing one side proves the builder works. Testing the other side proves the serializer works. Only a round-trip test proves they work together — and that neither side can change without the other noticing.
+
+The single-card round-trip is necessary. It's not sufficient. A `ComposeResult` holds a list of attachments — the serializer iterates and re-emits each one. A multi-card test pushes on the things a single card can't: does the second card survive, does ordering hold, does one card's content bleed into the next? Hero, thumbnail, and adaptive cards exercise three different content types through the same serializer path. If any one of them is silently dropped or rewritten, the test catches it.
 
 ## Reference handlers
 
