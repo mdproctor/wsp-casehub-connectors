@@ -1,38 +1,13 @@
-- [x] casehubio/connectors#188 — Issue #188
-- [x] casehubio/connectors#219 — configurable SSRF CDN allow-list
-- [x] casehubio/connectors#224 — resumable upload test coverage
-- [x] casehubio/connectors#222 — ChannelManagement.create hardcodes first team
-- [x] casehubio/connectors#221 — toMessageBody drops markdown and RichCard
-- [x] casehubio/connectors#226 — ARC42STORIES Microsoft chapter
-- [x] casehubio/connectors#225 — PlatformExtensible base interface with as()
-- [x] casehubio/connectors#220 — Teams inbound via Bot Framework
-- [x] casehubio/connectors#223 — actorId resolution for per-user OAuth
-- [x] casehubio/connectors#230 — toMessageBody URL sanitisation for markdown links
-- [x] casehubio/connectors#229 — file attachment support in toMessageBody
-- [x] casehubio/connectors#232 — Outbound reactions via Graph API
-- [x] casehubio/connectors#238 — inbound HTML to markdown conversion
-- [x] casehubio/connectors#233 — Attachment download from Bot Framework activities
-- [x] casehubio/connectors#237 — Personal 1:1 chat outbound messaging
-- [x] casehubio/connectors#234 — Proactive messaging bot-initiated conversations
-- [x] casehubio/connectors#235 — Adaptive Card action handling invoke activities
-  - [x] Batch 1: Transport
-    - [x] Task 1: WebhookResult.Responded + WebhookRouter
-    - [x] Task 2: Invoke SPI types
-  - [x] Batch 2: Handler infra
-    - [x] Task 3: InvokeResponseSerializer
-    - [x] Task 4: InvokeService
-  - [x] Batch 3: Connector wiring
-    - [x] Task 5: TeamsInboundConnector + TeamsBeans
-- [ ] casehubio/connectors#236 — Messaging extensions support        ← active
+- [x] casehubio/connectors#94 — Issue #94
+- [ ] casehubio/connectors#236 — chat-teams-messaging-extensions-support
 
 ## State
-branch: issue-235-teams-adaptive-card-actions
+branch: issue-236-teams-messaging-extensions
 issue-repo: casehubio/connectors
 status: active
-covers: 235
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-batch4: done
+covers: 236
+project-sha: 9cd9139b04626869be8439c52661e65fcc246756
+date: 2026-09-15
+design-repo: project
+design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
+flyway-next-v: none
