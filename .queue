@@ -3,7 +3,7 @@
 ## State
 branch: issue-273-compose-attachment-convenience-overloads
 issue-repo: casehubio/connectors
-status: active
+status: drained
 covers: 273
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
@@ -18,3 +18,5 @@ flyway-next-v: none
 - [x] casehubio/connectors#271 — invoke-handler-cdi-integration-test
 - [x] casehubio/connectors#272 — ref-search-handler-query-filtering
 - [ ] casehubio/connectors#273 — chat-teams ComposeAttachment convenience overloads
+- [ ] casehubio/connectors#276 — preview convenience overload
+- [ ] casehubio/connectors#277 — CardBuilder buttons support
