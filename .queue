@@ -4,7 +4,7 @@
 branch: issue-231-fix-document-microsoft-double-encoding-filenames
 issue-repo: casehubio/connectors
 status: active
-covers: 260
+covers: 261
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -33,6 +33,6 @@ flyway-next-v: none
 - [x] casehubio/connectors#287 — InboundMessage-defensive-metadata-copy
 - [x] casehubio/connectors#231 — fix-document-microsoft-double-encoding-filenames
 - [x] casehubio/connectors#260 — fix-speaker-plugin-wav-header-assumptions
-- [ ] casehubio/connectors#261 — fix-voice-playbook-speaker-id-payment-gate
+- [x] casehubio/connectors#261 — fix-voice-playbook-speaker-id-payment-gate
 - [ ] casehubio/connectors#262 — fix-connector-voice-api-base64-valueof-crash
 - [ ] casehubio/connectors#186 — fix-discord-awaitility-timeout-1C
