@@ -21,3 +21,5 @@ flyway-next-v: none
 - [ ] casehubio/connectors#276 — preview convenience overload
 - [ ] casehubio/connectors#277 — CardBuilder buttons support
 - [ ] casehubio/connectors#279 — CardBuilder tap action
+- [ ] casehubio/connectors#274 — DRY card content JSON builder
+- [ ] casehubio/connectors#275 — CardBuilder round-trip test
