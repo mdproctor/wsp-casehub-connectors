@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-274-dry-card-content-json-builder
+branch: issue-282-card-builder-text-field
 issue-repo: casehubio/connectors
 status: active
-covers: 274,275
+covers: 282
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -25,7 +25,9 @@ flyway-next-v: none
 - [x] casehubio/connectors#275 — CardBuilder round-trip test
 - [x] casehubio/connectors#280 — CardAction-record-for-buttons-tap
 - [x] casehubio/connectors#281 — multi-card-ComposeResult-round-trip-test
-- [ ] casehubio/connectors#282 — CardBuilder-text-field
-- [ ] casehubio/connectors#283 — ref-handler-builder-migration
-- [ ] casehubio/connectors#284 — CardBuilder-preview-support
-- [ ] casehubio/connectors#285 — defensive-metadata-copy
+- [x] casehubio/connectors#282 — CardBuilder-text-field
+- [x] casehubio/connectors#283 — ref-handler-builder-migration
+- [x] casehubio/connectors#284 — CardBuilder-preview-support
+- [x] casehubio/connectors#285 — defensive-metadata-copy
+- [ ] casehubio/connectors#286 — CardBuilder-preview-imageUrl-overload
+- [ ] casehubio/connectors#287 — InboundMessage-defensive-metadata-copy
