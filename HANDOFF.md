@@ -2,39 +2,43 @@
 
 ## Last Session
 
-Completed 2 issues (#280, #281) — final refinements to `CardBuilder` internals and test coverage.
+Completed 4 issues (#282–#285) — extended the `CardBuilder` fluent API, migrated a ref handler to use it, and added defensive copy to `InvokeRequest`.
 
-**#280 — CardAction record for buttons/tap:**
-- Replaced `List<String[]>` and `String[]` with private `CardAction(String type, String title, String value)` record
-- Named field access (`b.type()`, `b.title()`, `b.value()`) replaces fragile array indexing (`b[0]`, `b[1]`, `b[2]`)
-- Public API unchanged — purely internal improvement
+**#282 — CardBuilder `text()` for body content:**
+- Added `text(String)` to `CardBuilder` for hero/thumbnail cards
+- Updated shared `cardContent()` helper to accept and emit `text` between subtitle and images
+- Adaptive `Builder` preview passes `null` for text — previews don't use it
 
-**#281 — Multi-card ComposeResult round-trip test:**
-- Verifies hero + thumbnail + adaptive cards all survive serialization through `InvokeResponseSerializer`
-- Catches ordering, content isolation, and card type preservation issues
+**#283 — Ref handler builder migration:**
+- Migrated `RefLinkUnfurlHandler` from raw AdaptiveCard JSON to `hero().text().button()`
+- `RefSearchHandler` and `RefFetchTaskHandler` stay on `adaptive()` — they need AdaptiveCard features
 
-**Code review:** No critical or high issues. One medium finding — shared mutable metadata map between `InboundMessage` and `InvokeRequest` (filed as #285).
+**#284 — CardBuilder `preview()` support:**
+- Added `preview(String title)` and `preview(String title, String subtitle)` to `CardBuilder`
+- Emits separate thumbnail preview block, matching adaptive `Builder.preview()` pattern
 
-**Blog:** Revised mdp26 "The Line Between Raw and Ready" — added CardAction record section and multi-card round-trip testing section.
+**#285 — Defensive metadata copy:**
+- `InvokeRequest` compact constructor now wraps metadata in `Map.copyOf()`
+- Prevents handlers from mutating the map shared with `InboundMessage` across a CDI event boundary
 
-**Issues filed:** #282 (text field), #283 (ref handler migration), #284 (CardBuilder preview), #285 (defensive metadata copy).
+**Code review findings:** Fixed formatting issues (double blank lines, misaligned fields, closing paren indentation). Filed #286 (preview imageUrl overload gap) and #287 (InboundMessage metadata copy gap).
+
+**Blog:** "The Builder That Grew" — API design diary covering the builder evolution, shared helper factoring, and defensive copy pattern.
 
 ## Branch State
 
-All work on main. No feature branches open. Unpublished commits on main (3 commits: #280 refactor, #281 test, #280 style fix).
+All work on main. No feature branches open. Published to origin.
 
 ## Queue
 
-4 items remaining (all XS-S/Low):
+2 items remaining (both XS/Low):
 
-- [ ] #282 — CardBuilder `text()` field for hero/thumbnail body content
-- [ ] #283 — Ref handler builder migration (use builders in ref handlers)
-- [ ] #284 — CardBuilder `preview()` for hero/thumbnail with custom preview
-- [ ] #285 — Defensive copy of shared metadata map
+- [ ] #286 — CardBuilder `preview(title, subtitle, imageUrl)` overload — API symmetry with adaptive Builder
+- [ ] #287 — InboundMessage `Map.copyOf(metadata)` in compact constructor — same gap as #285
 
 ## References
 
-- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/ComposeAttachment.java` — complete with CardAction record, preview/button/tap/overloads, DRY cardContent helper
-- `chat-teams/src/test/java/io/casehub/connectors/chat/teams/ComposeAttachmentTest.java` — 37 unit tests
-- `chat-teams/src/test/java/io/casehub/connectors/chat/teams/InvokeResponseSerializerTest.java` — 12 tests including multi-card round-trip
-- `blog/2026-11-17-mdp26-the-line-between-raw-and-ready.md` — session blog
+- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/ComposeAttachment.java` — CardBuilder with text, preview, buttons, tap; shared `cardContent()` helper
+- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/InvokeRequest.java` — defensive `Map.copyOf()` in compact constructor
+- `connectors-api/src/main/java/io/casehub/connectors/InboundMessage.java` — #287 target: metadata not yet defensively copied
+- `chat-teams/src/test/java/io/casehub/connectors/chat/teams/ComposeAttachmentTest.java` — 48 unit tests (text, preview, round-trip)
