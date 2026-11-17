@@ -3,7 +3,7 @@
 ## State
 branch: issue-258-reference-invoke-handlers
 issue-repo: casehubio/connectors
-status: active
+status: drained
 covers: 258
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
@@ -13,7 +13,7 @@ flyway-next-v: none
 
 ## Queue
 - [x] casehubio/connectors#94 — Issue #94
-- [ ] casehubio/connectors#269 — compose-attachment-null-validation
-- [ ] casehubio/connectors#270 — hero-thumbnail-factory-methods
-- [ ] casehubio/connectors#271 — invoke-handler-cdi-integration-test
-- [ ] casehubio/connectors#272 — ref-search-handler-query-filtering
+- [x] casehubio/connectors#269 — compose-attachment-null-validation
+- [x] casehubio/connectors#270 — hero-thumbnail-factory-methods
+- [x] casehubio/connectors#271 — invoke-handler-cdi-integration-test
+- [x] casehubio/connectors#272 — ref-search-handler-query-filtering
