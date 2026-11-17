@@ -76,6 +76,8 @@ This is a deliberate trade-off. An enum would catch typos at compile time, but i
 
 ![How the boundary runs through button() — shape is protocol, values are caller-chosen](images/compose-attachment-buttons.svg)
 
+The same shape appears again in `tap` — a card-level action that fires when the entire card is tapped, not just a button. Same three fields, same boundary split. The difference is structural: `tap` is a single object (last call wins), while `buttons` is an array (each call appends). The protocol dictates which — a card has one tap target but can have many buttons — and the builder follows.
+
 The broader point: a clean protocol boundary doesn't always divide neatly at the method level. Sometimes the builder owns the shape of a structure while the caller owns what goes into it. The question isn't "does the builder handle this feature or not?" It's "what part of this feature is the same for every caller, and what part varies?"
 
 ## Reference handlers
