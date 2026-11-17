@@ -13,4 +13,7 @@ flyway-next-v: none
 
 ## Queue
 - [x] casehubio/connectors#94 — Issue #94
-- [ ] casehubio/connectors#258 — reference-invoke-handler-implementations
+- [ ] casehubio/connectors#269 — compose-attachment-null-validation
+- [ ] casehubio/connectors#270 — hero-thumbnail-factory-methods
+- [ ] casehubio/connectors#271 — invoke-handler-cdi-integration-test
+- [ ] casehubio/connectors#272 — ref-search-handler-query-filtering
