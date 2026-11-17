@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" font-family="system-ui, -apple-system, sans-serif">
+  <style>
+    .title { font-size: 15px; font-weight: 600; fill: #1a1a2e; }
+    .label { font-size: 11px; fill: #374151; }
+    .before { font-size: 10px; fill: #991b1b; }
+    .after { font-size: 10px; fill: #166534; }
+    .domain { font-size: 12px; font-weight: 600; fill: #1e40af; }
+    .box-before { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1; rx: 4; }
+    .box-after { fill: #f0fdf4; stroke: #86efac; stroke-width: 1; rx: 4; }
+    .arrow { fill: none; stroke: #9ca3af; stroke-width: 1.5; marker-end: url(#arrowhead); }
+    .divider { stroke: #e5e7eb; stroke-width: 1; stroke-dasharray: 4,3; }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#9ca3af"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" class="title">Five Correctness Gaps — Before / After</text>
+
+  <!-- Column headers -->
+  <text x="260" y="52" text-anchor="middle" class="label" font-weight="600">Gap</text>
+  <text x="560" y="52" text-anchor="middle" class="label" font-weight="600">Fix</text>
+
+  <!-- Row 1: URL Encoding -->
+  <text x="20" y="90" class="domain">1. URL Encoding</text>
+  <rect x="120" y="68" width="280" height="38" class="box-before"/>
+  <text x="130" y="84" class="before">URLEncoder.encode() + URI multi-arg constructor</text>
+  <text x="130" y="98" class="before">→ %20 becomes %2520 (double-encoded)</text>
+  <line x1="408" y1="87" x2="430" y2="87" class="arrow"/>
+  <rect x="438" y="68" width="260" height="38" class="box-after"/>
+  <text x="448" y="84" class="after">Raw filename → toUri() encodes once</text>
+  <text x="448" y="98" class="after">Consistent encoding across all upload paths</text>
+
+  <!-- Divider -->
+  <line x1="20" y1="118" x2="700" y2="118" class="divider"/>
+
+  <!-- Row 2: WAV Header -->
+  <text x="20" y="150" class="domain">2. WAV Header</text>
+  <rect x="120" y="128" width="280" height="38" class="box-before"/>
+  <text x="130" y="144" class="before">Hardcoded offset 44, assumes mono/16-bit/16kHz</text>
+  <text x="130" y="158" class="before">Wrong embedding, no error — gates auth</text>
+  <line x1="408" y1="147" x2="430" y2="147" class="arrow"/>
+  <rect x="438" y="128" width="260" height="38" class="box-after"/>
+  <text x="448" y="144" class="after">RIFF parse, format/channel/rate validation</text>
+  <text x="448" y="158" class="after">Clear error on unsupported formats</text>
+
+  <!-- Divider -->
+  <line x1="20" y1="178" x2="700" y2="178" class="divider"/>
+
+  <!-- Row 3: Auth Gate -->
+  <text x="20" y="210" class="domain">3. Auth Gate</text>
+  <rect x="120" y="188" width="280" height="38" class="box-before"/>
+  <text x="130" y="204" class="before">Speaker ID as sole payment gate</text>
+  <text x="130" y="218" class="before">Cloned/synthetic voice bypasses entirely</text>
+  <line x1="408" y1="207" x2="430" y2="207" class="arrow"/>
+  <rect x="438" y="188" width="260" height="38" class="box-after"/>
+  <text x="448" y="204" class="after">Multi-factor: voice ID + SMS reference</text>
+  <text x="448" y="218" class="after">Negative twin proves the bypass</text>
+
+  <!-- Divider -->
+  <line x1="20" y1="238" x2="700" y2="238" class="divider"/>
+
+  <!-- Row 4: Audio in URL -->
+  <text x="20" y="270" class="domain">4. Audio in URL</text>
+  <rect x="120" y="248" width="280" height="38" class="box-before"/>
+  <text x="130" y="264" class="before">@QueryParam("audioBase64") on REST endpoint</text>
+  <text x="130" y="278" class="before">Audio in access logs, URL length limits</text>
+  <line x1="408" y1="267" x2="430" y2="267" class="arrow"/>
+  <rect x="438" y="248" width="260" height="38" class="box-after"/>
+  <text x="448" y="264" class="after">Unannotated param → POST body</text>
+  <text x="448" y="278" class="after">MCP tool schema unchanged</text>
+
+  <!-- Divider -->
+  <line x1="20" y1="298" x2="700" y2="298" class="divider"/>
+
+  <!-- Row 5: Enum Parse -->
+  <text x="20" y="330" class="domain">5. Enum Parse</text>
+  <rect x="120" y="308" width="280" height="38" class="box-before"/>
+  <text x="130" y="324" class="before">VoiceCapability.valueOf() on user input</text>
+  <text x="130" y="338" class="before">Unknown value → 500, opaque error</text>
+  <line x1="408" y1="327" x2="430" y2="327" class="arrow"/>
+  <rect x="438" y="308" width="260" height="38" class="box-after"/>
+  <text x="448" y="324" class="after">Catch + rethrow with valid values</text>
+  <text x="448" y="338" class="after">"Unknown 'X'. Valid: [TTS, STT, BOTH]"</text>
+
+  <!-- Footer -->
+  <text x="360" y="380" text-anchor="middle" class="label" font-style="italic" fill="#6b7280">All five passed their existing tests. The gaps lived in inputs the tests didn't exercise.</text>
+</svg>
