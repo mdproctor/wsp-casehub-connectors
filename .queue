@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-273-compose-attachment-convenience-overloads
+branch: issue-277-cardbuilder-buttons-support
 issue-repo: casehubio/connectors
-status: drained
-covers: 273
+status: active
+covers: 277
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -20,3 +20,4 @@ flyway-next-v: none
 - [ ] casehubio/connectors#273 — chat-teams ComposeAttachment convenience overloads
 - [ ] casehubio/connectors#276 — preview convenience overload
 - [ ] casehubio/connectors#277 — CardBuilder buttons support
+- [ ] casehubio/connectors#279 — CardBuilder tap action
