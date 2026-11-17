@@ -4,7 +4,7 @@
 branch: issue-258-reference-invoke-handlers
 issue-repo: casehubio/connectors
 status: active
-covers: 236
+covers: 258
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -13,7 +13,4 @@ flyway-next-v: none
 
 ## Queue
 - [x] casehubio/connectors#94 — Issue #94
-- [ ] casehubio/connectors#236 — chat-teams-messaging-extensions-support
-- [ ] casehubio/connectors#257 — bot-manifest-app-registration
-- [ ] casehubio/connectors#259 — messaging-extension-preview-card-model
 - [ ] casehubio/connectors#258 — reference-invoke-handler-implementations
