@@ -2,50 +2,55 @@
 
 ## Last Session
 
-Completed #259 (ComposeAttachment builder) and #258 (reference InvokeHandler implementations) on stacked branches.
+Hardened ComposeAttachment and invoke dispatch chain — four XS/S issues (#269-#272), all committed directly to main.
 
-**#259 — ComposeAttachment builder** (`issue-259-teams-preview-card-model`):
-- `ComposeAttachment.adaptive(cardJson).preview(title, subtitle).build()` — eliminates protocol boilerplate for Bot Framework compose extension attachments
-- Produces JSON strings compatible with `ComposeResult`'s existing `List<String>` contract
-- Preview is optional — works for search results (with preview) and selectItem/queryLink (without)
-- Null guard on contentJson, two-arg preview() clears imageUrl to prevent leak from prior three-arg call
+**#269 — preview() null validation:**
+- `Objects.requireNonNull(title, "title")` on both preview() overloads
+- Consistent with existing `contentJson` constructor guard — fail-fast at call site
 
-**#258 — Reference InvokeHandlers** (`issue-258-reference-invoke-handlers`, stacked on #259):
-- 4 handlers in `chat-teams/ref/` package: RefSearchHandler (query), RefLinkUnfurlHandler (queryLink), RefFetchTaskHandler (fetchTask), RefSubmitActionHandler (submitAction)
-- Plain classes, no CDI — matches ref implementation pattern
-- Hard-coded canned responses, first real consumers of ComposeAttachment
-- 154 tests green in chat-teams, no regressions
+**#270 — hero() and thumbnail() factory methods:**
+- New `CardBuilder` inner class for structured Hero/Thumbnail cards
+- `ComposeAttachment.hero(title, sub, img).build()` and `.thumbnail()`
+- Same null guard on title across all three entry points
+
+**#271 — @QuarkusTest for InvokeHandler CDI dispatch:**
+- Proves CDI discovery of `@ApplicationScoped` handlers via `@All` injection
+- Full chain: CDI → InvokeService.dispatch() → handler → InvokeResponseSerializer.toJson()
+- Required StubServiceConnectionProvider + application.properties for TeamsBeans deps
+- 5 tests: CDI discovery, full chain serialization, multiple handlers, unknown name, unknown serialization
+
+**#272 — RefSearchHandler query filtering:**
+- Case-insensitive substring filter on `queryText` — demonstrates the query→filter→response pattern
+- Blank or missing query returns all results (backward compatible)
+- 5 new tests covering blank, missing, matching, case-insensitive, and no-match scenarios
 
 **Other session work:**
-- Code review: 4 findings fixed (null guard, preview image leak, test strengthening)
-- Blog: mdp26 "The Line Between Raw and Ready" — the boundary between raw infrastructure and convenience layers
-- Filed #268: CDI wiring guidance for reference InvokeHandlers (XS/Low)
+- Blog: mdp27 "The Gap Between Works and Trustworthy" with SVG diagram
+- Code review: clean — no bugs, no thread safety issues, no dead code
+- Filed 3 new issues: #273 (convenience overloads), #274 (DRY card content builder), #275 (CardBuilder round-trip test)
+- Closed all 4 issues on GitHub
 
 ## Branch State
 
-Two stacked branches, neither landed:
-- `issue-259-teams-preview-card-model` — 1 feat commit + 1 fix commit, based on main
-- `issue-258-reference-invoke-handlers` — 4 feat commits + 1 fix commit, based on issue-259 branch
+All work is on main. No feature branches open. Queue is drained.
 
-**Landing order:** #259 first (rebase-merge to main), then rebase #258 onto new main, then land #258. Or squash both into a single branch if preferred.
-
-## Queue State
-
-The `.queue` tracking is out of sync — items #259 and #258 are done but not checked off. The queue's plan_manager couldn't advance properly because no active item was set. Next session should either:
-1. Manually mark #259 and #258 as done in the queue, then run `work end` to land both branches
-2. Or reset the queue for the next campaign
+5 unpublished commits on main (ahead of origin/main):
+- `3b880faa` fix(#269)
+- `f036b186` feat(#270)
+- `3114e913` test(#271)
+- `1f25725d` feat(#272)
+- `ab7f94bd` docs(blog)
 
 ## Immediate Next Step
 
-Land the two stacked branches via `work end`. The code is reviewed, tested (154 green), and committed. The remaining queue items (#236 epic, #257 already landed) need their checkboxes ticked.
+Publish to remote. The 3 newly filed issues (#273-#275) are all XS/Low enhancement follow-ups — not urgent.
 
 ## References
 
-- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/ComposeAttachment.java` — builder
-- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/ref/` — 4 reference handlers
-- `blog/2026-11-17-mdp26-the-line-between-raw-and-ready.md` — diary entry
-- `specs/issue-259-teams-preview-card-model/` — design spec + decisions
-- `specs/issue-258-reference-invoke-handlers/` — design spec + decisions
-- `plans/2026-11-17-compose-attachment-builder.md` — #259 plan
-- `plans/2026-11-17-reference-invoke-handlers.md` — #258 plan
-- #268 — filed: CDI wiring guidance for ref handlers
+- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/ComposeAttachment.java` — Builder + CardBuilder
+- `chat-teams/src/main/java/io/casehub/connectors/chat/teams/ref/RefSearchHandler.java` — query filtering
+- `chat-teams/src/test/java/io/casehub/connectors/chat/teams/InvokeServiceCdiTest.java` — CDI integration test
+- `blog/2026-11-17-mdp27-the-gap-between-works-and-trustworthy.md` — session blog
+- #273 — filed: convenience overloads for hero()/thumbnail()
+- #274 — filed: DRY card content JSON builder
+- #275 — filed: CardBuilder round-trip test
