@@ -3,7 +3,7 @@
 ## State
 branch: issue-274-dry-card-content-json-builder
 issue-repo: casehubio/connectors
-status: active
+status: drained
 covers: 274,275
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
@@ -22,4 +22,4 @@ flyway-next-v: none
 - [x] casehubio/connectors#277 — CardBuilder buttons support
 - [x] casehubio/connectors#279 — CardBuilder tap action
 - [x] casehubio/connectors#274 — DRY card content JSON builder
-- [ ] casehubio/connectors#275 — CardBuilder round-trip test
+- [x] casehubio/connectors#275 — CardBuilder round-trip test
