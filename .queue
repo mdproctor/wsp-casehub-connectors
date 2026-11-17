@@ -23,3 +23,5 @@ flyway-next-v: none
 - [x] casehubio/connectors#279 — CardBuilder tap action
 - [x] casehubio/connectors#274 — DRY card content JSON builder
 - [x] casehubio/connectors#275 — CardBuilder round-trip test
+- [ ] casehubio/connectors#280 — CardAction-record-for-buttons-tap
+- [ ] casehubio/connectors#281 — multi-card-ComposeResult-round-trip-test
