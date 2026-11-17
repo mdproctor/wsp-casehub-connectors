@@ -22,3 +22,4 @@
 | [2026-07-01-mdp18-content-not-layout.md](2026-07-01-mdp18-content-not-layout.md) | 2026-07-01 | Content, not layout — platform-agnostic RichCard model, Block Kit translation, MCP tool consolidation, silent Slack num_members bug |
 | [2026-07-02-mdp19-making-the-demo-talk-back.md](2026-07-02-mdp19-making-the-demo-talk-back.md) | 2026-07-02 | Making the demo talk back — channel management, emoji reactions, Discord-style inline reply threading |
 | [2026-07-03-mdp20-the-platforms-own-identity.md](2026-07-03-mdp20-the-platforms-own-identity.md) | 2026-07-03 | The platform's own identity — JWT auth via casehub-pages-auth, SPI bypass for identity, HttpUpgradeCheck for WebSocket, auto-membership |
+| [2026-11-17-mdp25-the-dispatch-that-didnt-change.md](2026-11-17-mdp25-the-dispatch-that-didnt-change.md) | 2026-11-17 | Teams messaging extensions: manifest template and setup guide bridging the SPI to real deployment |
