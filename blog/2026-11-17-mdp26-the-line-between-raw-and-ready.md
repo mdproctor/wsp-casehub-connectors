@@ -59,6 +59,25 @@ Each overload delegates to the 3-arg form — the same `CardBuilder`, the same J
 
 This is a general pattern worth naming. Ship the full-spec form first — it's correct and complete. Then add the progressive overloads once you can see what callers actually need. The overloads are cheaper to get right because the full-spec form already handles all the edge cases. They just peel off the common shapes.
 
+## Buttons and the boundary within a call
+
+Hero and thumbnail cards in Bot Framework also support action buttons — an array of `CardAction` objects, each with a `type`, `title`, and `value`. The shape is protocol structure. The values are caller content. The boundary runs through a single method call.
+
+```java
+ComposeAttachment.hero("Contoso Widget", "£29.99")
+    .button("openUrl", "View", "https://contoso.com/widget")
+    .button("imBack", "Buy", "buy-widget-123")
+    .build()
+```
+
+The JSON envelope — an array called `buttons`, each element an object with three keys — is what every caller would construct identically. That belongs in the builder. But the button types (`openUrl`, `imBack`, `messageBack`, `invoke`) are protocol vocabulary the caller selects, not protocol boilerplate the builder can hard-code. So they stay as strings, not an enum.
+
+This is a deliberate trade-off. An enum would catch typos at compile time, but it would also couple the builder to a snapshot of Bot Framework's action type list. When Microsoft adds a new action type, every consumer would need to wait for us to update the enum. A string means forward compatibility at the cost of a runtime error on typos — a cost that's real but far cheaper than a maintenance bottleneck.
+
+![How the boundary runs through button() — shape is protocol, values are caller-chosen](images/compose-attachment-buttons.svg)
+
+The broader point: a clean protocol boundary doesn't always divide neatly at the method level. Sometimes the builder owns the shape of a structure while the caller owns what goes into it. The question isn't "does the builder handle this feature or not?" It's "what part of this feature is the same for every caller, and what part varies?"
+
 ## Reference handlers
 
 Four reference `InvokeHandler` implementations sit alongside the builder in `chat-teams`. Each one is under 30 lines. `RefSearchHandler` returns three canned search results with thumbnail previews. `RefLinkUnfurlHandler` returns a single unfurl card without a preview. `RefFetchTaskHandler` returns a task module form via `ComposeContinue`. `RefSubmitActionHandler` returns a confirmation card with a preview.
