@@ -32,7 +32,7 @@ record ComposeResult(String attachmentLayout, List<String> attachmentsJson)
     implements InvokeResponse {}
 ```
 
-Covers search results, link unfurling cards, selectItem, and submitAction results. All produce the same JSON envelope. `attachmentLayout` is typically `"list"` or `"grid"`. Each element in `attachmentsJson` is a complete attachment JSON object (contentType + content + optional preview).
+Covers search results, link unfurling cards, selectItem, and submitAction results. All produce the same JSON envelope. `attachmentLayout` is typically `"list"` or `"grid"`. Each element in `attachmentsJson` is a complete attachment JSON object string containing at minimum `contentType` and `content` fields, with an optional `preview` field for search result thumbnails. Example: `{"contentType":"application/vnd.microsoft.card.adaptive","content":{...},"preview":{"contentType":"application/vnd.microsoft.card.thumbnail","content":{...}}}`.
 
 ### ComposeAuth
 
