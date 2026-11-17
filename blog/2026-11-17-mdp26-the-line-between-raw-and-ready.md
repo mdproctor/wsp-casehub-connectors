@@ -5,7 +5,7 @@ date: 2026-11-17
 entry_type: note
 subtype: diary
 projects: [casehubio/connectors]
-tags: [teams, bot-framework, messaging-extensions, builder-pattern, spi-design, api-design]
+tags: [teams, bot-framework, messaging-extensions, builder-pattern, spi-design, api-design, dry, round-trip-testing]
 series: issue-258-reference-invoke-handlers
 ---
 
@@ -79,6 +79,32 @@ This is a deliberate trade-off. An enum would catch typos at compile time, but i
 The same shape appears again in `tap` — a card-level action that fires when the entire card is tapped, not just a button. Same three fields, same boundary split. The difference is structural: `tap` is a single object (last call wins), while `buttons` is an array (each call appends). The protocol dictates which — a card has one tap target but can have many buttons — and the builder follows.
 
 The broader point: a clean protocol boundary doesn't always divide neatly at the method level. Sometimes the builder owns the shape of a structure while the caller owns what goes into it. The question isn't "does the builder handle this feature or not?" It's "what part of this feature is the same for every caller, and what part varies?"
+
+## The shape underneath
+
+A preview on an adaptive card and the content of a standalone hero card look like different things. One decorates a complex card; the other is the card. But at the protocol level, they're identical — a title, an optional subtitle, an optional images array. The same three fields, the same null checks, the same images-array wrapper.
+
+Both `Builder.build()` and `CardBuilder.build()` were constructing this shape independently. That duplication isn't just a cleanup opportunity — it's a signal that the protocol has a shared concept the code hasn't named. Card content is card content, whether it's the main card or the preview.
+
+```java
+private static JsonObjectBuilder cardContent(String title, String subtitle, String imageUrl) {
+    var content = Json.createObjectBuilder().add("title", title);
+    if (subtitle != null) content.add("subtitle", subtitle);
+    if (imageUrl != null) content.add("images", Json.createArrayBuilder()
+            .add(Json.createObjectBuilder().add("url", imageUrl)));
+    return content;
+}
+```
+
+The return type matters. `CardBuilder.build()` needs to extend the builder with buttons and tap after the shared fields. `Builder.build()` passes it directly into the preview envelope. Returning `JsonObjectBuilder` instead of a built `JsonObject` keeps both paths open — the shape is shared, but each caller decides where it ends.
+
+![Two paths converging on the shared card content structure](images/compose-attachment-shared-shape.svg)
+
+## Proving the chain
+
+The builder outputs a JSON string. `InvokeResponseSerializer` parses it back and nests it inside the Bot Framework response envelope. If the builder produces JSON the serializer can't traverse — an unexpected nesting, a structure it doesn't anticipate — the card is silently lost. The adaptive card builder already had a round-trip test for this. Hero and thumbnail cards didn't.
+
+The fix is mechanical but the principle isn't. A builder that produces JSON for a serializer to consume is a contract across two code paths. Testing one side proves the builder works. Testing the other side proves the serializer works. Only a round-trip test proves they work together — and that neither side can change without the other noticing.
 
 ## Reference handlers
 
