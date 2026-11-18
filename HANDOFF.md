@@ -2,32 +2,31 @@
 
 ## Last Session
 
-Completed #187 — VoicePlatform SPI epic closed. Added voice MCP tools to the graphql module via `ConnectorVoiceApi` with `@McpDomain("connectors/voice")`:
+Landed #264 — added `@GeneratePlugin` annotations to voice and messaging methods. Landed as c3ca2859 on main, published.
 
-- `voice_speak` — TTS with smart routing via `RoutingVoicePlatformService` (voice ID, alias, or query params), base64 audio output, optional phoneme timing
-- `voice_transcribe` — STT with base64 audio input, platform routing
-- `voice_list_voices` — query available voices by gender/accent/language/style/capability/vendor
-- `voice_status` — `VoiceDomainReportProvider` for runtime platform status via `connectors/voice_report` tool
+- Voice: `@GeneratePlugin(spi = VoicePlatform.class)` on `speak`, `transcribe`, `listVoices` — the `RoutingVoicePlatformService` routing pattern is invisible to AST inference
+- Messaging: `@GeneratePlugin(exclude = true)` on `sendEmail`, `sendSlack`, `sendTeams` — legacy `ConnectorService.send()` dispatch, not worth teaching the scanner
 
-Uses platform MCP annotations (`@DefaultValue`, `McpCapabilityException`, platform `QueryParam`) rather than JAX-RS — following the "good MCP tool design" principle. `ConnectorsModelEnricher` updated with voice platform count. 12 new tests (144 total in graphql module). Landed as 58fd5923 on main.
+Blog entry written: `blog/2026-11-18-mdp02-the-pattern-the-generator-couldnt-follow.md`
+
+## Filed Issues
+
+- #295 — `ConnectorTravelApi` has unused `GeneratePlugin` import (XS/Low)
+- #296 — Audit all `@McpDomain` APIs for `@GeneratePlugin` coverage (S/Med)
+- #297 — Issue #264 says 5 messaging methods but code has 3 (XS/Low)
 
 ## Immediate Next Step
 
-Epic #187 is fully closed. No remaining items — cloud providers and per-provider module split are in the "Future" section, not blocking.
+Queue has 14 remaining items. First unchecked is #288 (fix-playbook-integration-tests) — blocked by a platform runtime regression where `capture:` variable scoping changed between SNAPSHOT releases (Nov 16–18). The playbooks are correct per documented API; the fix is upstream in `casehub-platform-yaml-step-runtime`.
 
-Open related work:
-- agency#447 — Remove residual cognitive code from agency → neocortex (open, independent)
-- agency#448 — speech-demo: replace hand-rolled Vertex client with agent-config manifest (open, independent)
+After #288: #197 (ref-voice-tts-text-encoding), then Google/Gmail/Teams hardening cluster (#240, #192, #251, #249, #250, #243, #246, #253).
 
-## Cross-Module
+## Review Observations
 
-- agency#447 — Remove residual cognitive code from agency → neocortex (open, independent)
-- agency#448 — speech-demo: replace hand-rolled Vertex client with agent-config manifest (open, independent)
+- `listVoices` delegates to `VoiceRegistry.query()`, not `VoicePlatform` — if the generator uses `spi` to trace method chains rather than as a domain marker, the annotation may need revision. The issue specification explicitly requested `spi = VoicePlatform.class` for all three voice methods.
 
 ## References
 
-- `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorVoiceApi.java` — voice MCP tools
-- `graphql/src/main/java/io/casehub/connectors/graphql/VoiceDomainReportProvider.java` — voice status report
-- `graphql/src/main/java/io/casehub/connectors/graphql/dto/VoiceSynthesisResult.java` — TTS result DTO
-- `voice-spi/src/main/java/io/casehub/connectors/voice/spi/RoutingVoicePlatformService.java` — routing layer
-- `wsp-casehub-connectors/specs/issue-187-voice-mcp-tools/` — design spec and decisions
+- `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorVoiceApi.java` — voice MCP tools with `@GeneratePlugin`
+- `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorMessagingApi.java` — messaging with `@GeneratePlugin(exclude = true)`
+- `voice-spi/src/main/java/io/casehub/connectors/voice/spi/RoutingVoicePlatformService.java` — routing layer the scanner can't follow
