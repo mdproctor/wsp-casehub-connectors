@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-240-google-reuse-nethttptransport
+branch: issue-246-teams-ssrf-attachment-download
 issue-repo: casehubio/connectors
 status: active
-covers: 240,192,251,249,250,243
+covers: 246
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -59,3 +59,4 @@ flyway-next-v: none
 - [ ] casehubio/connectors#300 — bot-framework-error-propagation
 - [ ] casehubio/connectors#301 — htmlToMarkdown-same-tag-nesting
 - [ ] casehubio/connectors#302 — jwt-validator-cdi-qualifier
+- [ ] casehubio/connectors#303 — TextMark-MarkTiming-voice-spi
