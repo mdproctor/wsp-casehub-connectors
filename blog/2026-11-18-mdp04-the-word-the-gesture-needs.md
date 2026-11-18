@@ -104,6 +104,8 @@ A playbook can now request mark timings directly:
 
 The marks flow through the plugin, into `SynthesisOptions`, through the TTS engine (or its enricher), and back out as `MarkTiming` entries in the `SynthesisResult`. The avatar animation system on the other end gets the word-onset offsets it needs without anyone writing Java.
 
+The same audit turned up a gap on the STT side: `SttTranscribePlugin` wasn't exposing `vocabularyHint` from `TranscriptionOptions`. A medical transcription pipeline couldn't tell the engine to expect "aortic stenosis" rather than guessing from context. Same fix — one `@Optional` record component, the APT processor does the rest.
+
 ## What this unblocks
 
 With mark timings available through both the SPI and the YAML pipeline, the agency repo's avatar animation system can schedule gesture triggers as `max(0, offsetMs / rate − strokeMs(clip) − crossfade / 2)`. The server provides `offsetMs`. The client provides `strokeMs` and `rate`. The gesture lands on the word it was meant for.
