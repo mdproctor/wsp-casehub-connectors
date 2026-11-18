@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-288-fix-playbook-integration-tests
+branch: issue-197-ref-voice-tts-text-encoding
 issue-repo: casehubio/connectors
 status: active
-covers: 288
+covers: 197
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -40,7 +40,7 @@ flyway-next-v: none
 - [x] casehubio/connectors#290 — MicrosoftGraphClient-putBytes-URI-inconsistency
 - [x] casehubio/connectors#291 — SpeakerPlugin-configurable-sample-rates
 - [x] casehubio/connectors#292 — voice-playbook-cloned-voice-negative-twin
-- [ ] casehubio/connectors#288 — fix-playbook-integration-tests
+- [x] casehubio/connectors#288 — fix-playbook-integration-tests
 - [ ] casehubio/connectors#197 — ref-voice-tts-text-encoding
 - [ ] casehubio/connectors#240 — google-reuse-NetHttpTransport
 - [ ] casehubio/connectors#192 — gmail-push-jwt-verification
