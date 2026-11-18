@@ -2,31 +2,41 @@
 
 ## Last Session
 
-Landed #264 — added `@GeneratePlugin` annotations to voice and messaging methods. Landed as c3ca2859 on main, published.
+Landed 6 commits closing 7 issues across 4 modules. Published as `833a8796` on main.
 
-- Voice: `@GeneratePlugin(spi = VoicePlatform.class)` on `speak`, `transcribe`, `listVoices` — the `RoutingVoicePlatformService` routing pattern is invisible to AST inference
-- Messaging: `@GeneratePlugin(exclude = true)` on `sendEmail`, `sendSlack`, `sendTeams` — legacy `ConnectorService.send()` dispatch, not worth teaching the scanner
+### What landed
 
-Blog entry written: `blog/2026-11-18-mdp02-the-pattern-the-generator-couldnt-follow.md`
+| Issue | Fix | Module |
+|-------|-----|--------|
+| #197 | Already resolved — TTS text encoding was implemented in earlier voice platform work | voice-ref |
+| #240 | Reuse `NetHttpTransport` as constructor-initialised field (matches Calendar/Contacts pattern) | document-google, email-google |
+| #192 | Full JWT signature verification via jose4j — `JwtValidator` SPI + `GoogleOidcJwtValidator` with JWKS caching | email-google-inbound |
+| #251 | Guard personal channel refs — graceful degradation for listMembers, reactions, messageHistory, memberManagement | chat-teams |
+| #249 | Return real activity ID from `sendToConversation`/`replyToActivity` (void→String) | chat-teams |
+| #250 | Fix nested HTML tags in `htmlToMarkdown` — `[^<]*` → `.*?` | chat-teams |
+| #243 | Guard `uploadToChannelFolder` against zero-length content | chat-teams |
 
-## Filed Issues
+### Code review findings filed
 
-- #295 — `ConnectorTravelApi` has unused `GeneratePlugin` import (XS/Low)
-- #296 — Audit all `@McpDomain` APIs for `@GeneratePlugin` coverage (S/Med)
-- #297 — Issue #264 says 5 messaging methods but code has 3 (XS/Low)
+- #299 — `ChannelManagement.delete/find` not guarded for personal channels (XS/Low)
+- #300 — BotFramework error propagation changed silently — needs retry/error strategy (S/Med)
+- #301 — `htmlToMarkdown` same-tag nesting edge case (XS/Low)
+- #302 — `JwtValidator` CDI qualifier to prevent future ambiguity (XS/Low)
+
+Blog entry: `blog/2026-11-18-mdp03-the-things-that-shouldnt-have-shipped.md`
 
 ## Immediate Next Step
 
-Queue has 14 remaining items. First unchecked is #288 (fix-playbook-integration-tests) — blocked by a platform runtime regression where `capture:` variable scoping changed between SNAPSHOT releases (Nov 16–18). The playbooks are correct per documented API; the fix is upstream in `casehub-platform-yaml-step-runtime`.
+Queue has 12 remaining items. Next unchecked: #246 (teams-ssrf-attachment-download) — security fix for SSRF in Teams attachment downloading. Then #253, #293, and the newly filed review findings (#299–#302).
 
-After #288: #197 (ref-voice-tts-text-encoding), then Google/Gmail/Teams hardening cluster (#240, #192, #251, #249, #250, #243, #246, #253).
+## Context for Next Session
 
-## Review Observations
-
-- `listVoices` delegates to `VoiceRegistry.query()`, not `VoicePlatform` — if the generator uses `spi` to trace method chains rather than as a domain marker, the annotation may need revision. The issue specification explicitly requested `spi = VoicePlatform.class` for all three voice methods.
+- The `BotFrameworkClient.postJson` (fire-and-forget) method was removed — all Bot Framework calls now go through `postJsonWithResponse` which throws on non-2xx. Issue #300 tracks whether retry logic is needed for transient errors.
+- `JwtValidator` is a bare CDI interface with no qualifier. Currently safe (single producer in `GmailPushBeans`), but #302 tracks adding a qualifier before a second producer appears.
+- The Teams personal channel guard pattern is consistent across messaging, threading, members, reactions, memberManagement, and messageHistory. `ChannelManagement.delete/find` are the remaining unguarded operations (#299).
 
 ## References
 
-- `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorVoiceApi.java` — voice MCP tools with `@GeneratePlugin`
-- `graphql/src/main/java/io/casehub/connectors/graphql/ConnectorMessagingApi.java` — messaging with `@GeneratePlugin(exclude = true)`
-- `voice-spi/src/main/java/io/casehub/connectors/voice/spi/RoutingVoicePlatformService.java` — routing layer the scanner can't follow
+- `email-google-inbound/src/main/java/.../GoogleOidcJwtValidator.java` — jose4j-based JWKS verifier
+- `chat-teams/src/main/java/.../BotFrameworkClient.java` — now uses `postJsonWithResponse` for all send/reply
+- `chat-teams/src/main/java/.../TeamsChatPlatform.java` — personal channel guards at lines 158, 166, 382, 392, 400, 409, 417
