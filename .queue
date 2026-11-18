@@ -36,3 +36,8 @@ flyway-next-v: none
 - [x] casehubio/connectors#261 — fix-voice-playbook-speaker-id-payment-gate
 - [x] casehubio/connectors#262 — fix-connector-voice-api-base64-valueof-crash
 - [x] casehubio/connectors#186 — fix-discord-awaitility-timeout-1C
+- [ ] casehubio/connectors#289 — MicrosoftGraphClient-toUri-deprecated-URL
+- [ ] casehubio/connectors#290 — MicrosoftGraphClient-putBytes-URI-inconsistency
+- [ ] casehubio/connectors#291 — SpeakerPlugin-configurable-sample-rates
+- [ ] casehubio/connectors#292 — voice-playbook-cloned-voice-negative-twin
+- [ ] casehubio/connectors#288 — fix-playbook-integration-tests
