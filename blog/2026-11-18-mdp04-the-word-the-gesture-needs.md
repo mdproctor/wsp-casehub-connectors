@@ -71,6 +71,39 @@ Unit tests for `MarkTimingEnricher` use mock delegates — lambdas that return w
 
 Three integration tests in `VoiceRoundTripTest` cover this. One synthesises with three marks and verifies the returned timings are bounded, non-negative, and strictly ordered — the basic round-trip contract. A second wraps the ref platform with `MarkTimingEnricher` and confirms the enriched output matches the native output exactly — the enricher's pass-through must be transparent, not just "working." A third passes a `charOffset` far beyond the text length and verifies both the platform and the enricher clamp to the same duration — proving the two clamping paths in the stack agree. The VITS integration tests, gated by `@EnabledIf("allDepsAvailable")`, cover the real espeak path separately.
 
+## The last mile — YAML pipeline
+
+The SPI infrastructure was complete. The reference implementation computed marks. The enricher decorated engines that couldn't. Integration tests proved the round trip. But the highest-level consumer-facing entry point — the YAML pipeline step — couldn't reach any of it.
+
+`TtsSynthesisePlugin` is a `@Plugin` record with two optional fields: `voice` and `language`. It constructs `SynthesisOptions` using the four-argument constructor, which defaults marks to an empty list. A playbook author writing YAML has no way to pass `TextMark` entries through the step. The entire mark-timing contract was sealed off from the pipeline surface by one missing record component.
+
+```java
+// Before — marks always empty
+var options = new SynthesisOptions(null, language, "wav", false);
+
+// After — marks passed through from YAML
+var options = new SynthesisOptions(null, language, "wav", false, marks);
+```
+
+The fix adds `@Optional List<TextMark> marks` to the plugin record. The APT processor picks up the new field automatically — it generates both the JSON schema entry (`"marks": { "type": "array" }`) and the streaming step constructor with the correct type. No manual wiring, no registration code, no factory updates. The annotation processor already knew how to handle `List<T>` on `@Optional` record components. It just had never been asked to on this particular plugin.
+
+![Pipeline mark timing data flow](images/2026-11-18-pipeline-mark-flow.svg)
+
+A playbook can now request mark timings directly:
+
+```yaml
+- tts-synthesise:
+    text: "Hello, I am Alice"
+    voice: af_heart
+    marks:
+      - id: hello
+        charOffset: 0
+      - id: alice
+        charOffset: 14
+```
+
+The marks flow through the plugin, into `SynthesisOptions`, through the TTS engine (or its enricher), and back out as `MarkTiming` entries in the `SynthesisResult`. The avatar animation system on the other end gets the word-onset offsets it needs without anyone writing Java.
+
 ## What this unblocks
 
-With mark timings available through the SPI, the agency repo's avatar animation system can schedule gesture triggers as `max(0, offsetMs / rate − strokeMs(clip) − crossfade / 2)`. The server provides `offsetMs`. The client provides `strokeMs` and `rate`. The gesture lands on the word it was meant for.
+With mark timings available through both the SPI and the YAML pipeline, the agency repo's avatar animation system can schedule gesture triggers as `max(0, offsetMs / rate − strokeMs(clip) − crossfade / 2)`. The server provides `offsetMs`. The client provides `strokeMs` and `rate`. The gesture lands on the word it was meant for.
