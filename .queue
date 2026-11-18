@@ -48,7 +48,7 @@ flyway-next-v: none
 - [x] casehubio/connectors#249 — teams-personal-send-empty-messageId
 - [x] casehubio/connectors#250 — teams-nested-html-htmlToMarkdown
 - [x] casehubio/connectors#243 — teams-guard-zero-length-upload
-- [ ] casehubio/connectors#246 — teams-ssrf-attachment-download
+- [x] casehubio/connectors#246 — teams-ssrf-attachment-download
 - [ ] casehubio/connectors#253 — teams-replyToMessage-user-prefix
 - [ ] casehubio/connectors#293 — toUri-hash-question-mark-limitation
 - [ ] casehubio/connectors#295 — ConnectorTravelApi-unused-GeneratePlugin-import
@@ -60,3 +60,5 @@ flyway-next-v: none
 - [ ] casehubio/connectors#301 — htmlToMarkdown-same-tag-nesting
 - [ ] casehubio/connectors#302 — jwt-validator-cdi-qualifier
 - [ ] casehubio/connectors#303 — TextMark-MarkTiming-voice-spi
+- [ ] casehubio/connectors#304 — teams-attachment-timeout-size-limit
+- [ ] casehubio/connectors#305 — teams-https-scheme-enforcement
