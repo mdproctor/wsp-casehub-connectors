@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-317-clamp-charOffset-mark-timing
 issue-repo: casehubio/connectors
 status: active
 covers: casehubio/connectors#307
@@ -18,5 +18,6 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#312 — guard-user-channel-remaining-operations
 - [x] casehubio/connectors#313 — extract-conversation-resolution
 - [x] casehubio/connectors#314 — checkResponse-url-diagnostics
-- [ ] casehubio/connectors#317 — clamp-charOffset-mark-timing ← active
-- [ ] casehubio/connectors#318 — resolveConversation-error-messages
+- [x] casehubio/connectors#317 — clamp-charOffset-mark-timing
+- [x] casehubio/connectors#318 — resolveConversation-error-messages
+- [ ] casehubio/connectors#319 — mark-timing-round-trip-integration-test
