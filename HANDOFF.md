@@ -2,41 +2,37 @@
 
 ## Last Session
 
-Landed 6 commits closing 7 issues across 4 modules. Published as `833a8796` on main.
+Landed 1 commit closing 1 issue. Published as `1ad4e87d` on main.
 
 ### What landed
 
 | Issue | Fix | Module |
 |-------|-----|--------|
-| #197 | Already resolved — TTS text encoding was implemented in earlier voice platform work | voice-ref |
-| #240 | Reuse `NetHttpTransport` as constructor-initialised field (matches Calendar/Contacts pattern) | document-google, email-google |
-| #192 | Full JWT signature verification via jose4j — `JwtValidator` SPI + `GoogleOidcJwtValidator` with JWKS caching | email-google-inbound |
-| #251 | Guard personal channel refs — graceful degradation for listMembers, reactions, messageHistory, memberManagement | chat-teams |
-| #249 | Return real activity ID from `sendToConversation`/`replyToActivity` (void→String) | chat-teams |
-| #250 | Fix nested HTML tags in `htmlToMarkdown` — `[^<]*` → `.*?` | chat-teams |
-| #243 | Guard `uploadToChannelFolder` against zero-length content | chat-teams |
+| #246 | SSRF defense on `BotFrameworkClient.downloadAttachment` — host allowlist validation before authenticated GET, extracted `matchesHostPatterns` from `validateServiceUrl`, configurable `attachment-url-allowlist` | chat-teams |
 
 ### Code review findings filed
 
-- #299 — `ChannelManagement.delete/find` not guarded for personal channels (XS/Low)
-- #300 — BotFramework error propagation changed silently — needs retry/error strategy (S/Med)
-- #301 — `htmlToMarkdown` same-tag nesting edge case (XS/Low)
-- #302 — `JwtValidator` CDI qualifier to prevent future ambiguity (XS/Low)
+- #304 — Add request timeout and streaming size limit to attachment download (S/Low)
+- #305 — Enforce HTTPS scheme in attachment download SSRF defense (XS/Low)
 
-Blog entry: `blog/2026-11-18-mdp03-the-things-that-shouldnt-have-shipped.md`
+Blog entry revised: `blog/2026-11-18-mdp03-the-things-that-shouldnt-have-shipped.md` — added SSRF section with SVG diagram.
 
 ## Immediate Next Step
 
-Queue has 12 remaining items. Next unchecked: #246 (teams-ssrf-attachment-download) — security fix for SSRF in Teams attachment downloading. Then #253, #293, and the newly filed review findings (#299–#302).
+Branch `issue-303-textmark-marktiming-voice-spi` exists (empty, cut from main) for #303 (TextMark/MarkTiming in voice-spi — M/Med). This is a topic change from Teams hardening into voice pipeline mark timing.
+
+Queue has 14 remaining items. Priority order: #303 (voice-spi marks, blocks agency#457), then #253 (teams-replyToMessage-user-prefix), then the rest.
 
 ## Context for Next Session
 
-- The `BotFrameworkClient.postJson` (fire-and-forget) method was removed — all Bot Framework calls now go through `postJsonWithResponse` which throws on non-2xx. Issue #300 tracks whether retry logic is needed for transient errors.
-- `JwtValidator` is a bare CDI interface with no qualifier. Currently safe (single producer in `GmailPushBeans`), but #302 tracks adding a qualifier before a second producer appears.
-- The Teams personal channel guard pattern is consistent across messaging, threading, members, reactions, memberManagement, and messageHistory. `ChannelManagement.delete/find` are the remaining unguarded operations (#299).
+- The `matchesHostPatterns` method is now a shared `static` method in `BotFrameworkClient`. Both `validateServiceUrl` (service URL) and `downloadAttachment` (attachment URL) use it, but with separate allowlists. The 2-arg constructor delegates to the 3-arg, using the service URL allowlist for both — backward-compatible for existing tests.
+- The attachment allowlist defaults to `*.sharepoint.com,graph.microsoft.com,*.botframework.com,smba.trafficmanager.net`. The service URL allowlist remains `*.botframework.com,smba.trafficmanager.net`.
+- #304 tracks two pre-existing robustness gaps surfaced by the SSRF review: no request timeout and no max-attachment-bytes streaming limit (Discord equivalent has both).
+- #305 tracks a gap in scheme enforcement: the host check passes `http://` URLs to allowed hosts, which would leak the Bearer token over plaintext.
+- #303 design reference: agency `specs/issue-457-integrate-m2m-animation-library/decisions.md` D4 and D17.
 
 ## References
 
-- `email-google-inbound/src/main/java/.../GoogleOidcJwtValidator.java` — jose4j-based JWKS verifier
-- `chat-teams/src/main/java/.../BotFrameworkClient.java` — now uses `postJsonWithResponse` for all send/reply
-- `chat-teams/src/main/java/.../TeamsChatPlatform.java` — personal channel guards at lines 158, 166, 382, 392, 400, 409, 417
+- `chat-teams/src/main/java/.../BotFrameworkClient.java` — SSRF defense at line 86, `matchesHostPatterns` at line 161
+- `chat-teams/src/main/java/.../TeamsBeans.java` — `attachment-url-allowlist` config at lines 37–38 and 79–80
+- `discord/src/main/java/.../DiscordClient.java` — reference SSRF implementation with `maxAttachmentBytes` streaming
