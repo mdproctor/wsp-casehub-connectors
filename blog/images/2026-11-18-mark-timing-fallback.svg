@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <linearGradient id="tierExact" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="tierPhoneme" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="tierChar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="340" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#1e293b">MarkTimingEnricher — Three-Tier Fallback</text>
+
+  <!-- Input box -->
+  <rect x="230" y="48" width="220" height="40" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="340" y="73" text-anchor="middle" font-size="13" fill="#334155" font-weight="500">SynthesisOptions.marks()</text>
+
+  <!-- Arrow down to decision -->
+  <line x1="340" y1="88" x2="340" y2="118" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Decision diamond -->
+  <polygon points="340,118 420,155 340,192 260,155" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="340" y="152" text-anchor="middle" font-size="11" fill="#854d0e">Engine returns</text>
+  <text x="340" y="165" text-anchor="middle" font-size="11" fill="#854d0e">marks?</text>
+
+  <!-- YES branch — Tier 1 -->
+  <line x1="420" y1="155" x2="530" y2="155" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="468" y="148" text-anchor="middle" font-size="11" fill="#059669" font-weight="600">yes</text>
+  <rect x="538" y="132" width="130" height="46" rx="6" fill="url(#tierExact)"/>
+  <text x="603" y="152" text-anchor="middle" font-size="12" fill="white" font-weight="600">Tier 1: Exact</text>
+  <text x="603" y="168" text-anchor="middle" font-size="10" fill="#d1fae5">engine-native marks</text>
+
+  <!-- NO branch down -->
+  <line x1="340" y1="192" x2="340" y2="230" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="354" y="215" font-size="11" fill="#dc2626" font-weight="600">no</text>
+
+  <!-- Second decision diamond -->
+  <polygon points="340,230 420,267 340,304 260,267" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="340" y="264" text-anchor="middle" font-size="11" fill="#854d0e">Phonemes</text>
+  <text x="340" y="277" text-anchor="middle" font-size="11" fill="#854d0e">available?</text>
+
+  <!-- YES branch — Tier 2 -->
+  <line x1="420" y1="267" x2="530" y2="267" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="468" y="260" text-anchor="middle" font-size="11" fill="#2563eb" font-weight="600">yes</text>
+  <rect x="538" y="239" width="130" height="56" rx="6" fill="url(#tierPhoneme)"/>
+  <text x="603" y="258" text-anchor="middle" font-size="12" fill="white" font-weight="600">Tier 2: Phoneme</text>
+  <text x="603" y="273" text-anchor="middle" font-size="10" fill="#dbeafe">snap charOffset to</text>
+  <text x="603" y="286" text-anchor="middle" font-size="10" fill="#dbeafe">phoneme boundaries</text>
+
+  <!-- NO branch down -->
+  <line x1="340" y1="304" x2="340" y2="342" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="354" y="327" font-size="11" fill="#dc2626" font-weight="600">no</text>
+
+  <!-- Tier 3 -->
+  <rect x="275" y="348" width="130" height="56" rx="6" fill="url(#tierChar)"/>
+  <text x="340" y="368" text-anchor="middle" font-size="12" fill="white" font-weight="600">Tier 3: Character</text>
+  <text x="340" y="383" text-anchor="middle" font-size="10" fill="#ede9fe">charOffset / textLen</text>
+  <text x="340" y="396" text-anchor="middle" font-size="10" fill="#ede9fe">× WAV duration</text>
+
+  <!-- Accuracy labels -->
+  <text x="22" y="156" font-size="10" fill="#059669" font-weight="600">highest accuracy</text>
+  <text x="22" y="400" font-size="10" fill="#7c3aed" font-weight="600">lowest accuracy</text>
+  <line x1="12" y1="168" x2="12" y2="388" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>
+  <polygon points="12,388 8,378 16,378" fill="#94a3b8"/>
+
+  <!-- Provider examples -->
+  <text x="603" y="202" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">VITS guarded-exact,</text>
+  <text x="603" y="213" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">Azure BookmarkReached</text>
+  <text x="603" y="312" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">LipSyncEnricher phonemes</text>
+  <text x="340" y="416" text-anchor="middle" font-size="9" fill="#6b7280" font-style="italic">engines with no timing data</text>
+</svg>
