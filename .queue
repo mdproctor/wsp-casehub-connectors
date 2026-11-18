@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-289-microsoft-graph-client-deprecated-url
+branch: issue-264-generate-plugin-voice-messaging
 issue-repo: casehubio/connectors
 status: active
-covers: 288
+covers: 264
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
