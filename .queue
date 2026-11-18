@@ -4,7 +4,7 @@
 branch: issue-317-clamp-charOffset-mark-timing
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#307
+covers: casehubio/connectors#319
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -20,4 +20,5 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#314 — checkResponse-url-diagnostics
 - [x] casehubio/connectors#317 — clamp-charOffset-mark-timing
 - [x] casehubio/connectors#318 — resolveConversation-error-messages
-- [ ] casehubio/connectors#319 — mark-timing-round-trip-integration-test
+- [ ] casehubio/connectors#319 — mark-timing-round-trip-integration-test ← active
+- [ ] casehubio/connectors#320 — tts-synthesise-plugin-mark-timing
