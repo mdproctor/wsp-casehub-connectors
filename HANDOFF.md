@@ -2,47 +2,39 @@
 
 ## Last Session
 
-Landed 6 commits closing 5 issues on branch `issue-308-voice-ref-mark-timing`. Published to both remotes.
+Landed 3 commits closing 2 issues on branch `issue-317-clamp-charOffset-mark-timing`. Published to both remotes.
 
 ### What landed
 
 | Issue | Change | Module |
 |-------|--------|--------|
-| #308 | Native mark timing in `ReferenceVoicePlatform` — 50ms-per-character synthetic duration for round-trip testing without native deps | voice-ref |
-| #307 | VITS guarded-exact mark timing in `VitsTextToSpeech` — espeak phonemisation, space-token word boundaries, consistency guard (`prefixWords + suffixWords == spaceTokens + 1`), monotonicity check | voice-sherpa |
-| #312 | `isUserChannel` guards on all 9 Teams chat operations (listMembers, listMessageHistory, reactions add/remove/list, memberManagement add/remove, channelManagement delete/find) | chat-teams |
-| #313 | Extract `resolveConversation(aadObjectId)` from duplicated logic in `sendProactiveMessage`/`replyToUserChannel` | chat-teams |
-| #314 | Include URL in `BotFrameworkClient.checkResponse` exception body for diagnostics | chat-teams |
+| #317 | Clamp `mark.charOffset()` to `text.length()` in `ReferenceVoicePlatform` and both `MarkTimingEnricher` paths (phoneme-proportional and character-proportional) — standardises with VITS which already clamped | voice-ref, voice-spi |
+| #318 | Replace "Proactive messaging" with "User channel operation" in `resolveConversation` error messages — method is called from both send and reply paths | chat-teams |
 
-### Follow-up issues filed
+Blog entry: revised `docs/blog/2026-11-18-mdp04-the-word-the-gesture-needs.md` — added "The contract every tier must keep" section on input validation consistency across decorator fallback tiers, with new SVG diagram.
+
+### Follow-up issue filed
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|------------|
-| #317 | Clamp `charOffset` in mark timing to `text.length()` — ref impl doesn't clamp, VITS does, inconsistent | XS | Low |
-| #318 | `resolveConversation` error messages say "Proactive messaging" for both send and reply paths | XS | Low |
+| #319 | Add mark-timing round-trip coverage to `VoiceRoundTripTest` — clamp behavior tested at unit level but no integration coverage | XS | Low |
 
-Blog entry: revised `blog/2026-11-18-mdp04-the-word-the-gesture-needs.md` — added VITS guarded-exact algorithm explanation, consistency guard rationale, new SVG diagram, ref testing section.
+### Code review findings
 
-### Code review findings addressed
-
-- `TeamsChannelManagement.delete` and `find` missing `isUserChannel` guard — fixed (same gap as #312, missed from original scope)
-- Ref impl `charOffset` clamping inconsistency with VITS path — filed as #317
-- `resolveConversation` error message wording — filed as #318
+- Test assertions tightened from `isLessThanOrEqualTo` to `isEqualTo` — squashed into the primary fix
+- Audit confirmed: all 4 `charOffset` usage sites now clamp (VITS, Ref, Enricher phoneme, Enricher char)
+- Teams error messages in `sendPersonalMessage`/`replyToMessage` correctly differentiate callers — not the same bug as #318
 
 ## Immediate Next Step
 
-Queue has 2 remaining items:
+Queue has 1 remaining item:
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|------------|
-| #317 | clamp-charOffset-mark-timing | XS | Low |
-| #318 | resolveConversation-error-messages | XS | Low |
-
-Both are XS review follow-ups from this session.
+| #319 | mark-timing-round-trip-integration-test | XS | Low |
 
 ## Context for Next Session
 
 - The VITS guarded-exact path (#307) is the Tier 1 implementation from the D4 animation design spec. It unblocks casehub-agency#457 (gesture timing). The `MarkTimingEnricher` provides Tier 2/3 fallback for engines that return no marks.
-- `extractPhonemeTimings` was refactored to share dur frame extraction with the new mark timing path — same behavior, one fewer tensor read.
-- The ref implementation (#308) uses a synthetic 50ms-per-character duration rather than parsing the WAV header (the ref WAV payload is text, not audio samples, so the computed duration would be near-zero).
-- `resolveConversation` (#313) unified the store-lookup → cold-start → store-back pipeline. Error messages currently say "Proactive messaging" for both the send and reply paths — cosmetic, filed as #318.
+- All `charOffset` usage sites now clamp consistently. The `TextMark` record validates `charOffset >= 0` but intentionally has no upper bound — the clamp-at-usage-site pattern is the design choice.
+- `VoiceRoundTripTest` has zero mark-timing coverage. #319 should add: round-trip with marks, enricher pass-through, and out-of-bounds charOffset at integration level.
