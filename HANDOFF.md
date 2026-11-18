@@ -2,37 +2,47 @@
 
 ## Last Session
 
-Landed 1 commit closing 1 issue. Published as `1ad4e87d` on main.
+Landed 1 commit closing 1 issue. Landed as `aee48155` on main (unpublished).
 
 ### What landed
 
-| Issue | Fix | Module |
-|-------|-----|--------|
-| #246 | SSRF defense on `BotFrameworkClient.downloadAttachment` — host allowlist validation before authenticated GET, extracted `matchesHostPatterns` from `validateServiceUrl`, configurable `attachment-url-allowlist` | chat-teams |
+| Issue | Change | Module |
+|-------|--------|--------|
+| #303 | SSML-style mark timing for speech-gesture synchronisation — `TextMark`/`MarkTiming` model types, `SynthesisOptions.marks`/`SynthesisResult.marks` fields with backward-compatible constructors, `MarkTimingEnricher` decorator with phoneme-proportional and character-proportional fallback tiers, `warmUp()` delegation | voice-spi |
 
-### Code review findings filed
+### Follow-up issues filed
 
-- #304 — Add request timeout and streaming size limit to attachment download (S/Low)
-- #305 — Enforce HTTPS scheme in attachment download SSRF defense (XS/Low)
+| # | Title | Scale | Complexity |
+|---|-------|-------|------------|
+| #306 | LipSyncEnricher warmUp delegation | XS | Low |
+| #307 | VITS guarded-exact mark resolution in VitsTextToSpeech | M | Med |
+| #308 | voice-ref mark timing support for round-trip testing | XS | Low |
 
-Blog entry revised: `blog/2026-11-18-mdp03-the-things-that-shouldnt-have-shipped.md` — added SSRF section with SVG diagram.
+Blog entry written: `blog/2026-11-18-mdp04-the-word-the-gesture-needs.md` — mark timing design, three-tier fallback strategy, ownership split between server speech time and client animation time.
+
+### Code review findings addressed
+
+- warmUp() not delegated in MarkTimingEnricher — fixed in-session
+- Mixed static/instance on fallback methods — fixed (characterProportional made static)
+- Missing boundary edge-case tests — added 5 tests (single-char text, mark at text end, empty text)
+- LipSyncEnricher has the same warmUp delegation gap — filed as #306
 
 ## Immediate Next Step
 
-Branch `issue-303-textmark-marktiming-voice-spi` exists (empty, cut from main) for #303 (TextMark/MarkTiming in voice-spi — M/Med). This is a topic change from Teams hardening into voice pipeline mark timing.
+Queue has 16 remaining items starting with #253 (teams-replyToMessage-user-prefix). The three follow-ups (#306, #307, #308) are appended at the end.
 
-Queue has 14 remaining items. Priority order: #303 (voice-spi marks, blocks agency#457), then #253 (teams-replyToMessage-user-prefix), then the rest.
+#307 (VITS guarded-exact) blocks casehub-agency#457 (gesture timing D4). Design reference: agency `specs/issue-457-integrate-m2m-animation-library/decisions.md` D4 and D17. This is the highest-value follow-up but requires espeak integration in `voice-sherpa`, not just voice-spi.
 
 ## Context for Next Session
 
-- The `matchesHostPatterns` method is now a shared `static` method in `BotFrameworkClient`. Both `validateServiceUrl` (service URL) and `downloadAttachment` (attachment URL) use it, but with separate allowlists. The 2-arg constructor delegates to the 3-arg, using the service URL allowlist for both — backward-compatible for existing tests.
-- The attachment allowlist defaults to `*.sharepoint.com,graph.microsoft.com,*.botframework.com,smba.trafficmanager.net`. The service URL allowlist remains `*.botframework.com,smba.trafficmanager.net`.
-- #304 tracks two pre-existing robustness gaps surfaced by the SSRF review: no request timeout and no max-attachment-bytes streaming limit (Discord equivalent has both).
-- #305 tracks a gap in scheme enforcement: the host check passes `http://` URLs to allowed hosts, which would leak the Bearer token over plaintext.
-- #303 design reference: agency `specs/issue-457-integrate-m2m-animation-library/decisions.md` D4 and D17.
+- `SynthesisOptions` and `SynthesisResult` are both records with new fields added as the last component. Backward-compatible constructors (4-arg for Options, 2-arg and 3-arg for Result) mean all existing callers compile unchanged — verified across the full project.
+- `MarkTimingEnricher` follows the same decorator pattern as `LipSyncEnricher` — wraps a `TextToSpeech` delegate. The two enrichers compose: LipSync can wrap the engine for phonemes, then MarkTiming can wrap the result for mark timings from those phonemes.
+- The enricher's phoneme-proportional path snaps mark offsets to the nearest phoneme start boundary (forward snap). The character-proportional path is a simple linear proportion over WAV duration. Both return `List.of()` for empty text or invalid WAV data.
+- 1 unpublished commit on connectors main — needs `canonical_sync.py publish` or manual push.
 
 ## References
 
-- `chat-teams/src/main/java/.../BotFrameworkClient.java` — SSRF defense at line 86, `matchesHostPatterns` at line 161
-- `chat-teams/src/main/java/.../TeamsBeans.java` — `attachment-url-allowlist` config at lines 37–38 and 79–80
-- `discord/src/main/java/.../DiscordClient.java` — reference SSRF implementation with `maxAttachmentBytes` streaming
+- `voice-spi/src/main/java/.../model/TextMark.java` — caller-specified character positions for mark timing
+- `voice-spi/src/main/java/.../model/MarkTiming.java` — engine-returned word onset times
+- `voice-spi/src/main/java/.../spi/MarkTimingEnricher.java` — three-tier fallback decorator
+- `voice-spi/src/main/java/.../spi/LipSyncEnricher.java` — updated to preserve marks through enrichment
