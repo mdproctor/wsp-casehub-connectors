@@ -7,12 +7,14 @@
 - [x] casehubio/connectors#318 — resolveConversation-error-messages
 - [x] casehubio/connectors#319 — mark-timing-round-trip-integration-test
 - [x] casehubio/connectors#320 — tts-synthesise-plugin-mark-timing
+- [x] casehubio/connectors#321 — apt-schema-list-items
+- [x] casehubio/connectors#322 — stt-plugin-optional-fields-audit
 
 ## State
-branch: feat/320-tts-mark-timing-plugin
+branch: feat/322-stt-plugin-audit
 issue-repo: casehubio/connectors
 status: drained
-covers: casehubio/connectors#320
+covers: casehubio/connectors#321
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
