@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-231-fix-document-microsoft-double-encoding-filenames
+branch: issue-289-microsoft-graph-client-deprecated-url
 issue-repo: casehubio/connectors
 status: active
-covers: 186
+covers: 288
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -36,10 +36,10 @@ flyway-next-v: none
 - [x] casehubio/connectors#261 — fix-voice-playbook-speaker-id-payment-gate
 - [x] casehubio/connectors#262 — fix-connector-voice-api-base64-valueof-crash
 - [x] casehubio/connectors#186 — fix-discord-awaitility-timeout-1C
-- [ ] casehubio/connectors#289 — MicrosoftGraphClient-toUri-deprecated-URL
-- [ ] casehubio/connectors#290 — MicrosoftGraphClient-putBytes-URI-inconsistency
-- [ ] casehubio/connectors#291 — SpeakerPlugin-configurable-sample-rates
-- [ ] casehubio/connectors#292 — voice-playbook-cloned-voice-negative-twin
+- [x] casehubio/connectors#289 — MicrosoftGraphClient-toUri-deprecated-URL
+- [x] casehubio/connectors#290 — MicrosoftGraphClient-putBytes-URI-inconsistency
+- [x] casehubio/connectors#291 — SpeakerPlugin-configurable-sample-rates
+- [x] casehubio/connectors#292 — voice-playbook-cloned-voice-negative-twin
 - [ ] casehubio/connectors#288 — fix-playbook-integration-tests
 - [ ] casehubio/connectors#264 — GeneratePlugin-annotations-voice-messaging
 - [ ] casehubio/connectors#197 — ref-voice-tts-text-encoding
@@ -51,3 +51,5 @@ flyway-next-v: none
 - [ ] casehubio/connectors#243 — teams-guard-zero-length-upload
 - [ ] casehubio/connectors#246 — teams-ssrf-attachment-download
 - [ ] casehubio/connectors#253 — teams-replyToMessage-user-prefix
+- [ ] casehubio/connectors#293 — toUri-hash-question-mark-limitation
+- [ ] casehubio/connectors#294 — platform-yaml-capture-variable-scoping
