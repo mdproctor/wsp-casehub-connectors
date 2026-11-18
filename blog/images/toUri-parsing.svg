@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="'SF Mono','Consolas','Menlo',monospace" font-size="13">
+  <defs>
+    <style>
+      .label { fill: #374151; font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 12px; }
+      .mono { fill: #1e293b; font-size: 13px; }
+      .bracket { fill: #6366f1; font-weight: bold; font-size: 13px; }
+      .component { fill: #1e293b; font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; }
+      .arrow { fill: none; stroke: #9ca3af; stroke-width: 1.5; marker-end: url(#arrowhead); }
+      .box { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1.5; rx: 6; }
+      .box-old { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1.5; rx: 6; }
+      .box-new { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.5; rx: 6; }
+      .strike { text-decoration: line-through; fill: #dc2626; opacity: 0.6; }
+      .dim { fill: #9ca3af; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9ca3af"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="28" text-anchor="middle" class="component" style="font-size:14px">toUri() — from deprecated URL to manual parsing</text>
+
+  <!-- URL string visualization -->
+  <text x="30" y="68" class="mono">https://graph.microsoft.com/v1.0/me/drive/root:/my file.docx:/content?$select=id</text>
+
+  <!-- Component brackets and labels -->
+  <!-- scheme -->
+  <line x1="30" y1="74" x2="30" y2="84" stroke="#6366f1" stroke-width="1.5"/>
+  <line x1="30" y1="84" x2="68" y2="84" stroke="#6366f1" stroke-width="1.5"/>
+  <line x1="68" y1="74" x2="68" y2="84" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="49" y="98" text-anchor="middle" class="component" style="fill:#6366f1">scheme</text>
+
+  <!-- authority -->
+  <line x1="92" y1="74" x2="92" y2="84" stroke="#8b5cf6" stroke-width="1.5"/>
+  <line x1="92" y1="84" x2="285" y2="84" stroke="#8b5cf6" stroke-width="1.5"/>
+  <line x1="285" y1="74" x2="285" y2="84" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="188" y="98" text-anchor="middle" class="component" style="fill:#8b5cf6">authority</text>
+
+  <!-- path -->
+  <line x1="285" y1="74" x2="285" y2="110" stroke="#059669" stroke-width="1.5"/>
+  <line x1="285" y1="110" x2="586" y2="110" stroke="#059669" stroke-width="1.5"/>
+  <line x1="586" y1="74" x2="586" y2="110" stroke="#059669" stroke-width="1.5"/>
+  <text x="435" y="124" text-anchor="middle" class="component" style="fill:#059669">path (encoded by URI constructor)</text>
+
+  <!-- query -->
+  <line x1="594" y1="74" x2="594" y2="84" stroke="#d97706" stroke-width="1.5"/>
+  <line x1="594" y1="84" x2="710" y2="84" stroke="#d97706" stroke-width="1.5"/>
+  <line x1="710" y1="74" x2="710" y2="84" stroke="#d97706" stroke-width="1.5"/>
+  <text x="652" y="98" text-anchor="middle" class="component" style="fill:#d97706">query</text>
+
+  <!-- Old approach -->
+  <rect x="30" y="150" width="310" height="70" class="box-old"/>
+  <text x="185" y="170" text-anchor="middle" class="component" style="fill:#dc2626">Before — deprecated since Java 20</text>
+  <text x="185" y="190" text-anchor="middle" class="mono" style="font-size:11px; fill:#64748b">var parsed = new java.net.URL(rawUrl);</text>
+  <text x="185" y="206" text-anchor="middle" class="mono" style="font-size:11px; fill:#64748b">new URI(proto, auth, path, query, ref);</text>
+
+  <!-- Arrow -->
+  <line x1="350" y1="185" x2="390" y2="185" class="arrow"/>
+
+  <!-- New approach -->
+  <rect x="400" y="150" width="290" height="70" class="box-new"/>
+  <text x="545" y="170" text-anchor="middle" class="component" style="fill:#059669">After — pure URI, no deprecation</text>
+  <text x="545" y="190" text-anchor="middle" class="mono" style="font-size:11px; fill:#64748b">split on ://, first /, ?, #</text>
+  <text x="545" y="206" text-anchor="middle" class="mono" style="font-size:11px; fill:#64748b">new URI(scheme, auth, path, query, frag);</text>
+
+  <!-- Consistency box -->
+  <rect x="30" y="250" width="660" height="70" class="box"/>
+  <text x="360" y="274" text-anchor="middle" class="component">All 5 methods now route through toUri()</text>
+  <text x="100" y="296" class="mono dim" style="font-size:11px">get · post · patch · delete · getPage</text>
+  <text x="380" y="296" class="mono" style="font-size:11px; fill:#059669">getBytes · putBytes · getRaw</text>
+  <text x="324" y="296" class="mono dim" style="font-size:11px">+</text>
+  <text x="380" y="310" class="label" style="fill:#059669; font-size:10px">← previously used URI.create() directly</text>
+</svg>
