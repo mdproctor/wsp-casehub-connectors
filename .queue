@@ -4,7 +4,7 @@
 branch: issue-197-ref-voice-tts-text-encoding
 issue-repo: casehubio/connectors
 status: active
-covers: 197
+covers: 240
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -41,7 +41,7 @@ flyway-next-v: none
 - [x] casehubio/connectors#291 — SpeakerPlugin-configurable-sample-rates
 - [x] casehubio/connectors#292 — voice-playbook-cloned-voice-negative-twin
 - [x] casehubio/connectors#288 — fix-playbook-integration-tests
-- [ ] casehubio/connectors#197 — ref-voice-tts-text-encoding
+- [x] casehubio/connectors#197 — ref-voice-tts-text-encoding
 - [ ] casehubio/connectors#240 — google-reuse-NetHttpTransport
 - [ ] casehubio/connectors#192 — gmail-push-jwt-verification
 - [ ] casehubio/connectors#251 — teams-personal-channel-crashes
