@@ -1,20 +1,22 @@
 # Work Plan —
 
 ## State
-branch: issue-253-teams-replyToMessage-user-prefix
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#253
-project-sha: 9cd9139b04626869be8439c52661e65fcc246756
-date: 2026-09-15
+covers: casehubio/connectors#307
+project-sha: 4b3f479371df8960c97559ac61e7853636347561
+date: 2026-11-18
 design-repo: project
 design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
 flyway-next-v: none
 tick: casehubio/connectors#303
 
 ## Queue
-- [ ] casehubio/connectors#308 — voice-ref-mark-timing-support ← active
-- [ ] casehubio/connectors#307 — VITS-guarded-exact-mark-resolution
-- [ ] casehubio/connectors#312 — guard-user-channel-remaining-operations
-- [ ] casehubio/connectors#313 — extract-conversation-resolution
-- [ ] casehubio/connectors#314 — checkResponse-url-diagnostics
+- [ ] casehubio/connectors#308 — voice-ref-mark-timing-support ← done on issue-308-voice-ref-mark-timing
+- [x] casehubio/connectors#307 — VITS-guarded-exact-mark-resolution
+- [x] casehubio/connectors#312 — guard-user-channel-remaining-operations
+- [x] casehubio/connectors#313 — extract-conversation-resolution
+- [ ] casehubio/connectors#314 — checkResponse-url-diagnostics ← active
+- [ ] casehubio/connectors#317 — clamp-charOffset-mark-timing
+- [ ] casehubio/connectors#318 — resolveConversation-error-messages
