@@ -2,22 +2,52 @@
 
 ## Last Session
 
-Closed #320 — added `@Optional List<TextMark> marks` to `TtsSynthesisePlugin` so YAML pipeline consumers can request mark-timed synthesis. Landed as `d6e9b99a`. Revised the mark-timing blog (`2026-11-18-mdp04`) with a "last mile" section explaining the pipeline gap and a flow diagram SVG. Filed #321 (APT schema items gap — generated JSON schema for `List<T>` plugin fields lacks `items` definition) and #322 (audit `SttTranscribePlugin` for similar missing optional fields). Both XS/Low.
+Closed #320 (TTS marks), #322 (STT vocabularyHint). Transferred #321 to platform#885 (APT schema items gap — fix is in `yaml-plugin-processor`). Labelled all 38 open issues with scale/complexity. Scheduled 15 S/XS issues in queue order.
 
-Canonical connectors repo has 1 unpublished commit on main — publish when ready.
+3 unpublished commits on canonical connectors main — publish when ready.
 
-## Immediate Next Step
+## In Progress
 
-#321 — APT-generated JSON schema for plugin `List` fields lacks items definition. XS/Low.
+**#306 — LipSyncEnricher warmUp delegation** (XS/Low)
+Branch: `feat/306-lipsync-warmup-delegation` — created, no changes yet.
 
-## Queue
+**The fix:** `LipSyncEnricher` does not delegate `warmUp()` to its wrapped `TextToSpeech` delegate. `MarkTimingEnricher` already does this (line 33-34). One-line override needed:
 
-- [ ] #321 — apt-schema-list-items (XS/Low)
-- [ ] #322 — stt-plugin-optional-fields-audit (XS/Low)
+```java
+@Override
+public void warmUp() {
+    delegate.warmUp();
+}
+```
+
+**Files:**
+- Source: `voice-spi/src/main/java/io/casehub/connectors/voice/spi/LipSyncEnricher.java` (line 39, insert before closing brace)
+- Test: `voice-spi/src/test/java/io/casehub/connectors/voice/spi/LipSyncEnricherTest.java` (add warmUp delegation test)
+- Pattern to follow: `MarkTimingEnricher.java` lines 33-34
+
+**Test approach:** Create a delegate with a `warmUp()` counter, wrap with `LipSyncEnricher`, call `warmUp()`, assert counter incremented. Same lambda-delegate pattern as the existing tests in `LipSyncEnricherTest`.
+
+## Queue (15 items)
+
+- [ ] #306 — lipsync-warmup-delegation (XS/Low) ← active
+- [ ] #242 — teams-guard-driveId (XS/Low)
+- [ ] #247 — teams-attachment-size-limit (XS/Low)
+- [ ] #248 — teams-personal-rich-content (S/Med)
+- [ ] #244 — teams-test-safeAttachmentName (XS/Low)
+- [ ] #245 — teams-test-reply-attachments (XS/Low)
+- [ ] #252 — teams-integration-test-proactive (S/Med)
+- [ ] #255 — teams-invoke-handler-integration-test (S/Med)
+- [ ] #267 — teams-settings-url-manifest (XS/Low)
+- [ ] #266 — teams-comment-field-stripping (XS/Low)
+- [ ] #268 — teams-cdi-wiring-guidance (XS/Low)
+- [ ] #265 — docs-messaging-extensions-xref (XS/Low)
+- [ ] #254 — docs-webhook-responded-invoke-handler (S/Low)
+- [ ] #241 — docs-user-scoped-accessor-guides (S/Low)
+- [ ] #218 — sharepoint-multi-site (S/Low)
 
 ## References
 
 - Blog: `blog/2026-11-18-mdp04-the-word-the-gesture-needs.md`
-- Blog SVG: `blog/images/2026-11-18-pipeline-mark-flow.svg`
-- Test: `integration-tests/src/test/java/io/casehub/connectors/it/VoiceRoundTripTest.java`
-- Plugin: `voice-pipeline-steps/src/main/java/io/casehub/connectors/voice/steps/TtsSynthesisePlugin.java`
+- LipSyncEnricher: `voice-spi/src/main/java/io/casehub/connectors/voice/spi/LipSyncEnricher.java`
+- MarkTimingEnricher (warmUp pattern): `voice-spi/src/main/java/io/casehub/connectors/voice/spi/MarkTimingEnricher.java`
+- Platform issue: casehubio/platform#885 (APT schema items)
