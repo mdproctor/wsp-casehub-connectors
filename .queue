@@ -4,7 +4,7 @@
 branch: issue-240-google-reuse-nethttptransport
 issue-repo: casehubio/connectors
 status: active
-covers: 249
+covers: 250
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -45,7 +45,7 @@ flyway-next-v: none
 - [x] casehubio/connectors#240 — google-reuse-NetHttpTransport
 - [x] casehubio/connectors#192 — gmail-push-jwt-verification
 - [x] casehubio/connectors#251 — teams-personal-channel-crashes
-- [ ] casehubio/connectors#249 — teams-personal-send-empty-messageId
+- [x] casehubio/connectors#249 — teams-personal-send-empty-messageId
 - [ ] casehubio/connectors#250 — teams-nested-html-htmlToMarkdown
 - [ ] casehubio/connectors#243 — teams-guard-zero-length-upload
 - [ ] casehubio/connectors#246 — teams-ssrf-attachment-download
