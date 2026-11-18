@@ -2,37 +2,40 @@
 
 ## Last Session
 
-Completed 6 issues (#282–#287) — extended the `CardBuilder` fluent API to full parity with the adaptive `Builder`, migrated a ref handler, and closed two defensive-copy gaps.
+Landed 4 issues (#289–#292) plus a partial fix for #288. Filed 2 new issues (#293, #294). All work landed on main and published.
 
-**#282 — CardBuilder `text()` for body content:**
-- Added `text(String)` to `CardBuilder` for hero/thumbnail cards
-- Updated shared `cardContent()` helper to accept and emit `text` between subtitle and images
+**#289+#290 — MicrosoftGraphClient URI handling:**
+- Replaced deprecated `java.net.URL(String)` in `toUri()` with manual URI component parsing (scheme, authority, path, query, fragment)
+- Unified all 5 `BASE_URL + path` call sites through `toUri()` — `putBytes`, `getBytes`, `getRaw` were bypassing it via `URI.create()`
+- `getBytesFromUrl` and pagination cursors correctly stay on `URI.create()` (pre-formed URLs)
 
-**#283 — Ref handler builder migration:**
-- Migrated `RefLinkUnfurlHandler` from raw AdaptiveCard JSON to `hero().text().button()`
-- `RefSearchHandler` and `RefFetchTaskHandler` stay on `adaptive()` — they need AdaptiveCard features
+**#291 — SpeakerPlugin configurable sample rates:**
+- Added `@Optional List<Integer> supportedSampleRates` to the plugin record
+- Default `Set.of(16000)` preserves backward compatibility
+- Error message now lists configured valid rates on rejection
 
-**#284 — CardBuilder `preview()` support:**
-- Added `preview(title)`, `preview(title, subtitle)` to `CardBuilder`
-- Emits separate thumbnail preview block, matching adaptive `Builder.preview()` pattern
+**#292 — Cloned-voice attack playbook:**
+- Rewrote 06b negative twin to demonstrate actual voice cloning attack
+- Bob registers with `bm_daniel`, attacker uses same voice, passes speaker ID gate
+- Test asserts the clone passes — proving the vulnerability multi-factor prevents
 
-**#285 — Defensive metadata copy (InvokeRequest):**
-- `InvokeRequest` compact constructor wraps metadata in `Map.copyOf()`
+**#288 (partial) — Playbook integration tests:**
+- Fixed `mobile-send-sms` params in 06-joint-account-confirmation (`platform: ref`, `body` instead of `message`)
+- Root cause identified: platform YAML runtime 0.4-20261118 SNAPSHOT broke `capture:` variable scoping — all 18 tests fail with "Unknown prefix"
+- Blocked on platform fix (filed as #294)
 
-**#286 — CardBuilder `preview(title, subtitle, imageUrl)` overload:**
-- Full API symmetry with adaptive `Builder.preview()`
-- Existing 1-arg and 2-arg overloads now chain through the 3-arg variant
+**Filed:**
+- #293 — `toUri()` treats `#` and `?` as URI delimiters in file paths (known limitation, not a regression)
+- #294 — Platform YAML runtime capture variable scoping broken (blocks #288)
 
-**#287 — Defensive metadata copy (InboundMessage):**
-- `InboundMessage` compact constructor wraps metadata in `Map.copyOf()`, null becomes `Map.of()`
-- Matches `InvokeRequest` pattern from #285
-
-**Blog:** "The Builder That Grew" — API design diary covering the builder evolution, shared helper factoring, and defensive copy pattern.
-
-## Branch State
-
-All work on main. No feature branches open. Published to origin.
+**Blog:** "Deprecation, Encoding, and Cloned Voices" — URI migration, sample rates, voice cloning attack demo, platform regression discovery.
 
 ## Queue
 
-Queue drained — 19/19 items complete. No remaining work.
+13 items remaining. Next up: #288 (blocked on #294), then #264 (GeneratePlugin annotations).
+
+## Key Context for Next Session
+
+- The platform YAML runtime regression (#294) blocks all playbook integration tests. The Nov 16 SNAPSHOT (279KB) works; the Nov 18 SNAPSHOT (331KB) doesn't. `capture:` variable scoping is broken — step results are no longer accessible as named prefixes.
+- #288 has the `mobile-send-sms` parameter fix committed and landed, but the broader test failures need the platform fix first.
+- MicrosoftGraphClient is now fully consistent — every `BASE_URL + path` goes through `toUri()`. Only pre-formed URLs (CDN, cursors) use `URI.create()` directly.
