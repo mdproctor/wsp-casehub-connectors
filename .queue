@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-246-teams-ssrf-attachment-download
+branch: issue-303-textmark-marktiming-voice-spi
 issue-repo: casehubio/connectors
 status: active
-covers: 246
+covers: 303
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -62,3 +62,6 @@ flyway-next-v: none
 - [ ] casehubio/connectors#303 — TextMark-MarkTiming-voice-spi
 - [ ] casehubio/connectors#304 — teams-attachment-timeout-size-limit
 - [ ] casehubio/connectors#305 — teams-https-scheme-enforcement
+- [ ] casehubio/connectors#306 — LipSyncEnricher-warmUp-delegation
+- [ ] casehubio/connectors#308 — voice-ref-mark-timing-support
+- [ ] casehubio/connectors#307 — VITS-guarded-exact-mark-resolution
