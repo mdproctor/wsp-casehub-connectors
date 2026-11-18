@@ -65,7 +65,11 @@ This catches exactly the cases where "exact" would be a lie: context-dependent p
 
 ## Testing without native dependencies
 
-The ref implementation provides a parallel path for integration tests. It doesn't have espeak or a duration model, so it uses a synthetic 50ms-per-character duration and returns character-proportional marks directly. This lets tests verify the full mark-timing contract — SPI, enricher pass-through, result serialisation — without provisioning native libraries. The VITS integration tests, gated by `@EnabledIf("allDepsAvailable")`, cover the real espeak path separately.
+The ref implementation provides a parallel path for integration tests. It doesn't have espeak or a duration model, so it uses a synthetic 50ms-per-character duration and returns character-proportional marks directly.
+
+Unit tests for `MarkTimingEnricher` use mock delegates — lambdas that return whatever the test says. They verify the enricher's conditional logic, its phoneme-proportional mapping, its character-proportional fallback. What they can't verify is whether the enricher correctly recognises marks that a real platform actually produces. The pass-through condition checks `!result.marks().isEmpty()`. If the platform returned marks in a shape the enricher didn't expect — a subtle mismatch in list semantics, a defensive copy that changed identity — the unit test with its cooperative mock would still pass. The integration test with the real platform catches that class of bug.
+
+Three integration tests in `VoiceRoundTripTest` cover this. One synthesises with three marks and verifies the returned timings are bounded, non-negative, and strictly ordered — the basic round-trip contract. A second wraps the ref platform with `MarkTimingEnricher` and confirms the enriched output matches the native output exactly — the enricher's pass-through must be transparent, not just "working." A third passes a `charOffset` far beyond the text length and verifies both the platform and the enricher clamp to the same duration — proving the two clamping paths in the stack agree. The VITS integration tests, gated by `@EnabledIf("allDepsAvailable")`, cover the real espeak path separately.
 
 ## What this unblocks
 
