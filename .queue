@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: issue-253-teams-replyToMessage-user-prefix
 issue-repo: casehubio/connectors
 status: active
 covers: 253
