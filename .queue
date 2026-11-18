@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-317-clamp-charOffset-mark-timing
+branch: issue-319-mark-timing-round-trip-integration-test
 issue-repo: casehubio/connectors
 status: active
 covers: casehubio/connectors#319
