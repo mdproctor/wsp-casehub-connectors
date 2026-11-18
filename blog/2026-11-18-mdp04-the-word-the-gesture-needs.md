@@ -51,8 +51,22 @@ This matters because it makes mark timing opt-in without engine changes. An engi
 
 The two enrichers compose. `LipSyncEnricher` can wrap the raw engine to provide phoneme timings, and `MarkTimingEnricher` can wrap the result to provide mark timings from those phonemes. Each decorator handles one concern.
 
+## Inside the VITS guarded-exact path
+
+The interesting tier is Tier 1 — the one that knows exactly when each word starts because it was there when the model decided. VITS/Piper models produce a duration output alongside the audio: one value per token, telling the model how many frames to allocate. Space tokens in the IPA sequence correspond to word boundaries. The onset time of word N is the cumulative duration up to the N-th space token.
+
+The challenge is mapping character offsets in the input text to word positions in the model's token sequence. espeak phonemises "hello world" into something like `hɛˈloʊ wɜːld` — two IPA words separated by a space. For a mark at character offset 6 (the start of "world"), we phonemise the prefix "hello " with espeak and count one IPA word. That count indexes directly into the space-token boundaries from the duration output.
+
+![VITS guarded-exact mark resolution algorithm](images/2026-11-18-guarded-exact-algorithm.svg)
+
+The consistency guard is what makes this honest rather than optimistic. For every mark, we phonemise both the prefix and the suffix independently, then verify: `prefixWords + suffixWords == spaceTokens + 1`. If espeak phonemises the full text differently from the parts — joining function words, expanding numbers, treating a clause boundary as a word boundary — the word counts won't balance and the guard fails. When it fails, the segment returns empty marks and `MarkTimingEnricher` provides the Tier 2 or Tier 3 fallback. The guard also rejects non-monotonic offsets.
+
+This catches exactly the cases where "exact" would be a lie: context-dependent phonemisation where espeak produces different word structures for the same text depending on surrounding context. Two extra espeak calls per mark — cheap compared to VITS inference.
+
+## Testing without native dependencies
+
+The ref implementation provides a parallel path for integration tests. It doesn't have espeak or a duration model, so it uses a synthetic 50ms-per-character duration and returns character-proportional marks directly. This lets tests verify the full mark-timing contract — SPI, enricher pass-through, result serialisation — without provisioning native libraries. The VITS integration tests, gated by `@EnabledIf("allDepsAvailable")`, cover the real espeak path separately.
+
 ## What this unblocks
 
-The agency repo's avatar animation system has been waiting on this. With mark timings available through the SPI, the client can schedule each gesture trigger as `max(0, offsetMs / rate − strokeMs(clip) − crossfade / 2)`. The server provides `offsetMs`. The client provides `strokeMs` and `rate`. The gesture lands on the word it was meant for.
-
-The VITS guarded-exact implementation — the Tier 1 path that actually indexes into the duration model — lives in `voice-sherpa` where the VITS internals are accessible. The SPI provides the contract and the fallback tiers. The accuracy comes from the engine.
+With mark timings available through the SPI, the agency repo's avatar animation system can schedule gesture triggers as `max(0, offsetMs / rate − strokeMs(clip) − crossfade / 2)`. The server provides `offsetMs`. The client provides `strokeMs` and `rate`. The gesture lands on the word it was meant for.
