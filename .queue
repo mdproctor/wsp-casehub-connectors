@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-253-teams-replyToMessage-user-prefix
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: 253
+covers: casehubio/connectors#253
 project-sha: 9cd9139b04626869be8439c52661e65fcc246756
 date: 2026-09-15
 design-repo: project
@@ -50,18 +50,18 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#250 — teams-nested-html-htmlToMarkdown
 - [x] casehubio/connectors#243 — teams-guard-zero-length-upload
 - [x] casehubio/connectors#246 — teams-ssrf-attachment-download
-- [ ] casehubio/connectors#253 — teams-replyToMessage-user-prefix
-- [ ] casehubio/connectors#293 — toUri-hash-question-mark-limitation
-- [ ] casehubio/connectors#295 — ConnectorTravelApi-unused-GeneratePlugin-import
-- [ ] casehubio/connectors#296 — audit-McpDomain-GeneratePlugin-coverage
-- [ ] casehubio/connectors#297 — messaging-method-count-discrepancy
-- [ ] casehubio/connectors#298 — STT-round-trip-identifier-formatting
-- [ ] casehubio/connectors#299 — chat-teams-guard-channel-mgmt-personal
-- [ ] casehubio/connectors#300 — bot-framework-error-propagation
-- [ ] casehubio/connectors#301 — htmlToMarkdown-same-tag-nesting
-- [ ] casehubio/connectors#302 — jwt-validator-cdi-qualifier
-- [ ] casehubio/connectors#304 — teams-attachment-timeout-size-limit
-- [ ] casehubio/connectors#305 — teams-https-scheme-enforcement
-- [ ] casehubio/connectors#306 — LipSyncEnricher-warmUp-delegation
+- [x] casehubio/connectors#253 — teams-replyToMessage-user-prefix
+- [x] casehubio/connectors#293 — toUri-hash-question-mark-limitation
+- [x] casehubio/connectors#295 — ConnectorTravelApi-unused-GeneratePlugin-import
+- [x] casehubio/connectors#296 — audit-McpDomain-GeneratePlugin-coverage
+- [x] casehubio/connectors#297 — messaging-method-count-discrepancy
+- [x] casehubio/connectors#298 — STT-round-trip-identifier-formatting
+- [x] casehubio/connectors#299 — chat-teams-guard-channel-mgmt-personal
+- [x] casehubio/connectors#300 — bot-framework-error-propagation
+- [x] casehubio/connectors#301 — htmlToMarkdown-same-tag-nesting
+- [x] casehubio/connectors#302 — jwt-validator-cdi-qualifier
+- [x] casehubio/connectors#304 — teams-attachment-timeout-size-limit
+- [x] casehubio/connectors#305 — teams-https-scheme-enforcement
+- [ ] casehubio/connectors#306 — LipSyncEnricher-warmUp-delegation ← active
 - [ ] casehubio/connectors#308 — voice-ref-mark-timing-support
 - [ ] casehubio/connectors#307 — VITS-guarded-exact-mark-resolution
