@@ -55,3 +55,7 @@ flyway-next-v: none
 - [ ] casehubio/connectors#296 — audit-McpDomain-GeneratePlugin-coverage
 - [ ] casehubio/connectors#297 — messaging-method-count-discrepancy
 - [ ] casehubio/connectors#298 — STT-round-trip-identifier-formatting
+- [ ] casehubio/connectors#299 — chat-teams-guard-channel-mgmt-personal
+- [ ] casehubio/connectors#300 — bot-framework-error-propagation
+- [ ] casehubio/connectors#301 — htmlToMarkdown-same-tag-nesting
+- [ ] casehubio/connectors#302 — jwt-validator-cdi-qualifier
