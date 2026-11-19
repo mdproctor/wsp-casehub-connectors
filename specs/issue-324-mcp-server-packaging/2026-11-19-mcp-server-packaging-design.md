@@ -8,11 +8,21 @@
 
 Package the platform's @McpDomain tools as a standalone MCP server consumable by any MCP client — langchain4j, Claude Desktop, OpenAI agents, Cursor, etc. The server is a single Quarkus app that can be built as a JVM JAR or GraalVM native image, exposing tools from one or more domain projects (connectors, neocortex, etc.) based on classpath composition.
 
+### Design evolution
+
+The epic (#324) originally proposed a native proxy + JVM backend architecture — a native image frontend serving `tools/list` instantly while proxying `tools/call` to a JVM backend. During design review, this was replaced with a simpler single-process model because Quarkus ArC performs all CDI wiring at build time and is fully native-image-safe. The two-process architecture solved a problem that doesn't exist — `quarkus-mcp-server` already compiles to native image. See decisions.md D2, D3, D5, D9 (superseded) for the full reasoning.
+
 ## 2. Architecture
 
-### Single-process Quarkus app
+### Single-process Quarkus app — reusing existing platform infrastructure
 
-The server is one Quarkus application using `quarkus-mcp-server`. No proxy, no IPC, no multi-process orchestration. `quarkus-mcp-server` handles MCP protocol (stdio and Streamable HTTP transports). Quarkus ArC performs all CDI bean discovery and wiring at build time — the app compiles to native image with full CDI support.
+The server reuses the existing platform `mcp` module unchanged. The following components already exist and are production-tested:
+
+- **`GraphQLModelScanner`** (platform `mcp/`) — discovers `@McpDomain` beans via CDI at startup
+- **`DynamicToolRegistrar`** (platform `mcp/`) — registers tools via `ToolManager` from `quarkus-mcp-server`
+- **`ReflectiveOperationDispatcher`** (platform `mcp/`) — dispatches tool calls to domain beans
+
+No custom MCP protocol handling is needed — `quarkus-mcp-server` handles all protocol concerns today.
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -20,14 +30,14 @@ The server is one Quarkus application using `quarkus-mcp-server`. No proxy, no I
 │                                                  │
 │  ┌──────────────┐  ┌──────────────────────────┐  │
 │  │ quarkus-mcp- │  │ GraphQLModelScanner      │  │
-│  │ server       │  │ (discovers @McpDomain    │  │
-│  │              │  │  beans, registers tools)  │  │
+│  │ server       │  │ (EXISTING — discovers    │  │
+│  │ (EXISTING)   │  │  @McpDomain beans)       │  │
 │  │ stdio / HTTP │  └──────────┬───────────────┘  │
 │  └──────┬───────┘             │                  │
 │         │          ┌──────────▼───────────────┐  │
 │         │          │ DynamicToolRegistrar     │  │
 │         │          │ + ReflectiveDispatcher   │  │
-│         └──────────┤                          │  │
+│         └──────────┤ (EXISTING)              │  │
 │                    └──────────┬───────────────┘  │
 │                               │                  │
 │         ┌─────────────────────┼──────────┐       │
@@ -36,13 +46,14 @@ The server is one Quarkus application using `quarkus-mcp-server`. No proxy, no I
 │  │ connectors │  │ neocortex  │  │ other     │  │
 │  │ @McpDomain │  │ @McpDomain │  │ @McpDomain│  │
 │  │ beans      │  │ beans      │  │ beans     │  │
+│  │ (EXISTING) │  │            │  │           │  │
 │  └─────┬──────┘  └────────────┘  └───────────┘  │
 │        │                                         │
 │  ┌─────▼──────┐  ┌────────────┐                  │
 │  │ *-ref      │  │ *-google   │  (provider       │
 │  │ (default)  │  │ *-microsoft│   activation     │
-│  └────────────┘  │ *-slack    │   via config)    │
-│                  └────────────┘                  │
+│  │ (EXISTING) │  │ *-slack    │   via config)    │
+│  └────────────┘  └────────────┘                  │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -62,44 +73,44 @@ The native image audit (committed at `docs/audits/2026-11-19-native-image-readin
 
 Both are provided by `quarkus-mcp-server` — no custom protocol handling.
 
+### Tool exposure model
+
+The standalone server exposes all @McpDomain tools individually at startup — flat tool registration, not the platform's `casehub_action` meta-dispatch pattern. External LLM clients need individual tool schemas to reason about when to use each tool. The existing `DynamicToolRegistrar` already supports both modes; the standalone server configuration selects flat mode.
+
+For tool catalog size concerns (90+ tools may overwhelm some LLMs), explicit mode domain filtering (§4) allows consumers to limit the exposed tool set.
+
 ## 3. Composability
 
-The server is domain-agnostic. Tool availability is determined by what @McpDomain JARs are on the classpath:
+The server is domain-agnostic. Tool availability is determined by what @McpDomain JARs are on the classpath. `GraphQLModelScanner` auto-discovers all @McpDomain beans — no manifest files, no build-time catalog generation. Whatever CDI beans are present get registered as tools.
 
 | Distribution | Classpath includes | Tool count |
 |---|---|---|
-| `casehub-mcp-server-connectors` | connectors graphql + all *-ref | ~90 tools |
-| `casehub-mcp-server-neocortex` | neocortex @McpDomain | TBD |
+| `casehub-mcp-server-connectors` | connectors graphql + all *-ref + deps | ~90 tools |
+| `casehub-mcp-server-neocortex` | neocortex @McpDomain + deps | TBD |
 | `casehub-mcp-server-combined` | both | ~90 + TBD |
 
-Each distribution is a thin config module — a `pom.xml` declaring dependencies + `application.properties` for defaults. No Java code beyond what already exists in the domain modules.
-
-### Per-module tool manifests
-
-Each @McpDomain module produces a `META-INF/casehub-mcp/<domain>.json` manifest at build time, containing tool names and JSON schemas. This is generated by extending the existing `GraphQLResolverProcessor` APT processor in `graphql-generator` to emit JSON manifests alongside the resolver/REST/plugin code it already generates.
-
-At server startup, `GraphQLModelScanner` discovers @McpDomain beans via CDI. The manifests serve a secondary purpose: build-time catalog validation, documentation generation, and enabling future fast-path catalog serving if needed.
+Each distribution is a thin config module — a `pom.xml` declaring dependencies + `application.properties` for defaults.
 
 ### Tool name uniqueness
 
-The catalog generator (extended `GraphQLResolverProcessor`) rejects duplicate tool names at build time — a compile error if two @McpDomain operations produce the same tool name. The existing domain-prefixed naming convention (`calendar_list_events`, `send_slack`, `search_products`) provides natural namespacing.
+Tool name uniqueness within a single compilation unit is validated at build time by `GraphQLResolverProcessor` (existing APT). Cross-module name uniqueness (e.g. connectors tool colliding with a platform tool in a combined distribution) is validated at runtime by `GraphQLModelScanner` at startup — duplicate tool names cause a startup failure with a clear error.
 
 ## 4. Domain filtering (explicit mode)
 
-A single config property controls which domains are active:
+A single config property controls which domains are exposed:
 
 ```properties
 # Discover mode (default) — all domains on classpath are exposed
 casehub.mcp.mode=discover
 
-# Explicit mode — only listed domains exposed and loaded
+# Explicit mode — only listed domains exposed
 casehub.mcp.mode=explicit
 casehub.mcp.domains=chat,calendar,document,location
 ```
 
-In explicit mode, Quarkus build-time CDI elimination (`@IfBuildProperty`) prevents unconfigured domain providers from loading. No wasted connection pools, no unused seed data, no unnecessary bean creation. The mechanism already exists in the platform (`@Alternative @Priority` tiers).
+For the initial release, filtering is applied at the `tools/list` response level — tools from excluded domains are not registered with `ToolManager`. All providers still load (they're CDI beans on the classpath). This is the simplest approach and doesn't require modifying existing domain API classes.
 
-For runtime-only filtering (without rebuild), the tool catalog can be filtered at the `tools/list` response level while all providers remain loaded. This covers the case where a user wants to restrict tool visibility without rebuilding.
+Build-time CDI elimination (via `@IfBuildProperty` or Quarkus build extensions) is a future optimisation for resource-constrained deployments — it would prevent excluded providers from loading at all, saving memory and startup time, but requires adding conditional annotations to existing code.
 
 ## 5. Provider activation
 
@@ -124,78 +135,104 @@ When no provider config is present, ref implementations serve realistic seed dat
 
 ## 6. Platform changes (in `platform` repo)
 
-### 6.1 Extend `GraphQLResolverProcessor` (in `graphql-generator`)
+### 6.1 Add `mcp-server` module (new)
 
-Add a fourth output format: `META-INF/casehub-mcp/<domain>.json` manifest per domain. Contains:
-- Tool names
-- JSON schemas (input parameters, descriptions)
-- Domain metadata (app name, summary)
+A JAR module (`<packaging>jar</packaging>`) containing:
+- Anonymous `CurrentPrincipal` provider (`@DefaultBean`) for standalone use — overridden when the server runs within the full platform
+- Domain filtering support — `tools/list` filtering by `casehub.mcp.domains` config
+- Default `application.properties` for standalone MCP server operation
+- Flat tool registration mode configuration (individual tools, not `casehub_action` dispatch)
 
-Controlled by a new processor option: `-AgenerateMcpManifest=true` (default false, enabled in domain module builds).
+This is the only new platform module. No changes to existing `mcp-api`, `mcp-core`, `mcp`, or `mcp-spring` modules.
 
-### 6.2 Add `mcp-server` BOM/archetype (new module)
+### 6.2 Relationship to Spring Boot path
 
-A minimal module that declares the dependency set for a standalone MCP server:
-- `casehub-platform-mcp` (Quarkus runtime — scanner, registrar, dispatcher)
-- `quarkus-mcp-server` (MCP protocol)
-- Domain filtering support (`@IfBuildProperty` configuration)
-- Anonymous `CurrentPrincipal` provider (default for standalone use)
-- `application.properties` defaults (transport selection, domain mode)
+The platform already has a Spring Boot MCP path (`mcp-spring/`, `connectors-spring/`). The two paths coexist:
+- **Quarkus path** (this spec): primary, full-featured, native image capable
+- **Spring Boot path** (existing): for Spring Boot applications that want to embed connectors. `connectors-spring/` auto-configuration is untested as a standalone server but could be extended independently.
 
-This is the only new platform module. All other changes extend existing modules.
-
-### 6.3 `CurrentPrincipal` standalone provider
-
-The connectors graphql module injects `CurrentPrincipal` for user-scoped operations. The `mcp-server` module provides a `@DefaultBean` anonymous principal — overridden when the server runs within the full platform.
+This spec does not modify or deprecate the Spring path.
 
 ## 7. Connectors changes (in `connectors` repo)
 
 ### 7.1 Config module: `mcp-server-connectors` (new module)
 
-Thin packaging module:
-- `pom.xml` — depends on platform `mcp-server` BOM + connectors `graphql` + all `*-ref` modules
-- `application.properties` — default transport (stdio), discover mode, ref providers
-- `src/main/resources/application.properties` for provider switching config
-- Maven profiles for native image build
-- Container image definition (Dockerfile / Jib)
+Thin packaging module with no Java source code beyond CDI wiring:
+
+**`pom.xml` dependencies (full tree):**
+
+Compile scope:
+- `casehub-platform-mcp-server` (new platform module)
+- `casehub-platform-mcp` (existing — scanner, registrar, dispatcher)
+- `casehub-connectors-graphql` (existing — all 15 @McpDomain domain API classes)
+- `casehub-connectors-core` (ConnectorService, InboundConnectorService)
+- All 13 SPI modules: `chat-spi`, `calendar-spi`, `bank-spi`, `email-spi`, `document-spi`, `contacts-spi`, `project-spi`, `location-spi`, `commerce-spi`, `travel-spi`, `health-spi`, `voice-spi`, `mobile-spi`
+- All 13 ref modules: `chat-ref`, `calendar-ref`, `bank-ref`, `email-ref`, `document-ref`, `contacts-ref`, `project-ref`, `location-ref`, `commerce-ref`, `travel-ref`, `health-ref`, `voice-ref`, `mobile-ref`
+- `connectors-api` (shared types: Page, HttpHelper, SyncResult, etc.)
+- `notification-bridge` (DeliveryChannelRegistry)
+
+Runtime scope:
+- `quarkus-mcp-server-sse` (MCP protocol — transitive via platform `mcp`)
+
+**`application.properties`:**
+```properties
+casehub.mcp.mode=discover
+casehub.mcp.tool-exposure=flat
+quarkus.mcp-server.transport=stdio
+quarkus.http.host=127.0.0.1
+```
+
+**Maven profiles:**
+- `jvm` (default): standard Quarkus uber-jar
+- `native`: GraalVM native image with resource config for ref seed YAML
 
 ### 7.2 `ConnectorOperationsImpl` CDI wiring
 
-`ConnectorOperationsImpl` is not `@ApplicationScoped` — needs a CDI producer or `@ApplicationScoped` annotation for standalone discovery. The `mcp-server-connectors` module provides the wiring.
+Add `@ApplicationScoped` to `ConnectorOperationsImpl`. The class already has constructor injection for all 16 parameters — adding the scope annotation is sufficient for CDI discovery.
 
-### 7.3 Enable `generateMcpManifest` in graphql module build
+### 7.3 Startup test
 
-Add `-AgenerateMcpManifest=true` to the `graphql` module's compiler plugin configuration.
+An integration test that starts the Quarkus app and verifies:
+- `tools/list` returns all expected tools
+- `tools/call` with a ref provider returns seed data
+- Domain filtering excludes the right tools
 
-## 8. Authentication
+## 8. Authentication and security
 
-For the initial release:
-- **stdio transport:** inherits process identity. No auth needed — the process runs as the user.
-- **HTTP transport:** no built-in auth. Documented as "local/trusted network only." Users deploying over a network should front with a reverse proxy (nginx, Envoy) for auth.
-- **`CurrentPrincipal`:** anonymous principal in standalone mode.
+### stdio transport
+Inherits process identity. No auth needed — the process runs as the user.
+
+### HTTP transport
+- **Bind to `127.0.0.1` by default** — not `0.0.0.0`. Local-only access.
+- Binding to a non-loopback address requires explicit config: `quarkus.http.host=0.0.0.0`
+- Startup WARNING logged if bound to non-loopback without auth configured
+- No built-in auth for the initial release. Users deploying over a network should front with a reverse proxy (nginx, Envoy) for auth.
+
+### `CurrentPrincipal`
+Anonymous principal in standalone mode (provided by platform `mcp-server` module).
 
 Future work: API key auth, OAuth2, multi-tenant tool catalogs.
 
 ## 9. Implementation sequence
 
-1. **Platform: extend `GraphQLResolverProcessor`** — add JSON manifest generation
-2. **Platform: add `mcp-server` BOM** — dependency set + anonymous CurrentPrincipal + domain filtering config
-3. **Connectors: add `mcp-server-connectors` module** — thin config module
-4. **Connectors: wire `ConnectorOperationsImpl`** — CDI producer or annotation
-5. **Connectors: enable manifest generation** — compiler option in graphql module
-6. **Test: JVM mode** — `java -jar`, stdio transport, verify tools/list + tools/call with ref providers
+1. **Platform: add `mcp-server` module** — anonymous CurrentPrincipal, domain filtering, flat tool mode config
+2. **Connectors: add `@ApplicationScoped` to `ConnectorOperationsImpl`**
+3. **Connectors: add `mcp-server-connectors` module** — pom.xml with full dependency tree + application.properties
+4. **Test: JVM mode** — `java -jar`, stdio transport, verify tools/list + tools/call with ref providers
+5. **Test: domain filtering** — explicit mode with subset of domains
+6. **Test: provider activation** — configure a real provider (e.g. Google Calendar), verify switchover from ref
 7. **Test: native mode** — GraalVM native build, verify startup + ref provider execution
-8. **Test: provider activation** — configure a real provider (e.g. Google Calendar), verify switchover from ref
-9. **Distribution: container image** — Dockerfile for JVM and native variants
-10. **Documentation: README** — langchain4j integration example, Claude Desktop config, provider setup
+8. **Distribution: container image** — Dockerfile for JVM and native variants
+9. **Documentation: README** — langchain4j integration example, Claude Desktop config, provider setup
 
 ## 10. What this does NOT include
 
-- **Custom MCP protocol handling** — `quarkus-mcp-server` handles all protocol concerns
-- **Process management / proxy** — single-process architecture, no supervisor
-- **Multi-tenant auth** — deferred, document the gap
+- **Build-time JSON manifests** — YAGNI. CDI runtime discovery handles tool catalog. No changes to `GraphQLResolverProcessor`.
+- **Build-time domain filtering** — deferred. Runtime filtering at tools/list level is sufficient for v1. Build-time CDI elimination is a future optimisation.
+- **Multi-tenant auth** — deferred. HTTP transport is local-only by default.
 - **Google provider HTTP migration** — separate issue, not gated by this work
 - **Tool schema versioning** — deferred, follow platform convention when established
+- **Spring Boot standalone server** — `connectors-spring` coexists but this spec targets the Quarkus path only
 
 ## References
 
@@ -205,6 +242,8 @@ Future work: API key auth, OAuth2, multi-tenant tool catalogs.
 - `docs/protocols/connectors/mcp-tool-blocking-annotation.md` — @Blocking protocol for @Tool methods
 - `docs/protocols/connectors/shared-http-client.md` — HttpHelper.CLIENT singleton protocol
 - Platform `mcp-standalone-test` — proves standalone consumption without casehub-platform-api
-- Platform `GraphQLResolverProcessor` — existing APT for @McpDomain code generation
+- Platform `GraphQLModelScanner` — existing runtime @McpDomain bean discovery
+- Platform `DynamicToolRegistrar` — existing tool registration via ToolManager
 - Platform `mcp-core` — CDI-free domain model, schema builder (native-safe)
 - MCP spec 2025-03-26 — Streamable HTTP transport
+- Design review: `decisions.md` D2, D3, D5, D9 superseded — single-process replaces native proxy + JVM backend
