@@ -31,8 +31,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#244 — teams-test-safeAttachmentName
 - [x] casehubio/connectors#245 — teams-test-reply-attachments
 - [x] casehubio/connectors#252 — teams-integration-test-proactive
-- [ ] casehubio/connectors#255 — teams-invoke-handler-integration-test ← active
-- [ ] casehubio/connectors#267 — teams-settings-url-manifest
+- [x] casehubio/connectors#255 — teams-invoke-handler-integration-test
+- [ ] casehubio/connectors#267 — teams-settings-url-manifest ← active
 - [ ] casehubio/connectors#266 — teams-comment-field-stripping
 - [ ] casehubio/connectors#268 — teams-cdi-wiring-guidance
 - [ ] casehubio/connectors#265 — docs-messaging-extensions-xref
