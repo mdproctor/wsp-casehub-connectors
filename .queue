@@ -33,8 +33,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#252 — teams-integration-test-proactive
 - [x] casehubio/connectors#255 — teams-invoke-handler-integration-test
 - [x] casehubio/connectors#267 — teams-settings-url-manifest
-- [ ] casehubio/connectors#266 — teams-comment-field-stripping ← active
-- [ ] casehubio/connectors#268 — teams-cdi-wiring-guidance
+- [x] casehubio/connectors#266 — teams-comment-field-stripping
+- [ ] casehubio/connectors#268 — teams-cdi-wiring-guidance ← active
 - [ ] casehubio/connectors#265 — docs-messaging-extensions-xref
 - [ ] casehubio/connectors#254 — docs-webhook-responded-invoke-handler
 - [ ] casehubio/connectors#241 — docs-user-scoped-accessor-guides
