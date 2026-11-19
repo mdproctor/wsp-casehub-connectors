@@ -34,8 +34,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#255 — teams-invoke-handler-integration-test
 - [x] casehubio/connectors#267 — teams-settings-url-manifest
 - [x] casehubio/connectors#266 — teams-comment-field-stripping
-- [ ] casehubio/connectors#268 — teams-cdi-wiring-guidance ← active
-- [ ] casehubio/connectors#265 — docs-messaging-extensions-xref
+- [x] casehubio/connectors#268 — teams-cdi-wiring-guidance
+- [ ] casehubio/connectors#265 — docs-messaging-extensions-xref ← active
 - [ ] casehubio/connectors#254 — docs-webhook-responded-invoke-handler
 - [ ] casehubio/connectors#241 — docs-user-scoped-accessor-guides
 - [ ] casehubio/connectors#218 — sharepoint-multi-site
