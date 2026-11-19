@@ -26,8 +26,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#322 — stt-plugin-optional-fields-audit
 - [x] casehubio/connectors#306 — lipsync-warmup-delegation
 - [x] casehubio/connectors#242 — teams-guard-driveId
-- [ ] casehubio/connectors#247 — teams-attachment-size-limit ← active
-- [ ] casehubio/connectors#248 — teams-personal-rich-content
+- [x] casehubio/connectors#247 — teams-attachment-size-limit
+- [ ] casehubio/connectors#248 — teams-personal-rich-content ← active
 - [ ] casehubio/connectors#244 — teams-test-safeAttachmentName
 - [ ] casehubio/connectors#245 — teams-test-reply-attachments
 - [ ] casehubio/connectors#252 — teams-integration-test-proactive
