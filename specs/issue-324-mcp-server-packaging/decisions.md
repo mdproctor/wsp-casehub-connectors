@@ -84,3 +84,28 @@
 **Sources:** #323 explicit mode discussion
 **Exploration:** quick
 **Status:** captured
+
+## D8: Platform module structure
+
+**Choice:** Three new platform modules with clean native/JVM separation — `mcp-catalog-generator` (Maven plugin/APT that scans @McpDomain Jandex indexes and writes `META-INF/casehub-mcp/<domain>.json` per domain), `mcp-proxy` (native-safe MCP protocol handler — reads manifests, serves tools/list, proxies tools/call over unix socket, manages backend lifecycle, zero CDI), `mcp-server` (Quarkus app archetype/BOM — dependency set for JVM backend, pulls in existing platform `mcp` module + domain modules)
+**Alternatives:**
+- Two modules — merge proxy and server. Simpler module count but muddies the native/JVM boundary
+- Extend existing `mcp` module — fewest new modules but CDI + native code in one module, making native compilation selective
+**Rationale:** Clean separation by construction. The proxy is native-safe because it has no CDI dependencies. The generator is a build tool. The server is a BOM. Each has one job. The existing `mcp` module stays unchanged.
+**Trade-offs:** Three new modules is more to maintain. The proxy module must implement MCP protocol handling independently of quarkus-mcp-server (which is CDI-integrated).
+**Depends on:** D4 (catalog generator produces the manifests the proxy reads)
+**Sources:** Platform mcp module architecture survey; mcp-standalone-test (proves standalone consumption path)
+**Exploration:** quick
+**Status:** captured
+
+## D9: JVM-only mode
+
+**Choice:** Single process — when running on JVM without native, collapse proxy + backend into one Quarkus app. The proxy module provides an in-process MCP protocol handler. No unix socket, no process management.
+**Alternatives:**
+- Always two processes — even in JVM-only mode, run proxy and backend as separate JVM processes. Consistent but wasteful.
+**Rationale:** Two JVMs for no benefit. The two-process split only exists when the native proxy binary is used for instant startup. In JVM-only mode, the proxy module contributes its MCP protocol handler directly into the Quarkus app.
+**Trade-offs:** Proxy module must support both modes: standalone native binary (managing backend over unix socket) and in-process Quarkus extension (direct dispatch). Two code paths to test.
+**Depends on:** D8 (module structure must support both modes)
+**Sources:** quarkus-mcp-server already provides in-process MCP handling; proxy adds the native + forwarding layer
+**Exploration:** quick
+**Status:** captured
