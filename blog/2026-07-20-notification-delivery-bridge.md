@@ -3,6 +3,9 @@ title: "Bridging Notifications to Connectors"
 date: 2026-07-20
 type: diary
 tags: [connectors, notifications, platform, SPI, design]
+entry_type: note
+subtype: diary
+projects: [casehubio/connectors]
 ---
 
 The platform notification system and the connector library evolved independently. Notifications had `NotificationDeliverer` and a registry — but only in-app inbox was wired up. Connectors had `Connector.send()` with five built-in implementations (email, SMS, Slack, Teams, WhatsApp) — but no connection to the notification pipeline. Two systems that should have been one seam.

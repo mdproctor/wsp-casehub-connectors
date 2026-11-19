@@ -2,6 +2,9 @@
 title: "Inbound Goes Both Ways"
 date: 2026-05-30
 tags: [casehub-connectors, casehub-qhorus, inbound, HumanParticipatingChannelBackend, architecture]
+entry_type: note
+subtype: diary
+projects: [casehubio/connectors]
 ---
 
 I knew going into this that connectors#6 was going to be harder than it looked. The issue title —

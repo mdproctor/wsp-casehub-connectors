@@ -1,3 +1,12 @@
+---
+layout: post
+title: "Making the Demo Talk Back"
+date: 2026-07-02
+entry_type: note
+subtype: diary
+projects: [casehubio/connectors]
+---
+
 # Making the Demo Talk Back
 
 The chat-demo shipped last session as a viewer — messages scrolled by, channels

@@ -3,6 +3,9 @@ title: Three Features, One Branch
 date: 2026-07-13
 sequence: mdp21
 tags: [chat-demo, progressive-disclosure, emoji, swipe, web-components]
+entry_type: note
+subtype: diary
+projects: [casehubio/connectors]
 ---
 
 Batched three chat-demo UI features onto a single branch: progressive

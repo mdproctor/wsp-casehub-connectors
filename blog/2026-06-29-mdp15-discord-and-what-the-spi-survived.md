@@ -3,6 +3,9 @@ title: "Discord, and What the SPI Survived"
 date: 2026-06-29
 sequence: 15
 tags: [discord, chat-platform, spi-design, gateway, websocket]
+entry_type: note
+subtype: diary
+projects: [casehubio/connectors]
 ---
 
 # Discord, and What the SPI Survived
