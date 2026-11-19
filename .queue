@@ -24,7 +24,7 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#320 — tts-synthesise-plugin-mark-timing
 - [x] casehubio/connectors#321 — apt-schema-list-items
 - [x] casehubio/connectors#322 — stt-plugin-optional-fields-audit
-- [ ] casehubio/connectors#306 — lipsync-warmup-delegation
+- [ ] casehubio/connectors#306 — lipsync-warmup-delegation ← active
 - [ ] casehubio/connectors#242 — teams-guard-driveId
 - [ ] casehubio/connectors#247 — teams-attachment-size-limit
 - [ ] casehubio/connectors#248 — teams-personal-rich-content
