@@ -28,8 +28,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#242 — teams-guard-driveId
 - [x] casehubio/connectors#247 — teams-attachment-size-limit
 - [x] casehubio/connectors#248 — teams-personal-rich-content
-- [ ] casehubio/connectors#244 — teams-test-safeAttachmentName ← active
-- [ ] casehubio/connectors#245 — teams-test-reply-attachments
+- [x] casehubio/connectors#244 — teams-test-safeAttachmentName
+- [ ] casehubio/connectors#245 — teams-test-reply-attachments ← active
 - [ ] casehubio/connectors#252 — teams-integration-test-proactive
 - [ ] casehubio/connectors#255 — teams-invoke-handler-integration-test
 - [ ] casehubio/connectors#267 — teams-settings-url-manifest
