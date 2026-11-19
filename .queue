@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-324-mcp-server-packaging
 issue-repo: casehubio/connectors
 status: active
 covers: casehubio/connectors#324
@@ -44,3 +44,4 @@ tick: casehubio/connectors#303
 - [ ] casehubio/connectors#326 — stdio-transport
 - [ ] casehubio/connectors#327 — exclude-types-cleanup
 - [ ] casehubio/connectors#328 — domain-filtering-test
+- [ ] casehubio/connectors#329 — seed-externalisation
