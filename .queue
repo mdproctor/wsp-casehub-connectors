@@ -41,3 +41,6 @@ tick: casehubio/connectors#303
 - [ ] casehubio/connectors#315 — yaml-contains-normalised-assertion
 - [ ] casehubio/connectors#218 — sharepoint-multi-site
 - [ ] casehubio/connectors#323 — MCP-server-packaging
+- [ ] casehubio/connectors#326 — stdio-transport
+- [ ] casehubio/connectors#327 — exclude-types-cleanup
+- [ ] casehubio/connectors#328 — domain-filtering-test
