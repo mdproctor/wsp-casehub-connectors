@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: feat/306-lipsync-warmup-delegation
+branch: 
 issue-repo: casehubio/connectors
 status: active
 covers: casehubio/connectors#306
@@ -24,8 +24,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#320 — tts-synthesise-plugin-mark-timing
 - [x] casehubio/connectors#321 — apt-schema-list-items
 - [x] casehubio/connectors#322 — stt-plugin-optional-fields-audit
-- [ ] casehubio/connectors#306 — lipsync-warmup-delegation ← active
-- [ ] casehubio/connectors#242 — teams-guard-driveId
+- [x] casehubio/connectors#306 — lipsync-warmup-delegation
+- [ ] casehubio/connectors#242 — teams-guard-driveId ← active
 - [ ] casehubio/connectors#247 — teams-attachment-size-limit
 - [ ] casehubio/connectors#248 — teams-personal-rich-content
 - [ ] casehubio/connectors#244 — teams-test-safeAttachmentName
