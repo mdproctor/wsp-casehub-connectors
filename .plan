@@ -1,0 +1,13 @@
+# Work Plan — issue-324-mcp-server-packaging
+
+## State
+branch: issue-324-mcp-server-packaging
+state: active
+issue-repo: casehubio/connectors
+covers: casehubio/connectors#324
+Current: casehubio/connectors#324 — Epic: MCP server packaging — standalone server for LLM agent frameworks
+date: 2026-11-19
+
+## Queue
+- [ ] casehubio/connectors#324 — Epic: MCP server packaging — standalone server for LLM agent frameworks ← active
+- [x] casehubio/connectors#323 — MCP server packaging for langchain4j and broader LLM agent community
