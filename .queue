@@ -3,8 +3,8 @@
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: drained
-covers: 
+status: active
+covers: casehubio/connectors#324
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -40,3 +40,4 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#241 — docs-user-scoped-accessor-guides
 - [ ] casehubio/connectors#315 — yaml-contains-normalised-assertion
 - [ ] casehubio/connectors#218 — sharepoint-multi-site
+- [ ] casehubio/connectors#323 — MCP-server-packaging
