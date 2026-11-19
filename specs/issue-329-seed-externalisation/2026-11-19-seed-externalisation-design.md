@@ -110,24 +110,26 @@ All 25 seed YAML files move from `src/main/resources/` to `src/test/resources/`:
 
 ### MCP server corpus bundling
 
-The `mcp-server-connectors` module uses `maven-resources-plugin` `copy-resources` executions to pull seed YAML from each ref module's `src/test/resources/seed/` into `target/classes/corpus/<domain>/` at build time.
+The `mcp-server-connectors` module uses `maven-resources-plugin` `copy-resources` executions to pull seed YAML from each ref module's `src/test/resources/seed/` into `target/quarkus-app/corpus/<domain>/` at build time. This places the corpus as loose files alongside `quarkus-run.jar`, not inside the application JAR.
 
-Corpus directory layout in the MCP server JAR:
+Corpus directory layout in the MCP server distribution:
 
 ```
-corpus/
-  bank/accounts.yaml, balances.yaml, transactions.yaml
-  calendar/calendars.yaml, events.yaml
-  chat/channels.yaml, members.yaml
-  commerce/products.yaml
-  contacts/contacts.yaml, groups.yaml
-  document/files.yaml, folders.yaml
-  email/messages.yaml
-  health/appointments.yaml, providers.yaml, records.yaml
-  location/geocoding.yaml, places.yaml
-  mobile/conversations.yaml, messages.yaml, numbers.yaml, voicemails.yaml
-  project/project-data.yaml
-  travel/accommodation.yaml, transport.yaml
+target/quarkus-app/
+  quarkus-run.jar
+  corpus/
+    bank/accounts.yaml, balances.yaml, transactions.yaml
+    calendar/calendars.yaml, events.yaml
+    chat/channels.yaml, members.yaml
+    commerce/products.yaml
+    contacts/contacts.yaml, groups.yaml
+    document/files.yaml, folders.yaml
+    email/messages.yaml
+    health/appointments.yaml, providers.yaml, records.yaml
+    location/geocoding.yaml, places.yaml
+    mobile/conversations.yaml, messages.yaml, numbers.yaml, voicemails.yaml
+    project/project-data.yaml
+    travel/accommodation.yaml, transport.yaml
 ```
 
 The MCP server's `application.properties` sets:
@@ -136,7 +138,7 @@ The MCP server's `application.properties` sets:
 casehub.ref.seed-dir=corpus/
 ```
 
-This resolves relative to the working directory. When the MCP server is run from its distribution directory, `corpus/` is a sibling of `quarkus-run.jar`. The Quarkus fast-jar layout places `target/classes/` content alongside the runner, so the corpus files are available as regular files on disk — no classpath extraction needed.
+This resolves relative to the working directory. Users run the server from the distribution directory (`java -jar quarkus-run.jar`), so `corpus/` resolves to the sibling directory. Users can edit these files directly or point `casehub.ref.seed-dir` to a different location.
 
 ### Native image profile
 
