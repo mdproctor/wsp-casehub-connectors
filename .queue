@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: feat/306-lipsync-warmup-delegation
+branch: 
 issue-repo: casehubio/connectors
 status: drained
-covers: casehubio/connectors#306
+covers: 
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -38,5 +38,5 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#265 — docs-messaging-extensions-xref
 - [x] casehubio/connectors#254 — docs-webhook-responded-invoke-handler
 - [x] casehubio/connectors#241 — docs-user-scoped-accessor-guides
-- [x] casehubio/connectors#218 — sharepoint-multi-site
-- [ ] casehubio/connectors#323 — mcp-server-packaging
+- [ ] casehubio/connectors#315 — yaml-contains-normalised-assertion
+- [ ] casehubio/connectors#218 — sharepoint-multi-site
