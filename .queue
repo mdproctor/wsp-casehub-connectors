@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: feat/306-lipsync-warmup-delegation
 issue-repo: casehubio/connectors
 status: active
 covers: casehubio/connectors#306
