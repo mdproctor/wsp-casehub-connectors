@@ -2,33 +2,27 @@
 
 ## Session summary
 
-- **#328 — domain-filtering-test**: Done on `issue-328-domain-filtering-test`. Ready to land.
-  - Added `DomainFilteringTest` — `@QuarkusTest` with `@TestProfile` for explicit mode (`casehub.mcp.mode=explicit`, `casehub.mcp.domains=chat,calendar`)
-  - 6 assertions: chat/calendar registered, bank/health/commerce excluded, voice report excluded
-  - All tests pass. Code review clean.
-  - Filed #335 (report tool naming inconsistency — `connectors/voice_report` uses `/` while flat tools use `_`)
-  - #335 scheduled in queue
+- **#335 — normalise-report-tool-name**: Done on `issue-335-normalise-report-tool-name`.
+  - Fix in platform repo: `DynamicToolRegistrar.java` line 72 — added `replace("/", "_")` to report tool name construction so slashed domains (e.g. `connectors/voice`) produce `connectors_voice_report` instead of `connectors/voice_report`
+  - Added `SlashedDomainReportProvider` test fixture (`@McpDomain("test/nested")`) and test `reportTool_slashedDomainNormalisesToUnderscore`
+  - Updated `DomainFilteringTest` in connectors to use normalised tool name `connectors_voice_report`
+  - All 93 platform mcp tests pass, all 6 connectors domain filtering tests pass
+- **#332 — corpus-cwd-docs**: Was already landed on main from prior session. Marked done in queue.
 
 ## Cross-repo state
 
-| Repo | Branch | Commits ahead of local/main |
-|------|--------|---------------------------|
-| connectors | issue-328-domain-filtering-test | 1 (test) |
-| wsp-connectors | issue-328-domain-filtering-test | 2 (queue updates, handoff) |
+| Repo | Branch | Commits ahead of main |
+|------|--------|-----------------------|
+| platform | issue-335-normalise-report-tool-name | 1 (fix + test) |
+| connectors | issue-335-normalise-report-tool-name | 1 (test assertion update) |
+| wsp-connectors | issue-335-normalise-report-tool-name | queue + handoff |
 
-Prior session's connectors and platform commits on main are still ahead of local/main (not yet pushed to origin).
+## Queue
 
-## Next active item
-
-**#331 — seed-bootstrap-ux** (S/Med). First-run seed corpus bootstrap experience.
-
-## Open queue items
-
-| # | Title | Scale |
-|---|-------|-------|
-| #331 | MCP server: first-run seed corpus bootstrap | S |
-| #332 | MCP server: document expected CWD for corpus | XS |
-| #335 | normalise report tool name to underscore separator | XS |
+| # | Title | Status |
+|---|-------|--------|
+| #332 | corpus-cwd-docs | Done (landed on main) |
+| #335 | normalise-report-tool-name | Done on branch, ready to land |
 
 ## Pre-existing test failures (not caused by this session)
 
