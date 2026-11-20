@@ -4,7 +4,7 @@
 branch: main
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#335
+covers: casehubio/connectors#332
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -46,5 +46,5 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#328 — domain-filtering-test
 - [x] casehubio/connectors#329 — seed-externalisation
 - [x] casehubio/connectors#331 — seed-bootstrap-ux
-- [ ] casehubio/connectors#332 — corpus-cwd-docs ← done on issue-328-domain-filtering-test
-- [ ] casehubio/connectors#335 — normalise-report-tool-name ← active
+- [ ] casehubio/connectors#332 — corpus-cwd-docs ← active
+- [ ] casehubio/connectors#335 — normalise-report-tool-name
