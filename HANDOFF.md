@@ -2,38 +2,33 @@
 
 ## Session summary
 
-- **#326 — stdio transport**: Landed on main. GitHub issue ready to close.
-  - Platform: extracted `CaseHubMcpTools` to new `casehub-platform-mcp-dispatch` module (3 commits)
-  - Platform: moved named server config (`quarkus.mcp.server.casehub.*`) to `mcp-dispatch`
-  - Connectors: added `quarkus-mcp-server-stdio` via mutually exclusive Maven profiles (stdio default, `-Dhttp` for SSE)
-  - Connectors: removed `quarkus.arc.exclude-types` hack, restored MCP resources
-  - Connectors: 10 tests green including regression tests for dispatch tool absence and resource registration
-  - Code review complete: critical finding (dual-transport conflict) fixed with profile restructure
-  - Blog revised: updated tool count (133), replaced hack description with module split, stdio marked done
-  - Filed #333 (modular MCP architecture — future exploration, L/High)
-  - Closed #327 as obsolete (replaced by proper module split)
+- **#328 — domain-filtering-test**: Done on `issue-328-domain-filtering-test`. Ready to land.
+  - Added `DomainFilteringTest` — `@QuarkusTest` with `@TestProfile` for explicit mode (`casehub.mcp.mode=explicit`, `casehub.mcp.domains=chat,calendar`)
+  - 6 assertions: chat/calendar registered, bank/health/commerce excluded, voice report excluded
+  - All tests pass. Code review clean.
+  - Filed #335 (report tool naming inconsistency — `connectors/voice_report` uses `/` while flat tools use `_`)
+  - #335 scheduled in queue
 
 ## Cross-repo state
 
 | Repo | Branch | Commits ahead of local/main |
 |------|--------|---------------------------|
-| connectors | main | 4 (stdio transport + review fixes + blog) |
-| platform | main | 3 (mcp-dispatch module + config move + jackson cleanup) |
-| wsp-connectors | main | 20 (specs, plans, queue updates) |
+| connectors | issue-328-domain-filtering-test | 1 (test) |
+| wsp-connectors | issue-328-domain-filtering-test | 2 (queue updates, handoff) |
 
-Platform commits must land before connectors — connectors depends on the updated `casehub-platform-mcp` (without `CaseHubMcpTools`).
+Prior session's connectors and platform commits on main are still ahead of local/main (not yet pushed to origin).
 
 ## Next active item
 
-**#328 — domain-filtering-test** (XS/Low). The pipeline offered `branch_name` — next session should provide the branch name and proceed.
+**#331 — seed-bootstrap-ux** (S/Med). First-run seed corpus bootstrap experience.
 
 ## Open queue items
 
 | # | Title | Scale |
 |---|-------|-------|
-| #328 | MCP server: domain filtering integration test | XS |
 | #331 | MCP server: first-run seed corpus bootstrap | S |
 | #332 | MCP server: document expected CWD for corpus | XS |
+| #335 | normalise report tool name to underscore separator | XS |
 
 ## Pre-existing test failures (not caused by this session)
 
