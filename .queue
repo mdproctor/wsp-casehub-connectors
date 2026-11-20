@@ -3,7 +3,8 @@
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: drained
+status: active
+covers: 
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -44,4 +45,4 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#327 — exclude-types-cleanup
 - [x] casehubio/connectors#329 — seed-externalisation
 - [x] casehubio/connectors#336 — docs-device-location-guides
-- [ ] casehubio/connectors#337 — seed-loader-tracked-devices-test
+- [ ] casehubio/connectors#337 — seed-loader-tracked-devices-test ← done on issue-337-seed-loader-test
