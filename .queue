@@ -1,16 +1,16 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: main
 issue-repo: casehubio/connectors
 status: active
+covers: casehubio/connectors#335
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
 design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
 flyway-next-v: none
 tick: casehubio/connectors#303
-covers: casehubio/connectors#332
 
 ## Queue
 - [x] casehubio/connectors#308 — voice-ref-mark-timing-support
@@ -43,8 +43,8 @@ covers: casehubio/connectors#332
 - [x] casehubio/connectors#323 — MCP-server-packaging
 - [x] casehubio/connectors#326 — stdio-transport
 - [x] casehubio/connectors#327 — exclude-types-cleanup
-- [ ] casehubio/connectors#328 — domain-filtering-test ← done on issue-328-domain-filtering-test
+- [x] casehubio/connectors#328 — domain-filtering-test
 - [x] casehubio/connectors#329 — seed-externalisation
-- [ ] casehubio/connectors#331 — seed-bootstrap-ux ← done on issue-328-domain-filtering-test
-- [ ] casehubio/connectors#332 — corpus-cwd-docs ← active
-- [ ] casehubio/connectors#335 — normalise-report-tool-name
+- [x] casehubio/connectors#331 — seed-bootstrap-ux
+- [ ] casehubio/connectors#332 — corpus-cwd-docs ← done on issue-328-domain-filtering-test
+- [ ] casehubio/connectors#335 — normalise-report-tool-name ← active
