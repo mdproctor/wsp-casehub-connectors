@@ -2,27 +2,35 @@
 
 ## Session summary
 
-- **#335 — normalise-report-tool-name**: Done on `issue-335-normalise-report-tool-name`.
-  - Fix in platform repo: `DynamicToolRegistrar.java` line 72 — added `replace("/", "_")` to report tool name construction so slashed domains (e.g. `connectors/voice`) produce `connectors_voice_report` instead of `connectors/voice_report`
-  - Added `SlashedDomainReportProvider` test fixture (`@McpDomain("test/nested")`) and test `reportTool_slashedDomainNormalisesToUnderscore`
-  - Updated `DomainFilteringTest` in connectors to use normalised tool name `connectors_voice_report`
-  - All 93 platform mcp tests pass, all 6 connectors domain filtering tests pass
-- **#332 — corpus-cwd-docs**: Was already landed on main from prior session. Marked done in queue.
+- **#332 — corpus-cwd-docs**: Was already landed on main from prior session. Marked done, closed on GitHub.
+- **#335 — normalise-report-tool-name**: Fixed and landed on main across both repos.
+  - Platform: `DynamicToolRegistrar.java` — added `replace("/", "_")` in report registration (line 72), `activateDomain` (line 189). `CaseHubToolCallbackProvider.java` — added `replace("/", "_")` in Spring path (line 138).
+  - Connectors: Updated `DomainFilteringTest` assertion from `connectors/voice_report` to `connectors_voice_report`.
+  - Added `SlashedDomainReportProvider` and `SlashedDomainQueryResolver` test fixtures with 4 new tests (report, activate, flat mode, negative). All 95 platform mcp tests pass.
+  - Filed #338 (extract shared tool name normalisation method) and scheduled in queue.
+  - Blog: `2026-11-20-mdp02-the-slash-that-slipped-through.md` — promoted to public.
+  - Both issues closed on GitHub.
 
 ## Cross-repo state
 
-| Repo | Branch | Commits ahead of main |
-|------|--------|-----------------------|
-| platform | issue-335-normalise-report-tool-name | 1 (fix + test) |
-| connectors | issue-335-normalise-report-tool-name | 1 (test assertion update) |
-| wsp-connectors | issue-335-normalise-report-tool-name | queue + handoff |
+| Repo | Branch | Status |
+|------|--------|--------|
+| connectors (slot 225) | main | #332 and #335 landed, stamp committed |
+| platform (slot 225) | main | #335 landed (squashed, 1 commit) |
+| wsp-connectors (slot 225) | main | blog, queue, handoff landed |
+| public/connectors | issue-336-docs-device-location-guides | blog promoted, queue synced |
+
+Slot's main is ahead of canonical repos — canonical connectors is on #334 work from another slot.
+
+## Next active item
+
+**#338 — extract-tool-name-normalisation** (XS/Low). Extract shared utility for domain-to-tool-name normalisation.
 
 ## Queue
 
-| # | Title | Status |
-|---|-------|--------|
-| #332 | corpus-cwd-docs | Done (landed on main) |
-| #335 | normalise-report-tool-name | Done on branch, ready to land |
+| # | Title | Scale | Status |
+|---|-------|-------|--------|
+| #338 | extract shared tool name normalisation | XS | Queued |
 
 ## Pre-existing test failures (not caused by this session)
 
