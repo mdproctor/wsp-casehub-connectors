@@ -1,3 +1,11 @@
 _run=end
 review_attempt=1
 last_yielded=review
+_exec_ok:create_branches=yes
+create_branches=done
+_exec_ok:recover_plan=yes
+recover_plan=done
+_exec_ok:design_routing=yes
+design_routing=done
+_exec_ok:scaffold=yes
+scaffold=done
