@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: 
+covers: casehubio/connectors#336
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -43,8 +43,6 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#323 — MCP-server-packaging
 - [x] casehubio/connectors#326 — stdio-transport
 - [x] casehubio/connectors#327 — exclude-types-cleanup
-- [ ] casehubio/connectors#328 — domain-filtering-test ← done on issue-328-domain-filtering-test
 - [x] casehubio/connectors#329 — seed-externalisation
-- [ ] casehubio/connectors#331 — seed-bootstrap-ux ← done on issue-328-domain-filtering-test
-- [ ] casehubio/connectors#332 — corpus-cwd-docs ← done on issue-336-docs-device-location-guides
-- [ ] casehubio/connectors#335 — normalise-report-tool-name ← done on issue-336-docs-device-location-guides
+- [ ] casehubio/connectors#336 — docs-device-location-guides
+- [ ] casehubio/connectors#337 — seed-loader-tracked-devices-test
