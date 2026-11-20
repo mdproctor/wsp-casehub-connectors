@@ -37,10 +37,10 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#265 — docs-messaging-extensions-xref
 - [x] casehubio/connectors#254 — docs-webhook-responded-invoke-handler
 - [x] casehubio/connectors#241 — docs-user-scoped-accessor-guides
-- [ ] casehubio/connectors#315 — yaml-contains-normalised-assertion ← active
-- [ ] casehubio/connectors#218 — sharepoint-multi-site
-- [ ] casehubio/connectors#323 — MCP-server-packaging
-- [ ] casehubio/connectors#326 — stdio-transport
+- [x] casehubio/connectors#315 — yaml-contains-normalised-assertion
+- [x] casehubio/connectors#218 — sharepoint-multi-site
+- [x] casehubio/connectors#323 — MCP-server-packaging
+- [ ] casehubio/connectors#326 — stdio-transport ← active
 - [ ] casehubio/connectors#327 — exclude-types-cleanup
 - [ ] casehubio/connectors#328 — domain-filtering-test
 - [x] casehubio/connectors#329 — seed-externalisation
