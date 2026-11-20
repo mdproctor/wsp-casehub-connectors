@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: 
 issue-repo: casehubio/connectors
 status: active
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
@@ -40,13 +40,9 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#315 — yaml-contains-normalised-assertion
 - [x] casehubio/connectors#218 — sharepoint-multi-site
 - [x] casehubio/connectors#323 — MCP-server-packaging
-- [ ] casehubio/connectors#326 — stdio-transport ← active
-  - [x] Batch 1: Platform split
-    - [x] Task 1: Create mcp-dispatch module and move CaseHubMcpTools
-  - [x] Batch 2: Connectors stdio
-    - [x] Task 2: Add stdio transport and remove exclude-types hack
-- [ ] casehubio/connectors#327 — exclude-types-cleanup
-- [ ] casehubio/connectors#328 — domain-filtering-test
+- [x] casehubio/connectors#326 — stdio-transport
+- [x] casehubio/connectors#327 — exclude-types-cleanup
+- [ ] casehubio/connectors#328 — domain-filtering-test ← active
 - [x] casehubio/connectors#329 — seed-externalisation
 - [ ] casehubio/connectors#331 — seed-bootstrap-ux
 - [ ] casehubio/connectors#332 — corpus-cwd-docs

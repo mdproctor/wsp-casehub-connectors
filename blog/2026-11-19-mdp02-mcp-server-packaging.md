@@ -8,7 +8,7 @@ projects: [casehubio/connectors]
 tags: [mcp, quarkus, architecture, design-review, cdi]
 ---
 
-The connectors project has accumulated 90+ MCP tools across 13 platform domains — calendar, email, documents, chat, commerce, travel, health, voice, mobile, the lot. These already work inside the full CaseHub platform. The question we set out to answer today: can we package them as a standalone MCP server that any LLM agent framework can use? Claude Desktop, langchain4j, Cursor, OpenAI agents — whatever speaks MCP.
+The connectors project has accumulated 133 MCP tools across 15 platform domains — calendar, email, documents, chat, commerce, travel, health, voice, mobile, the lot. These already work inside the full CaseHub platform. The question we set out to answer today: can we package them as a standalone MCP server that any LLM agent framework can use? Claude Desktop, langchain4j, Cursor, OpenAI agents — whatever speaks MCP.
 
 The answer is yes, and the journey to get there involved a design pivot I didn't expect.
 
@@ -44,7 +44,7 @@ Three problems and their solutions:
 
 **Problem 2: Quarkus ArC removes "unused" beans at build time.** The `@McpDomain` classes aren't injected by anything — they're discovered by `GraphQLModelScanner` via `BeanManager.getBeans()` at runtime. ArC couldn't see this usage and removed them. Fix: `quarkus.arc.unremovable-types=io.casehub.connectors.graphql.**`.
 
-**Problem 3: `@McpServer("casehub")` on the platform's `CaseHubMcpTools` creates a named MCP server.** This conflicts with the standalone server's transport — stdio doesn't support multiple server configurations. Fix: `quarkus.arc.exclude-types` to remove the platform's dispatch-mode tools from the standalone server's CDI context.
+**Problem 3: `@McpServer("casehub")` on the platform's `CaseHubMcpTools` creates a named MCP server.** This conflicts with stdio transport — stdio doesn't support multiple server configurations. The initial fix was `quarkus.arc.exclude-types`, but that's fragile — it breaks when classes are renamed and it's invisible to anyone reading the dependency graph. We replaced it with a proper module split: `CaseHubMcpTools` moved to its own `mcp-dispatch` module, and `casehub-platform-mcp` is now pure reusable infrastructure that any standalone server can depend on without inheriting the named server.
 
 None of these are architectural — they're integration friction. But they took more time than the design and the actual code changes combined.
 
@@ -60,4 +60,4 @@ The obvious gap is authentication for real providers. Google, Microsoft, GitHub 
 
 I want an MCP tool that opens a browser to a connection management page hosted by the server itself. Click "Connect Google", do the OAuth2 dance, tokens stored locally. No CLI flags, no config files, no client-specific integration. Any MCP client can trigger it because it's just a tool call that opens a URL. We filed this as a mosaic issue (casehubio/casehub-mosaic#328) since the UI components are shared with the platform's connection management work.
 
-The other open item is stdio transport. The platform's `CaseHubMcpTools` declares a named MCP server (`@McpServer("casehub")`) that conflicts with stdio's single-server requirement. This needs a platform change to make the named server conditional — straightforward but needs coordination across repos.
+stdio transport is now working. The platform module split that removed `CaseHubMcpTools` from the shared infrastructure also cleared the path for `quarkus-mcp-server-stdio` — no named server conflict, no `exclude-types` hack. The standalone server defaults to stdio for Claude Desktop, Cursor, and langchain4j CLI. HTTP is available via a Maven profile for the connection homepage and other browser-based clients.
