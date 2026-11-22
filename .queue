@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-337-seed-loader-test
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#212
+covers: casehubio/connectors#340
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -45,7 +45,7 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#327 — exclude-types-cleanup
 - [x] casehubio/connectors#329 — seed-externalisation
 - [x] casehubio/connectors#336 — docs-device-location-guides
-- [ ] casehubio/connectors#212 — issue 212 ← active
+- [ ] casehubio/connectors#212 — issue 212 ← done on issue-337-seed-loader-test
   - [x] Batch 1: Foundation
     - [x] Task 1: Module scaffold and model records
     - [x] Task 2: TelegramBotClient with WireMock tests
@@ -55,7 +55,7 @@ tick: casehubio/connectors#337
     - [x] Task 4: WebhookInboundConnector and Translator
   - [x] Batch 4: Docs
     - [x] Task 5: Update CLAUDE.md and guides
-- [ ] casehubio/connectors#339 — telegram-presence-capability
-- [ ] casehubio/connectors#340 — telegram-commands-capability
+- [ ] casehubio/connectors#339 — telegram-presence-capability ← done on issue-337-seed-loader-test
+- [ ] casehubio/connectors#340 — telegram-commands-capability ← active
 - [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook
 - [ ] casehubio/connectors#342 — telegram-test-coverage-gaps
