@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#340
+covers: casehubio/connectors#341
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -56,6 +56,6 @@ tick: casehubio/connectors#337
   - [x] Batch 4: Docs
     - [x] Task 5: Update CLAUDE.md and guides
 - [ ] casehubio/connectors#339 — telegram-presence-capability ← done on issue-337-seed-loader-test
-- [ ] casehubio/connectors#340 — telegram-commands-capability ← active
-- [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook
+- [ ] casehubio/connectors#340 — telegram-commands-capability ← done on issue-337-seed-loader-test
+- [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook ← active
 - [ ] casehubio/connectors#342 — telegram-test-coverage-gaps
