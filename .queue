@@ -55,3 +55,7 @@ tick: casehubio/connectors#337
     - [x] Task 4: WebhookInboundConnector and Translator
   - [x] Batch 4: Docs
     - [x] Task 5: Update CLAUDE.md and guides
+- [ ] casehubio/connectors#339 — telegram-presence-capability
+- [ ] casehubio/connectors#340 — telegram-commands-capability
+- [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook
+- [ ] casehubio/connectors#342 — telegram-test-coverage-gaps
