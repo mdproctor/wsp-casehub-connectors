@@ -1,3 +1,7 @@
 - branch: issue-309-connector-tutorial-examples
   issue: 315
   paused: 2026-11-20T13:16:32Z
+- branch: issue-342-telegram-test-coverage
+  issue: 342
+  paused: 2026-11-22T17:49:27Z
+  epic_active_issue: casehubio/connectors#341
