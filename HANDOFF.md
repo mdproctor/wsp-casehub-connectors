@@ -1,41 +1,36 @@
-# Handoff — slot 225 connectors
+# Handoff — connectors
 
 ## Session summary
 
-- **#326 — stdio transport**: Landed on main. GitHub issue ready to close.
-  - Platform: extracted `CaseHubMcpTools` to new `casehub-platform-mcp-dispatch` module (3 commits)
-  - Platform: moved named server config (`quarkus.mcp.server.casehub.*`) to `mcp-dispatch`
-  - Connectors: added `quarkus-mcp-server-stdio` via mutually exclusive Maven profiles (stdio default, `-Dhttp` for SSE)
-  - Connectors: removed `quarkus.arc.exclude-types` hack, restored MCP resources
-  - Connectors: 10 tests green including regression tests for dispatch tool absence and resource registration
-  - Code review complete: critical finding (dual-transport conflict) fixed with profile restructure
-  - Blog revised: updated tool count (133), replaced hack description with module split, stdio marked done
-  - Filed #333 (modular MCP architecture — future exploration, L/High)
-  - Closed #327 as obsolete (replaced by proper module split)
+- **#212 — Telegram ChatPlatform provider**: Implementation complete, code reviewed, blog written.
+  - `telegram-bot` module: `TelegramBotClient` with 8 Bot API methods (sendMessage, setMessageReaction, getChat, getChatMemberCount, getChatMember, getChatAdministrators, setMyCommands, deleteMyCommands). Uses `HttpHelper.CLIENT` with call-time token passing.
+  - `chat-telegram` module: `TelegramChatPlatform` with 5 native capabilities (Messaging, Threading, Discovery, Reactions, Members). `TelegramInboundConnector` (webhook with secret token verification). `TelegramInboundTranslator`. `ChatTelegramBeans`.
+  - Constants added: `InboundConnectorIds.TELEGRAM_INBOUND`, `InboundConnectorTypes.TELEGRAM`
+  - Live-validated against real Telegram Bot API (env-var-gated live test)
+  - Code review: Presence and Commands removed from native capabilities (were stubs). `SendResponse` dead code removed. Inline annotations fixed.
+  - Blog: "Telegram Joins the Chat" — written and committed
+  - Filed #339 (Presence capability), #340 (Commands capability), #341 (setWebhook/deleteWebhook), #342 (test coverage gaps)
 
 ## Cross-repo state
 
-| Repo | Branch | Commits ahead of local/main |
-|------|--------|---------------------------|
-| connectors | main | 4 (stdio transport + review fixes + blog) |
-| platform | main | 3 (mcp-dispatch module + config move + jackson cleanup) |
-| wsp-connectors | main | 20 (specs, plans, queue updates) |
-
-Platform commits must land before connectors — connectors depends on the updated `casehub-platform-mcp` (without `CaseHubMcpTools`).
+| Repo | Branch | Status |
+|------|--------|--------|
+| connectors | issue-337-seed-loader-test | 7 commits ahead of main (telegram modules + fixes + docs) |
+| wsp-connectors | issue-337-seed-loader-test | specs, plans, blog, queue updates |
 
 ## Next active item
 
-**#328 — domain-filtering-test** (XS/Low). The pipeline offered `branch_name` — next session should provide the branch name and proceed.
-
-## Open queue items
+Queue has 4 follow-up issues from code review:
 
 | # | Title | Scale |
 |---|-------|-------|
-| #328 | MCP server: domain filtering integration test | XS |
-| #331 | MCP server: first-run seed corpus bootstrap | S |
-| #332 | MCP server: document expected CWD for corpus | XS |
+| #339 | chat-telegram: Presence capability via getChatMember | XS |
+| #340 | chat-telegram: Commands capability via setMyCommands | S |
+| #341 | chat-telegram: setWebhook and deleteWebhook | XS |
+| #342 | chat-telegram: test coverage gaps | XS |
 
-## Pre-existing test failures (not caused by this session)
+## Notes
 
-- `playbooks`: 4 failures — `ConnectorMobileApi` service registration (CDI wiring)
-- `bank-truelayer`: 2 errors — JPA/webhook tests
+- Bot token for `@Casehuborg_bot` was exposed in conversation — regenerate via BotFather `/revoke` before next session
+- Memory file `reference_telegram_dev_bot.md` documents the dev bot identity
+- Discovery uses ephemeral `ConcurrentHashMap` cache — persistent cache can follow if needed
