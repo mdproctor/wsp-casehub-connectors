@@ -46,12 +46,12 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#329 — seed-externalisation
 - [x] casehubio/connectors#336 — docs-device-location-guides
 - [ ] casehubio/connectors#212 — issue 212 ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: Module scaffold and model records
-    - [ ] Task 2: TelegramBotClient with WireMock tests
-  - [ ] Batch 2: ChatPlatform
-    - [ ] Task 3: TelegramChatPlatform with 7 capabilities
-  - [ ] Batch 3: Inbound
-    - [ ] Task 4: WebhookInboundConnector and Translator
-  - [ ] Batch 4: Docs
-    - [ ] Task 5: Update CLAUDE.md and guides
+  - [x] Batch 1: Foundation
+    - [x] Task 1: Module scaffold and model records
+    - [x] Task 2: TelegramBotClient with WireMock tests
+  - [x] Batch 2: ChatPlatform
+    - [x] Task 3: TelegramChatPlatform with 7 capabilities
+  - [x] Batch 3: Inbound
+    - [x] Task 4: WebhookInboundConnector and Translator
+  - [x] Batch 4: Docs
+    - [x] Task 5: Update CLAUDE.md and guides
