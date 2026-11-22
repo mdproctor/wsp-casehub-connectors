@@ -41,7 +41,7 @@
   - [x] Batch 4: Docs
     - [x] Task 5: Update CLAUDE.md and guides
 - [x] casehubio/connectors#339 — telegram-presence-capability
-- [ ] casehubio/connectors#340 — telegram-commands-capability ← done on issue-337-seed-loader-test
+- [x] casehubio/connectors#340 — telegram-commands-capability
 - [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook        ← active
 - [ ] casehubio/connectors#342 — telegram-test-coverage-gaps
 
