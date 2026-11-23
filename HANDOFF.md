@@ -2,21 +2,22 @@
 
 ## Session summary
 
-- **#345 — LocalDate step coercion**: Deferred to platform repo. Filed casehubio/platform#938 with root cause analysis and fix options. No connectors code changes needed.
-- **#346 — Voice-ref speaker discrimination**: Fixed. Replaced `hashCode()` nibble extraction (8-dim [0,1]) with SHA-256 (16-dim [-1,1]) in `RefSpeakerEmbeddingExtractor`. Added 4 unit tests verifying embedding distinctness and registry discrimination including TTS WAV round-trip.
+- **#345 — LocalDate step coercion**: Deferred to platform repo. Filed casehubio/platform#938. No connectors changes.
+- **#346 — Voice-ref speaker discrimination**: Fixed. SHA-256 replaces hashCode in `RefSpeakerEmbeddingExtractor` (16-dim [-1,1]). 4 unit tests. Closed.
+- **#339 — Telegram Presence**: Implemented `TelegramPresence` inner class — maps `getChatMember` status to PresenceStatus. 6 WireMock tests.
+- **#340 — Telegram Commands**: Implemented `TelegramCommands` inner class — delegates to `setMyCommands`. 1 WireMock test. Telegram now 7 native capabilities.
 
 ## Cross-repo state
 
 | Repo | Branch | Status |
 |------|--------|--------|
-| connectors | issue-346-voice-ref-speaker-discrimination | 1 commit ahead of main |
-| wsp-connectors | issue-346-voice-ref-speaker-discrimination | queue updates, handoff |
+| connectors | issue-340-telegram-commands | 1 commit ahead of main (squashed) |
+| wsp-connectors | main | queue updates, handoff |
 
 ## Queue
 
-Both items done. Queue is empty after landing.
+All items done. Queue empty after landing.
 
 ## Notes
 
-- Playbook joint-account tests still assert `identified: true` only (not speaker name) because `voice-sherpa`'s `yaml-services.yaml` overrides ref implementations on the test classpath — the Campplus extractor can't discriminate the ref TTS's fake audio. The ref-level unit tests verify name discrimination directly.
-- platform#938 needs to be picked up in a platform session for the LocalDate fix
+- platform#938 needs pickup in a platform session for LocalDate fix
