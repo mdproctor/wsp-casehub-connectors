@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: issue-309-tutorial-improvements
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#341
+covers: casehubio/connectors#309
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
