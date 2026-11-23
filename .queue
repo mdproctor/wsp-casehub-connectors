@@ -1,18 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/connectors
-status: active
-covers: 
-project-sha: 4b3f479371df8960c97559ac61e7853636347561
-date: 2026-11-18
-design-repo: project
-design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
-flyway-next-v: none
-tick: casehubio/connectors#337
-
-## Queue
 - [x] casehubio/connectors#308 — voice-ref-mark-timing-support
 - [x] casehubio/connectors#307 — VITS-guarded-exact-mark-resolution
 - [x] casehubio/connectors#312 — guard-user-channel-remaining-operations
@@ -52,5 +37,16 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#342 — telegram-test-coverage-gaps
 - [x] casehubio/connectors#343 — remaining-domain-tutorials
 - [x] casehubio/connectors#344 — migrate-existing-test-assertions
-- [ ] casehubio/connectors#345 — localdate-step-coercion ← done on issue-345-localdate-step-coercion
+- [x] casehubio/connectors#345 — localdate-step-coercion
 - [ ] casehubio/connectors#346 — voice-ref-speaker-discrimination ← done on issue-346-voice-ref-speaker-discrimination
+
+## State
+branch: 
+issue-repo: casehubio/connectors
+status: active
+project-sha: 4b3f479371df8960c97559ac61e7853636347561
+date: 2026-11-18
+design-repo: project
+design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
+flyway-next-v: none
+tick: casehubio/connectors#337
