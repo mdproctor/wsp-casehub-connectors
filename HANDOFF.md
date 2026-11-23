@@ -55,6 +55,8 @@ The workspace branch `issue-347-inline-ref-schemas` has a HANDOFF.md conflict wi
 - #350 — VoiceConfigProducer: add `@DefaultBean` to prevent CDI ambiguity
 - #351 — MCP server voice-config: add ref fallback voices
 - #352 — LangChain4j integration: Podman clean-install test
+- #353 — MCP server: move downstream to consume mosaic connection UI
+- #355 — Epic: casehubio/distributions — leaf apps and packaged deployables (MCP server, Electron app, CLI)
 
 ## Prior session issues (still open)
 
