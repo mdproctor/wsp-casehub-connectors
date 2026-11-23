@@ -1,18 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/connectors
-status: active
-covers: casehubio/connectors#349
-project-sha: 4b3f479371df8960c97559ac61e7853636347561
-date: 2026-11-18
-design-repo: project
-design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
-flyway-next-v: none
-tick: casehubio/connectors#303
-
-## Queue
 - [x] casehubio/connectors#308 — voice-ref-mark-timing-support
 - [x] casehubio/connectors#307 — VITS-guarded-exact-mark-resolution
 - [x] casehubio/connectors#312 — guard-user-channel-remaining-operations
@@ -48,8 +33,20 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#331 — seed-bootstrap-ux
 - [x] casehubio/connectors#332 — corpus-cwd-docs
 - [x] casehubio/connectors#335 — normalise-report-tool-name
-- [ ] casehubio/connectors#338 — extract-tool-name-normalisation ← done on issue-338-extract-tool-name-normalisation
-- [ ] casehubio/connectors#348 — PaginationHelper-handle-null-empty-cursor ← done on issue-348-pagination-null-cursor
-- [ ] casehubio/connectors#347 — inline-ref-schemas-for-langchain4j ← done on issue-347-inline-ref-schemas
-- [ ] casehubio/platform#937 — suppress-stdio-pre-init-notifications ← done on issue-347-inline-ref-schemas
-- [ ] casehubio/connectors#349 — langchain4j-integration-examples ← active
+- [x] casehubio/connectors#338 — extract-tool-name-normalisation
+- [x] casehubio/connectors#348 — PaginationHelper-handle-null-empty-cursor
+- [x] casehubio/connectors#347 — inline-ref-schemas-for-langchain4j
+- [x] casehubio/platform#937 — suppress-stdio-pre-init-notifications
+- [ ] casehubio/connectors#349 — langchain4j-integration-examples        ← active
+
+## State
+branch: 
+issue-repo: casehubio/connectors
+status: active
+covers: casehubio/connectors#349
+project-sha: 4b3f479371df8960c97559ac61e7853636347561
+date: 2026-11-18
+design-repo: project
+design-section-hashes: 4d2cc5ab:## §1 Introduction and Goals|4f6b26ef:## §2 Constraints|39b76cb9:## §3 Context and Scope|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|f1938c56:## §6 Runtime View|65807a21:## §7 Deployment View|a03d508f:## §8 Crosscutting Concepts|b2e1b57c:## §9 Journeys and Chapters|598f3a04:## §10 Architectural Decisions|1f604475:## §11 Quality Requirements|af5f260f:## §12 Risks and Technical Debt|42d51385:## §13 Glossary
+flyway-next-v: none
+tick: casehubio/connectors#303
