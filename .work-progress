@@ -1,4 +1,4 @@
-_run=start:348
+_run=start:347
 _exec_ok:sync_main=yes
 sync_main=done
 _exec_ok:stacked_pr_detect=yes
@@ -6,8 +6,6 @@ stacked_pr_detect=done
 branch_name_attempt=1
 last_yielded=branch_name
 branch_name=done
-branch_name_produced=0
-create_branches_mechanical_attempt=2
 _exec_ok:create_branches=yes
 create_branches=done
 _exec_ok:recover_plan=yes
