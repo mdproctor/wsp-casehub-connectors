@@ -36,8 +36,8 @@
 - [x] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook
 - [x] casehubio/connectors#342 — telegram-test-coverage-gaps
 - [x] casehubio/connectors#343 — remaining-domain-tutorials
-- [ ] casehubio/connectors#344 — migrate-existing-test-assertions ← done on issue-342-telegram-test-gaps
-- [ ] casehubio/connectors#345 — localdate-step-coercion
+- [x] casehubio/connectors#344 — migrate-existing-test-assertions
+- [ ] casehubio/connectors#345 — localdate-step-coercion        ← active
 - [ ] casehubio/connectors#346 — voice-ref-speaker-discrimination
 
 ## State
