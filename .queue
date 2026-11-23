@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-338-extract-tool-name-normalisation
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#338
+covers: casehubio/connectors#349
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -48,8 +48,8 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#331 — seed-bootstrap-ux
 - [x] casehubio/connectors#332 — corpus-cwd-docs
 - [x] casehubio/connectors#335 — normalise-report-tool-name
-- [ ] casehubio/connectors#338 — extract-tool-name-normalisation ← active
-- [ ] casehubio/connectors#348 — PaginationHelper-handle-null-empty-cursor
-- [ ] casehubio/connectors#347 — inline-ref-schemas-for-langchain4j
-- [ ] casehubio/platform#937 — suppress-stdio-pre-init-notifications
-- [ ] casehubio/connectors#349 — langchain4j-integration-examples
+- [ ] casehubio/connectors#338 — extract-tool-name-normalisation ← done on issue-338-extract-tool-name-normalisation
+- [ ] casehubio/connectors#348 — PaginationHelper-handle-null-empty-cursor ← done on issue-348-pagination-null-cursor
+- [ ] casehubio/connectors#347 — inline-ref-schemas-for-langchain4j ← done on issue-347-inline-ref-schemas
+- [ ] casehubio/platform#937 — suppress-stdio-pre-init-notifications ← done on issue-347-inline-ref-schemas
+- [ ] casehubio/connectors#349 — langchain4j-integration-examples ← active
