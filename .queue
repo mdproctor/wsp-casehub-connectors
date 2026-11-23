@@ -38,12 +38,12 @@
 - [x] casehubio/connectors#343 — remaining-domain-tutorials
 - [x] casehubio/connectors#344 — migrate-existing-test-assertions
 - [x] casehubio/connectors#345 — localdate-step-coercion
-- [ ] casehubio/connectors#346 — voice-ref-speaker-discrimination ← done on issue-346-voice-ref-speaker-discrimination
+- [x] casehubio/connectors#346 — voice-ref-speaker-discrimination
 
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: active
+status: drained
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
