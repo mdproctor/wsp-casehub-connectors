@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-309-tutorial-improvements
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#309
+covers: casehubio/connectors#342
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -48,7 +48,7 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#212 — issue 212
 - [x] casehubio/connectors#339 — telegram-presence-capability
 - [x] casehubio/connectors#340 — telegram-commands-capability
-- [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook ← active
-- [ ] casehubio/connectors#342 — telegram-test-coverage-gaps
+- [ ] casehubio/connectors#341 — telegram-setWebhook-deleteWebhook ← done on issue-309-tutorial-improvements
+- [ ] casehubio/connectors#342 — telegram-test-coverage-gaps ← active
 - [ ] casehubio/connectors#343 — remaining-domain-tutorials
 - [ ] casehubio/connectors#344 — migrate-existing-test-assertions
