@@ -117,6 +117,19 @@
 **Exploration:** quick
 **Status:** captured
 
+## D11: Init steps — playbook reference, not manifest-inline
+
+**Choice:** Connectors that need setup steps beyond credential wiring declare an optional `setup-playbook` path in the manifest. The playbook is a standard YAML playbook file (same infrastructure as `voice-pipeline-steps`, `stt-transcribe`, etc.). Cross-connector flows (Signal phone verification via Numbrrs SMS) are playbook steps that call other platform connectors. The lifecycle manager runs the playbook when a connector is first configured or when setup is explicitly requested.
+**Alternatives:**
+- Manifest-inline steps — simpler for small flows but doesn't scale for multi-step cross-connector orchestration
+- Programmatic ConnectorSetup SPI — maximum flexibility but back to bespoke Java per connector, contradicts D1
+**Rationale:** Playbook infrastructure already exists, already handles step sequencing, already has integration tests. Reusing it means no new execution model. Cross-connector references are natural — a playbook step can call any MCP tool or platform operation. Signal's setup playbook calls `mobile_send_sms` (Numbrrs), waits for the verification SMS, extracts the code, and calls Signal's register endpoint.
+**Trade-offs:** Playbooks need step types for health-check and wait-for-SMS that may not exist yet. The setup playbook must be idempotent — running it again on an already-configured connector should be a no-op, not a re-registration.
+**Depends on:** D2 (YAML format), D10 (setup playbooks are connector-specific, live in connectors)
+**Sources:** Existing playbook infrastructure in connectors/playbooks, voice-pipeline-steps pattern
+**Exploration:** quick
+**Status:** captured
+
 ## D8: CDI mechanism — Quarkus synthetic beans from manifest
 
 **Choice:** A Quarkus build extension discovers `connector-manifest.yaml` files and registers synthetic CDI beans (via `SyntheticBeanBuildItem`) for each connector's platform class and inbound connector. The synthetic bean's creation function resolves credentials from a unified store, constructs the client, and constructs the platform/connector. All bespoke `*Beans.java` producers are deleted.
