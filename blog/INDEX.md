@@ -33,3 +33,4 @@
 | [2026-11-19-mdp02-mcp-server-packaging.md](2026-11-19-mdp02-mcp-server-packaging.md) | 2026-11-19 | Packaging connectors' 133 MCP tools as a standalone server — design pivot from two-process to single Quarkus app, CDI wiring challenges, composable tool catalogs |
 | [2026-11-20-mdp01-seed-data-your-data.md](2026-11-20-mdp01-seed-data-your-data.md) | 2026-11-20 | Externalising ref provider seed data with configurable corpus directories for standalone MCP server users |
 | [2026-11-22-mdp01-telegram-joins-the-chat.md](2026-11-22-mdp01-telegram-joins-the-chat.md) | 2026-11-22 | Telegram ChatPlatform provider — two-module pattern, 5 native capabilities, webhook inbound, live-validated against Bot API |
+| [2026-11-24-mdp01-real-sims-for-real-testing.md](2026-11-24-mdp01-real-sims-for-real-testing.md) | 2026-11-24 | Numbrrs MobilePlatform provider — real UK SIM numbers for Signal/Telegram/WhatsApp testing, inbound-only SMS + NumberInfo, HMAC-SHA256 webhooks |
