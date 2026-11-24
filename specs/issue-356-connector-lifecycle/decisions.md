@@ -89,3 +89,16 @@
 **Sources:** Existing `@McpDomain("connectors")` pattern (casehub_action, connectorStatus, connectorsReport)
 **Exploration:** quick
 **Status:** captured
+
+## D8: CDI mechanism — Quarkus synthetic beans from manifest
+
+**Choice:** A Quarkus build extension discovers `connector-manifest.yaml` files and registers synthetic CDI beans (via `SyntheticBeanBuildItem`) for each connector's platform class and inbound connector. The synthetic bean's creation function resolves credentials from a unified store, constructs the client, and constructs the platform/connector. All bespoke `*Beans.java` producers are deleted.
+**Alternatives:**
+- Config adapter — keep existing CDI beans, unify only the config source. Less invasive but perpetuates two parallel bean production styles.
+- Annotated platform classes — `@ConnectorManifest` on Java classes instead of YAML. Compile-time safe but contradicts D2 (YAML descriptor).
+**Rationale:** One mechanism for all connectors. Existing `@ApplicationScoped` classes (Telegram, Signal) become plain classes instantiated by the synthetic producer. `NumbrrsMobileBeans`, `ChatTelegramBeans`, `ChatSignalBeans` all disappear. Consistent with D1 (replace, not layer).
+**Trade-offs:** Requires Quarkus build extension knowledge. Synthetic beans are less discoverable than explicit `@Produces` methods. Spring Boot deployment (`connectors-spring`) needs an equivalent mechanism.
+**Depends on:** D1 (replace and unify), D2 (YAML descriptor)
+**Sources:** Quarkus SyntheticBeanBuildItem API, existing credential wiring in NumbrrsMobileBeans/ChatTelegramBeans/ChatSignalBeans
+**Exploration:** quick
+**Status:** captured
