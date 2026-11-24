@@ -8,7 +8,12 @@ The connectors library has 15+ provider modules, each wiring credentials and CDI
 - `@ConfigProperty` — MicroProfile Config properties from env vars or `application.properties`. Used by Telegram, Signal, IRC.
 - `ServiceConnectionProvider` — OAuth token management with scope tracking and refresh. Used by Google (4 connectors), Microsoft (3+), GitHub, TrueLayer.
 
-Each connector has its own `*Beans.java` CDI producer class. Some use explicit `@Produces` methods that manually construct everything (Numbrrs pattern). Others use direct `@ApplicationScoped` on the platform class with `@Inject` constructor injection (Telegram/Signal pattern). No shared abstraction connects them.
+Credential wiring follows two distinct patterns, neither shared:
+
+- **Explicit CDI producer** (Numbrrs): `NumbrrsMobileBeans` manually resolves credentials from `StaticCredentialStore`, parses the JSON, constructs the client and platform in `@Produces` methods.
+- **Annotated class self-wiring** (Telegram, Signal): The platform, connector, and client classes themselves are `@ApplicationScoped` with `@ConfigProperty` constructor injection. The `*Beans.java` classes (`ChatTelegramBeans`, `ChatSignalBeans`) exist only to produce the translator via `new *InboundTranslator()` — they perform no credential wiring.
+
+No shared abstraction connects them.
 
 The consequences:
 
@@ -64,8 +69,8 @@ public interface ProviderCredentialFacade {
 For a given `(providerId, field)` pair, the facade checks in order:
 
 1. **StaticCredentialStore** — `find("system", providerId, "default")`, parse the JSON `credential` string, extract the named field.
-2. **CredentialResolver** — `resolve(providerId)`, look up field in the returned property map using `CredentialPropertyKeys`.
-3. **MicroProfile Config** — `casehub.<providerId>.<field>` property (covers env vars, `application.properties`, Vault).
+2. **CredentialResolver** — `resolve(providerId)`, look up the manifest field name directly as the map key in the returned property map. `CredentialPropertyKeys` constants are not used — the manifest field names (`api-key`, `bot-token`, `number`, etc.) serve as the canonical keys.
+3. **MicroProfile Config** — `casehub.<providerId>.<field>` property (covers env vars, `application.properties`, Vault). Existing config property names that deviate from this convention (e.g. `casehub.telegram.bot.token` instead of `casehub.telegram.bot-token`) are standardized during migration to match the `casehub.<id>.<field>` pattern.
 
 For OAuth providers (Phase 3), `ServiceConnectionProvider.getAccessToken()` is an additional resolution path.
 
@@ -73,7 +78,9 @@ The `source()` method enables diagnostics — the MCP `connector_status` tool ca
 
 ### Platform issue
 
-This facade is a platform issue, not a connectors issue. It lives in `platform-api` alongside the existing credential infrastructure. The connectors lifecycle manager depends on it but does not implement it.
+This facade is a platform issue, not a connectors issue. The interface lives in `platform-api` alongside the existing credential infrastructure (`StaticCredentialStore`, `CredentialResolver`, `CredentialPropertyKeys`). The CDI implementation lives in `platform-core` — `platform-api` is pure Java with no CDI. The connectors lifecycle manager depends on the interface but does not implement it.
+
+The facade belongs in `platform-api` because it unifies types that are already in `platform-api`. Adding the facade creates no new dependency for any repo — the dependency is already universal. While connectors is the first consumer, the facade bridges existing platform-scoped credential infrastructure; placing it in `connectors-api` would force future credential consumers to depend on a connectors module.
 
 **Suggested issue:** "ProviderCredentialFacade — unified credential resolution across StaticCredentialStore, CredentialResolver, and MicroProfile Config" in `casehubio/platform`.
 
@@ -102,6 +109,9 @@ connector:
     - class: <string>             # fully qualified class name
       scope: <string>             # CDI scope: "application" (default), "dependent"
       type: <string>              # bean type: "platform", "inbound-connector", "translator", "client"
+      constructor-args:           # ordered list matching constructor parameter order
+        - field: <string>         # resolves credential field via ProviderCredentialFacade (references auth.fields entry)
+        - bean: <string>          # injects another produced bean by fully qualified class name
 
   setup-playbook: <string>        # optional — path to setup playbook YAML (relative to classpath)
 
@@ -109,6 +119,8 @@ connector:
     endpoint: <string>            # optional — health check URL template with {field} substitution
     interval: <string>            # optional — health check interval (default: "60s")
 ```
+
+**Schema extensibility:** The `auth` section will gain additional top-level keys in Phase 3 for OAuth support (`token-url`, `auth-url`, `scopes`, `redirect-url`). These are OAuth protocol endpoints, not credential fields, so they do not fit in `auth.fields`. The Jackson deserializer uses `FAIL_ON_UNKNOWN_PROPERTIES = false`, ensuring Phase 1 manifests remain valid when Phase 3 keys are added. The `family` field is already reserved for Phase 3.
 
 ### Java records
 
@@ -152,7 +164,17 @@ public record ConnectorManifest(
     public record BeanDeclaration(
             @JsonProperty("class") String className,
             String scope,
-            String type) {}
+            String type,
+            @JsonProperty("constructor-args") List<ConstructorArg> constructorArgs) {}
+
+    public record ConstructorArg(
+            String field,
+            String bean) {
+        public ConstructorArg {
+            if ((field == null) == (bean == null))
+                throw new IllegalArgumentException("exactly one of field or bean required");
+        }
+    }
 
     public record HealthDeclaration(
             String endpoint,
@@ -186,8 +208,13 @@ connector:
   produces:
     - class: io.casehub.connectors.mobile.numbrrs.NumbrrsMobilePlatform
       type: platform
+      constructor-args:
+        - field: api-key
+        - field: numbers
     - class: io.casehub.connectors.mobile.numbrrs.NumbrrsInboundConnector
       type: inbound-connector
+      constructor-args:
+        - field: signing-secret
 ```
 
 **Telegram** (`chat-telegram/src/main/resources/META-INF/connector-manifest.yaml`):
@@ -212,14 +239,23 @@ connector:
         description: "Telegram API base URL (default: https://api.telegram.org)"
 
   produces:
-    - class: io.casehub.connectors.chat.telegram.TelegramChatPlatform
-      type: platform
-    - class: io.casehub.connectors.chat.telegram.TelegramInboundConnector
-      type: inbound-connector
-    - class: io.casehub.connectors.chat.telegram.TelegramInboundTranslator
-      type: translator
     - class: io.casehub.connectors.telegram.bot.TelegramBotClient
       type: client
+      constructor-args:
+        - field: api-url
+    - class: io.casehub.connectors.chat.telegram.TelegramChatPlatform
+      type: platform
+      constructor-args:
+        - bean: io.casehub.connectors.telegram.bot.TelegramBotClient
+        - field: bot-token
+        - field: webhook-secret
+    - class: io.casehub.connectors.chat.telegram.TelegramInboundConnector
+      type: inbound-connector
+      constructor-args:
+        - field: webhook-secret
+        - bean: io.casehub.connectors.chat.telegram.TelegramChatPlatform
+    - class: io.casehub.connectors.chat.telegram.TelegramInboundTranslator
+      type: translator
 
   setup-playbook: playbooks/telegram-webhook-setup.yaml
 
@@ -246,14 +282,24 @@ connector:
         description: "Signal phone number in E.164 format (e.g. +447700100001)"
 
   produces:
-    - class: io.casehub.connectors.chat.signal.SignalChatPlatform
-      type: platform
-    - class: io.casehub.connectors.chat.signal.SignalInboundConnector
-      type: inbound-connector
-    - class: io.casehub.connectors.chat.signal.SignalInboundTranslator
-      type: translator
     - class: io.casehub.connectors.signal.cli.SignalClient
       type: client
+      constructor-args:
+        - field: api-url
+    - class: io.casehub.connectors.chat.signal.SignalChatPlatform
+      type: platform
+      constructor-args:
+        - bean: io.casehub.connectors.signal.cli.SignalClient
+        - field: api-url
+        - field: number
+    - class: io.casehub.connectors.chat.signal.SignalInboundConnector
+      type: inbound-connector
+      constructor-args:
+        - bean: io.casehub.connectors.signal.cli.SignalClient
+        - field: api-url
+        - field: number
+    - class: io.casehub.connectors.chat.signal.SignalInboundTranslator
+      type: translator
 
   setup-playbook: playbooks/signal-registration.yaml
 
@@ -323,18 +369,15 @@ A Quarkus build extension that replaces the bespoke `*Beans.java` CDI producers 
 
 ### Runtime bean construction
 
-The synthetic bean creation function follows a convention based on the `type` field in the manifest:
+The synthetic bean creation function is driven entirely by the `constructor-args` declarations in the manifest. Each entry maps to a constructor parameter in order:
 
-| Type | Construction pattern |
-|------|---------------------|
-| `client` | Constructor takes resolved credential fields as parameters |
-| `platform` | Constructor takes the client bean + additional config |
-| `inbound-connector` | Constructor takes signing/verification credentials |
-| `translator` | No-arg constructor (pure data mapper) |
+- `field: <name>` — resolves the credential field via `ProviderCredentialFacade.resolve(connectorId, name)`. Passes the result as a `String` (empty string if unresolved). For `Optional<String>` constructor parameters, wraps in `Optional.ofNullable()`.
+- `bean: <class>` — injects the referenced bean from the CDI container via `SyntheticCreationalContext.getInjectedReference()`.
+- Entries with no `constructor-args` — no-arg constructor (e.g. translators).
 
-For Phase 1, the construction logic is connector-specific — each connector's classes expose constructors that accept the resolved credential values. The build extension knows how to call them based on the manifest's `produces` declarations.
+The build extension contains no connector-specific construction code. The manifest is the single source of truth for how each bean is assembled. Inter-bean dependencies (e.g. `TelegramChatPlatform` depending on `TelegramBotClient`) are declared via `bean:` references and resolved by Quarkus's CDI container — no explicit ordering or topological sort is needed.
 
-**Degraded mode:** When required credentials are missing, the build extension still registers the bean but wraps it in a degraded proxy. For platform beans, this uses the existing `NoOp*Platform` pattern. The `ConnectorRegistry` records the connector as `UNCONFIGURED` rather than `READY`.
+**Degraded mode:** When required credentials are missing, the build extension still registers the bean and passes empty credential values. The platform classes handle degradation internally via their existing `initDegraded()` pattern — both `TelegramChatPlatform` and `SignalChatPlatform` check for blank credentials in their `@PostConstruct init()` and swap all capability interfaces to no-op implementations (e.g. `EmptyDiscovery`, `NoOpReactions`). There are no separate `NoOp*Platform` classes. For `NumbrrsMobilePlatform`, which currently throws `IllegalStateException` on missing credentials, the migration adds an `initDegraded()` path for consistency. The `ConnectorRegistry` records connectors with missing required credentials as `UNCONFIGURED` rather than `READY`.
 
 ### @ConnectorBean qualifier
 
@@ -352,6 +395,13 @@ Enables injection by connector ID when multiple connectors produce the same SPI 
 ## MCP Tools
 
 Exposed via `@McpDomain("connectors/lifecycle")`, these tools give agents and users a uniform interface to discover, configure, and monitor connectors.
+
+**Relationship with existing tools:** `ConnectorOperationsImpl` in the `graphql` module already provides `connectorStatus` (lists registered connectors and active capabilities) and `connectorsReport` (per-platform capability summary with scope filter) under `@McpDomain("connectors")`. These existing tools report runtime capability state — which capabilities are active on registered platforms. The new lifecycle tools report a different dimension: manifest discovery, credential configuration status, health, and setup playbook state. The two sets coexist with clear boundaries:
+
+- **Existing `connectorStatus` / `connectorsReport`**: runtime capabilities of registered platform beans (chat, calendar, bank, email, mobile). Scope: all connector types, including those not yet manifest-driven.
+- **New `connector_discover` / `connector_status`**: lifecycle state of manifest-declared connectors. Scope: only connectors with a `connector-manifest.yaml`.
+
+As more connectors migrate to manifests in Phase 2+, the lifecycle tools will subsume the existing tools. Naming uses the new `snake_case` convention under the `connectors/lifecycle` domain — no collision with the existing `camelCase` names in the `connectors` domain.
 
 ### connector_discover
 
@@ -475,10 +525,17 @@ description: Register a phone number with Signal using SMS verification via Numb
 
 | Step type | Purpose | Module |
 |-----------|---------|--------|
-| `health-check` | HTTP GET, fail if non-2xx | connectors-api or playbooks |
-| `http-post` | HTTP POST with JSON body | connectors-api or playbooks |
+| `health-check` | HTTP GET, fail if non-2xx | playbooks |
+| `http-post` | HTTP POST with JSON body | playbooks |
 | `connector-status` | Check a connector's status via the lifecycle manager | connectors lifecycle |
-| `wait-for-sms` | Poll Numbrrs `listMessages()` until a matching SMS arrives | mobile-numbrrs or playbooks |
+| `wait-for-sms` | Poll for SMS via `MobilePlatformService` SPI until a matching message arrives | playbooks |
+
+**Step type contracts:**
+
+- **`health-check`**: Input: `url` (string, supports `{field}` substitution). Output: captured as the step name (e.g. `bot-info`). Behaviour: HTTP GET, retries 3 times with 2s backoff, fails the playbook if all retries return non-2xx.
+- **`http-post`**: Input: `url` (string), `body` (JSON object). Output: response body captured as the step name. Behaviour: HTTP POST with `Content-Type: application/json`, fails on non-2xx.
+- **`connector-status`**: Input: `connector-id` (string), `require` (status enum). Behaviour: queries `ConnectorRegistry`, fails if the connector's status doesn't match `require`.
+- **`wait-for-sms`**: Input: `provider` (connector id), `to` (phone number), `pattern` (regex with capture group), `timeout` (duration). Output: `code` capture group from first matching message. Behaviour: polls `MobilePlatformService.platform(provider).sms().listMessages()` every 5s until a message matching `pattern` arrives or `timeout` expires. The step uses the `MobilePlatformService` SPI — the playbooks module has no direct dependency on `mobile-numbrrs`.
 
 ## Migration Plan
 
@@ -493,7 +550,7 @@ description: Register a phone number with Signal using SMS verification via Numb
 A new module (or a `lifecycle` package within `connectors-api`) containing:
 
 - `ConnectorLifecycleBuildExtension` — the Quarkus build extension
-- `ConnectorRegistry` — runtime registry of discovered connectors and their status
+- `ConnectorRegistry` — runtime registry of discovered connectors and their lifecycle status (READY, UNCONFIGURED, ERROR). This is distinct from `ConnectorService`, which routes outbound messages to `Connector` implementations, and from `ChatPlatformService`/`MobilePlatformService`, which provide platform-type-specific SPI registries. `ConnectorRegistry` knows about ALL manifest-declared beans across all types and tracks their credential/health lifecycle — a dimension the existing services don't cover.
 - `ConnectorLifecycleOperations` — `@McpDomain("connectors/lifecycle")` MCP tool implementations
 
 ### mobile-numbrrs
@@ -509,7 +566,9 @@ A new module (or a `lifecycle` package within `connectors-api`) containing:
 - Delete `ChatTelegramBeans.java`
 - Remove `@ApplicationScoped` from `TelegramChatPlatform`, `TelegramInboundConnector`, `TelegramBotClient`
 - Remove `@ConfigProperty` injection — credentials arrive via constructor parameters from the synthetic bean
+- Standardize config property names: `casehub.telegram.bot.token` → `casehub.telegram.bot-token`, `casehub.telegram.webhook.secret-token` → `casehub.telegram.webhook-secret`
 - Retain `@PostConstruct`-equivalent init logic in the constructor or a factory method
+- Fix `TelegramInboundConnector.handle()`: replace `String.equals()` webhook secret comparison with `MessageDigest.isEqual()` for constant-time verification (per `PP-20260529-b7765c`)
 - Add `playbooks/telegram-webhook-setup.yaml`
 
 ### chat-signal
@@ -533,7 +592,43 @@ A new module (or a `lifecycle` package within `connectors-api`) containing:
 
 ### connectors-spring
 
-- Equivalent mechanism for Spring Boot: a `@Configuration` class that reads manifests and registers beans via `@Bean` methods. The manifest schema is shared; the bean registration mechanism differs.
+Not in Phase 1 scope — see "What Is NOT in Phase 1" below.
+
+## Testing Strategy
+
+### Unit tests (connectors-api / connector-lifecycle)
+
+- `ConnectorManifest` YAML parsing: valid manifests, missing required fields, malformed YAML, unknown keys (forward-compatibility)
+- `ConstructorArg` validation: exactly-one-of field/bean constraint
+- `ConnectorManifestLoader` merge cascade: override priority ordering, field-level replacement by connector id
+- `ProviderCredentialFacade` resolution cascade ordering: StaticCredentialStore → CredentialResolver → MicroProfile Config, with source tracking
+
+### Integration tests (connector-lifecycle)
+
+- Synthetic bean registration: Quarkus augmentation test verifying that beans declared in a test manifest are injectable
+- Constructor-args wiring: test manifest with field + bean references, verify correct credential values and bean injection
+- Degraded mode: test with missing required credentials, verify platform enters degraded state and ConnectorRegistry records UNCONFIGURED
+- ConnectorRegistry population: verify all manifest-declared connectors appear with correct status
+
+### MCP tool tests
+
+- `connector_discover`: returns all manifest-declared connectors with correct status and field information
+- `connector_status`: returns credential source information, health check results
+- `connector_setup`: triggers playbook execution for connectors with setup-playbook
+- `connector_health`: runs health checks, returns per-connector results
+
+### Regression tests (migrated connectors)
+
+- Numbrrs: webhook delivery still works (signing verification, SMS/voice event handling)
+- Telegram: webhook delivery still works, degraded mode activates on missing bot-token, webhook secret comparison uses constant-time `MessageDigest.isEqual()`
+- Signal: WebSocket connection still works, degraded mode activates on missing api-url or number
+
+### Playbook step type tests
+
+- `health-check`: success on 200, retry on 503, fail after retries exhausted
+- `http-post`: success with response capture, fail on non-2xx
+- `connector-status`: pass when connector matches required status, fail otherwise
+- `wait-for-sms`: message matching with regex capture, timeout behaviour
 
 ## What Is NOT in Phase 1
 
@@ -544,6 +639,7 @@ A new module (or a `lifecycle` package within `connectors-api`) containing:
 | Browser automation for OAuth | Phase 3 | Playwright-driven consent flows depend on the OAuth family model |
 | Mosaic web UI | Future | MCP tools are the primary API; UI consumes them later |
 | Credential rotation/revocation via manifest | Phase 2+ | `StaticCredentialStore` already handles this; the facade exposes it |
+| connectors-spring manifest-driven beans | Phase 2 | Spring `@Configuration` reads the same manifests and registers beans via `@Bean` methods; the manifest schema is shared but the bean registration mechanism differs; Quarkus proves the model first |
 
 ## References
 
