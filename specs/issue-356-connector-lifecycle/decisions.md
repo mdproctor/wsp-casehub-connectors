@@ -130,6 +130,18 @@
 **Exploration:** quick
 **Status:** captured
 
+## D12: Manifest conventions — follow voice-config/agent-config pattern
+
+**Choice:** `connector-manifest.yaml` follows the established manifest conventions: kebab-case keys, `@JsonProperty("kebab-name")` mapping to camelCase Java record fields, `YamlMappers.create()` for parsing, record-based Jackson deserialization, prioritised merge cascade (classpath → /etc/casehub → ~/.casehub → project dir → profile variant). Top-level structure uses named sections consistent with voice-config (`providers`, `voices`, `defaults`) and agent-config (`providers`, `models`, `aliases`, `defaults`, `pools`).
+**Alternatives:**
+- camelCase (used by seed-catalog.yaml, test-endpoints.yaml) — inconsistent with the dominant pattern
+- Flat properties (like yaml-services.yaml) — too simple for the manifest's hierarchical structure
+**Rationale:** Survey of 14 YAML patterns across the platform shows kebab-case + record-based deserialization + merge cascade as the dominant convention. Voice-config and agent-config are the closest structural analogues. Consistency means anyone who has worked with voice-config or agent-config will recognise the connector-manifest pattern immediately.
+**Trade-offs:** None — this is a conformance decision, not a trade-off.
+**Sources:** voice-config.yaml (VoiceManifest, VoiceManifestLoader), agent-config.yaml (AgentManifest, AgentManifestLoader), platform YAML convention survey
+**Exploration:** quick
+**Status:** captured
+
 ## D8: CDI mechanism — Quarkus synthetic beans from manifest
 
 **Choice:** A Quarkus build extension discovers `connector-manifest.yaml` files and registers synthetic CDI beans (via `SyntheticBeanBuildItem`) for each connector's platform class and inbound connector. The synthetic bean's creation function resolves credentials from a unified store, constructs the client, and constructs the platform/connector. All bespoke `*Beans.java` producers are deleted.
