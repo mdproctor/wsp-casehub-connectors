@@ -562,4 +562,4 @@ A new module (or a `lifecycle` package within `connectors-api`) containing:
 - `VoiceManifest.java` / `VoiceManifestLoader.java` — `voice-spi/src/main/java/.../voice/config/`
 - `AgentManifest.java` / `AgentManifestLoader.java` — `agent-config-core/src/main/java/.../agent/config/`
 - Quarkus `SyntheticBeanBuildItem` API
-- Existing `@McpDomain("connectors")` pattern in `graphql` module
+- Existing `@McpDomain("connectors")` pattern in `graphql` module 
