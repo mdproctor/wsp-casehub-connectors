@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: issue-356-connector-lifecycle
 issue-repo: casehubio/connectors
 status: active
 covers: casehubio/connectors#356
@@ -56,10 +56,10 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#340 — telegram-commands-capability
 - [x] casehubio/connectors#208 — numbrrs-mobile-provider
 - [ ] casehubio/connectors#356 — issue 356 ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: ConnectorManifest records
-    - [ ] Task 2: ManifestLoader
-    - [ ] Task 3: CredentialFacade stub
+  - [x] Batch 1: Foundation
+    - [x] Task 1: ConnectorManifest records
+    - [x] Task 2: ManifestLoader
+    - [x] Task 3: CredentialFacade stub
   - [ ] Batch 2: BuildExtension
     - [ ] Task 4: Discovery build step
     - [ ] Task 5: Synthetic bean step
