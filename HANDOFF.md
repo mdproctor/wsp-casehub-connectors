@@ -2,32 +2,32 @@
 
 ## Session summary
 
-**Landing this session:**
-- **#208** — `mobile-numbrrs` module: Numbrrs MobilePlatform provider. Sms (read-only) + NumberInfo + NumbrrsInboundConnector (HMAC-SHA256 webhook, sms.received + voice.received events). Added InboundConnectorTypes.VOICE constant. 17 tests. Review cleanup done. Consumer guide, contributor guide, CLAUDE.md updated. Blog written.
+**Landed:** #208 — `mobile-numbrrs` module (Numbrrs MobilePlatform provider, Sms read-only + NumberInfo, HMAC-SHA256 webhooks, 17 tests). Code reviewed, docs updated, blog written, squashed, merged to main.
 
-**Previously landed (prior session):**
-- **#345** — Deferred to platform#938 (LocalDate coercion). Closed.
-- **#346** — Fixed ref speaker embedding (SHA-256, 16-dim [-1,1]). Closed.
-- **#339** — Telegram Presence capability (getChatMember status mapping). Closed.
-- **#340** — Telegram Commands capability (setMyCommands). Closed.
+**In progress:** #356 — ConnectorLifecycle SPI Phase 1. Batch 1 (Foundation) complete:
+- `ConnectorManifest` record with nested types, YAML parsing, forward-compatibility (7 tests)
+- `ConnectorManifestLoader` with classpath + file-system merge cascade (5 tests)
+- `ProviderCredentialFacade` interface + `InMemoryCredentialFacade` stub (4 tests)
+- 12 architectural decisions captured (D1-D12) in `specs/issue-356-connector-lifecycle/decisions.md`
+- Spec written, reviewed (3 rounds, 20 issues), committed
+- Implementation plan written (5 batches, 11 tasks), committed and injected into queue
 
-**Design in progress:**
-- **#356** — Epic: ConnectorLifecycle SPI. 7 architectural decisions captured in `specs/issue-208-mobile-numbrrs/decisions.md`. Decisions cover: replace-and-unify strategy, YAML manifests, connector families, browser-automated OAuth, hybrid schema, MCP domain API layering.
+**Filed:** platform#966 (ProviderCredentialFacade — platform dependency), soredium#635 (work-start branch creation bug)
 
 ## Cross-repo state
 
 | Repo | Branch | Status |
 |------|--------|--------|
-| connectors | issue-208-mobile-numbrrs | 1 commit (squashed), ready to land |
-| wsp-connectors | issue-208-mobile-numbrrs | 1 commit (squashed), decisions.md + blog + handoff |
+| connectors | issue-356-connector-lifecycle | 3 commits (Batch 1 foundation types) |
+| wsp-connectors | issue-356-connector-lifecycle | decisions, spec, plan, queue |
 
-## Next session
+## Resume
 
-1. **Phase 1 spec for #356** — continue brainstorm from decisions.md. Key open questions: manifest schema detail, lifecycle manager internals, first three connector migrations (Numbrrs, Telegram, Signal)
-2. **Signal testing** — once #208 lands, test Signal registration using Numbrrs number
+Batch 2: Build Extension — `ConnectorRegistry`, Quarkus `SyntheticBeanBuildItem` build steps. Plan: `plans/2026-11-24-connector-lifecycle-phase1.md`. 4 batches remaining.
 
-## Notes
+## References
 
-- platform#938 needs pickup in a platform session for LocalDate fix
-- Telegram now 7 native capabilities (was 5)
-- Playbook speaker name assertions blocked by voice-sherpa yaml-services.yaml override — ref unit tests verify discrimination directly
+- Spec: `specs/issue-356-connector-lifecycle/2026-11-24-connector-lifecycle-phase1-design.md`
+- Decisions: `specs/issue-356-connector-lifecycle/decisions.md`
+- Plan: `plans/2026-11-24-connector-lifecycle-phase1.md`
+- Blog: `blog/2026-11-24-mdp01-real-sims-for-real-testing.md`
