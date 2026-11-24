@@ -74,6 +74,8 @@ For a given `(providerId, field)` pair, the facade checks in order:
 
 For OAuth providers (Phase 3), `ServiceConnectionProvider.getAccessToken()` is an additional resolution path.
 
+**Multi-tenancy:** Phase 1 resolves credentials at system level only — `StaticCredentialStore.find("system", providerId, "default")` hardcodes actor `"system"` and tenancy `"default"`. This is intentional: Phase 1 targets single-tenant deployments where connector credentials are shared across the system. Tenancy-aware resolution (per-tenant Numbrrs API keys, per-tenant Telegram bots) is a Phase 2+ extension. The facade interface is designed with this migration in mind — an overloaded `resolve(String providerId, String field, String tenancyId)` can be added without breaking existing callers.
+
 The `source()` method enables diagnostics — the MCP `connector_status` tool can report not just whether a credential is configured but where it came from.
 
 ### Platform issue
@@ -104,6 +106,7 @@ connector:
         required: <boolean>       # default: true
         description: <string>     # human-readable description for agents/UI
         sensitive: <boolean>      # default: true — masked in status output
+        default: <string>         # optional — fallback value when credential is unresolved
 
   produces:
     - class: <string>             # fully qualified class name
@@ -148,16 +151,17 @@ public record ConnectorManifest(
             String name,
             @JsonProperty("required") boolean required,
             String description,
-            @JsonProperty("sensitive") boolean sensitive) {
+            @JsonProperty("sensitive") boolean sensitive,
+            @JsonProperty("default") String defaultValue) {
 
         public FieldDeclaration {
             if (name == null || name.isBlank())
                 throw new IllegalArgumentException("field name required");
         }
 
-        // defaults: required=true, sensitive=true
+        // defaults: required=true, sensitive=true, no default value
         public FieldDeclaration(String name, String description) {
-            this(name, true, description, true);
+            this(name, true, description, true, null);
         }
     }
 
@@ -236,7 +240,8 @@ connector:
       - name: api-url
         required: false
         sensitive: false
-        description: "Telegram API base URL (default: https://api.telegram.org)"
+        default: "https://api.telegram.org"
+        description: "Telegram API base URL"
 
   produces:
     - class: io.casehub.connectors.telegram.bot.TelegramBotClient
@@ -349,7 +354,9 @@ A Quarkus build extension that replaces the bespoke `*Beans.java` CDI producers 
 1. ConnectorManifestDiscoveryBuildStep
    └─ Scan classpath for META-INF/connector-manifest.yaml
    └─ Parse each into ConnectorManifest
-   └─ Validate: required fields present in schema, referenced classes exist
+   └─ Validate: required fields present in schema, referenced classes exist,
+       constructor-args field references match auth.fields entries,
+       constructor-args bean references match other produces entries
 
 2. ConnectorSyntheticBeanBuildStep (for each manifest)
    └─ For each entry in produces:
@@ -371,7 +378,10 @@ A Quarkus build extension that replaces the bespoke `*Beans.java` CDI producers 
 
 The synthetic bean creation function is driven entirely by the `constructor-args` declarations in the manifest. Each entry maps to a constructor parameter in order:
 
-- `field: <name>` — resolves the credential field via `ProviderCredentialFacade.resolve(connectorId, name)`. Passes the result as a `String` (empty string if unresolved). For `Optional<String>` constructor parameters, wraps in `Optional.ofNullable()`.
+- `field: <name>` — resolves the credential field via `ProviderCredentialFacade.resolve(connectorId, name)`. If the facade returns empty/null and the field's `FieldDeclaration` has a `default` value, the default is used instead. The resolved (or default) value is adapted to the constructor parameter type using Jandex type introspection at build time:
+  - `String` parameter — passed directly (empty string if unresolved and no default)
+  - `Optional<String>` parameter — wrapped via `Optional.ofNullable()`
+  - Additional types (`int`, `boolean`, `Duration`, `List<String>`) are added in Phase 2+ as needed. Phase 1 supports `String` and `Optional<String>` only.
 - `bean: <class>` — injects the referenced bean from the CDI container via `SyntheticCreationalContext.getInjectedReference()`.
 - Entries with no `constructor-args` — no-arg constructor (e.g. translators).
 
@@ -467,6 +477,16 @@ Runs health checks across all configured connectors. Returns a summary with per-
 
 Connectors that need init steps beyond credential wiring ship a YAML playbook. The playbook infrastructure already exists in the `playbooks` module — setup playbooks are standard playbooks that happen to run during connector initialisation rather than as user-triggered workflows.
 
+### Template variable resolution
+
+Playbook templates use `{variable}` substitution. Variables are resolved in order:
+
+1. **Auth fields** — the connector manifest's `auth.fields` entries, resolved via `ProviderCredentialFacade` (including defaults)
+2. **System config** — MicroProfile Config properties under the `casehub.playbook.*` namespace (e.g. `casehub.playbook.webhook-base-url`)
+3. **Step captures** — output from prior steps (e.g. `{verification.code}` from a `wait-for-sms` capture)
+
+Deployment-level variables like `webhook-base-url` are system config, not auth fields — they describe the deployment, not the connector. Configure via `casehub.playbook.webhook-base-url` in `application.properties` or environment variable `CASEHUB_PLAYBOOK_WEBHOOK_BASE_URL`.
+
 ### Telegram webhook setup
 
 `playbooks/telegram-webhook-setup.yaml`:
@@ -557,8 +577,10 @@ A new module (or a `lifecycle` package within `connectors-api`) containing:
 
 - Add `src/main/resources/META-INF/connector-manifest.yaml`
 - Delete `NumbrrsMobileBeans.java`
-- `NumbrrsMobilePlatform` and `NumbrrsInboundConnector` gain constructors that accept resolved credential values directly (no `StaticCredentialStore` injection)
+- `NumbrrsMobilePlatform` constructor changes from `(NumbrrsClient client, List<String> numbers)` to `(String apiKey, String numbers)` — creates `NumbrrsClient` internally and parses the comma-separated `numbers` string. This matches the manifest's `constructor-args: [{field: api-key}, {field: numbers}]`.
+- `NumbrrsInboundConnector` constructor unchanged — already takes `(String signingSecret)`
 - `NumbrrsClient` constructor unchanged (already takes `apiKey` and `baseUrl`)
+- Add `initDegraded()` path: when `apiKey` is blank, construct a no-op platform instead of throwing `IllegalStateException`
 
 ### chat-telegram
 
