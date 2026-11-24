@@ -90,6 +90,19 @@
 **Exploration:** quick
 **Status:** captured
 
+## D9: Credential resolution — ConnectorCredentialStore with cascading backends
+
+**Choice:** New `ConnectorCredentialStore` interface in `connectors-api`. Resolves credentials by connector ID and field name, cascading through: (1) `StaticCredentialStore` JSON blob, (2) MicroProfile Config property `casehub.<connectorId>.<field>`, (3) environment variable `CASEHUB_<CONNECTOR>_<FIELD>`. Manifests declare required/optional fields; the store resolves from whichever backend has them.
+**Alternatives:**
+- StaticCredentialStore only — simpler but requires migrating all `@ConfigProperty` deployments
+- MicroProfile Config only — simpler but loses structured JSON and tenancy-aware resolution
+**Rationale:** Existing deployments use both mechanisms. A cascading store means zero migration friction — connectors work immediately regardless of which backend has the credentials. The resolution order respects the platform's credential hierarchy: explicit credential store first, then config, then env.
+**Trade-offs:** Three resolution layers add diagnostic complexity ("where did this value come from?"). The `ConnectorCredentialStore` needs a `resolveAll()` method that reports sources for debugging. The `isConfigured()` method enables the lifecycle manager's health check.
+**Depends on:** D1 (replace and unify), D8 (synthetic beans consume this store)
+**Sources:** StaticCredentialStore API, MicroProfile Config, NumbrrsMobileBeans credential resolution, TelegramChatPlatform @ConfigProperty injection
+**Exploration:** quick
+**Status:** captured
+
 ## D8: CDI mechanism — Quarkus synthetic beans from manifest
 
 **Choice:** A Quarkus build extension discovers `connector-manifest.yaml` files and registers synthetic CDI beans (via `SyntheticBeanBuildItem`) for each connector's platform class and inbound connector. The synthetic bean's creation function resolves credentials from a unified store, constructs the client, and constructs the platform/connector. All bespoke `*Beans.java` producers are deleted.
