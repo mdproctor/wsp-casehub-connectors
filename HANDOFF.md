@@ -1,8 +1,18 @@
 # Handoff — slot 225 connectors
 
-## Session summary (2026-11-23)
+## Session summary (2026-11-24)
 
-**#349 — LangChain4j integration examples**: Implementation complete, landing blocked on slot/canonical divergence.
+**Slot 225 closed.** All 40 queue items landed. Rebased both repos onto canonical, published, issues closed.
+
+### Landing session (2026-11-24)
+- Rebased connectors slot main (8 commits) onto canonical — clean, no conflicts
+- Rebased platform slot main (7 commits) onto canonical — 4 skipped (superseded), 3 landed
+- Published connectors (8 commits) and platform (3 commits) to casehubio
+- Closed #349 (connectors) and #937 (platform)
+
+## Previous session (2026-11-23)
+
+**#349 — LangChain4j integration examples**: Implementation complete.
 
 ### What was built
 
@@ -22,33 +32,17 @@
 - 8 direct tool tests: 100% pass rate
 - 15 LLM tests: 11-12/15 per run (3-4 rotating flaky, inherent to 8B model vs 136 tools)
 
-## Landing blocked
-
-Work-end `land` step failed: slot repos have diverged from canonical.
-
-| Repo | Slot commits canonical lacks | Canonical commits slot lacks |
-|------|------------------------------|------------------------------|
-| connectors | 8 (this session's #349 work) | Unknown (other sessions landed) |
-| platform | 7 (3 this session + prior) | Unknown |
-
-**Resolution needed:** Rebase slot main onto canonical main for both repos, resolve conflicts, then re-run `work end`.
-
-The workspace branch `issue-347-inline-ref-schemas` has a HANDOFF.md conflict with main.
-
-## Work-end ceremony — incomplete steps
+## Work-end ceremony
 
 | Step | Status |
 |------|--------|
 | Review | Done (2 items filed) |
-| Diary/blog | Skipped (needs fresh context + writing style guide) |
-| File issues | Done (#350, #351, #352) |
+| File issues | Done (#350, #351, #352, #353, #355) |
 | Item finished | Yes (#349 marked done) |
-| Land | Blocked (divergence) |
-| Promote | Not reached |
-| Publish | Not reached |
-| Handoff | This file |
-
-**Resume with:** `work end` — it will retry the land step.
+| Land | Done (rebased + published 2026-11-24) |
+| Promote | No promotable artifacts |
+| Publish | Done |
+| Blog | See 2026-11-24 entry |
 
 ## Issues filed this session
 
