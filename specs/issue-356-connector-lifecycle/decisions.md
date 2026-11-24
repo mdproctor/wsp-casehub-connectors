@@ -90,16 +90,30 @@
 **Exploration:** quick
 **Status:** captured
 
-## D9: Credential resolution — ConnectorCredentialStore with cascading backends
+## D9: Credential resolution — platform-level unified facade (REVISED)
 
-**Choice:** New `ConnectorCredentialStore` interface in `connectors-api`. Resolves credentials by connector ID and field name, cascading through: (1) `StaticCredentialStore` JSON blob, (2) MicroProfile Config property `casehub.<connectorId>.<field>`, (3) environment variable `CASEHUB_<CONNECTOR>_<FIELD>`. Manifests declare required/optional fields; the store resolves from whichever backend has them.
+**Choice:** Platform gains a `ProviderCredentialFacade` in `platform-api` that bridges the three existing credential mechanisms: `StaticCredentialStore` (API keys, bot tokens), `CredentialResolver` (config/vault/env), and `ServiceConnectionProvider` (OAuth tokens). Connectors and all other SPI providers declare credential fields in their manifest; the facade resolves them. No new credential store in connectors — connectors calls platform.
 **Alternatives:**
-- StaticCredentialStore only — simpler but requires migrating all `@ConfigProperty` deployments
-- MicroProfile Config only — simpler but loses structured JSON and tenancy-aware resolution
-**Rationale:** Existing deployments use both mechanisms. A cascading store means zero migration friction — connectors work immediately regardless of which backend has the credentials. The resolution order respects the platform's credential hierarchy: explicit credential store first, then config, then env.
-**Trade-offs:** Three resolution layers add diagnostic complexity ("where did this value come from?"). The `ConnectorCredentialStore` needs a `resolveAll()` method that reports sources for debugging. The `isConfigured()` method enables the lifecycle manager's health check.
-**Depends on:** D1 (replace and unify), D8 (synthetic beans consume this store)
-**Sources:** StaticCredentialStore API, MicroProfile Config, NumbrrsMobileBeans credential resolution, TelegramChatPlatform @ConfigProperty injection
+- ~~ConnectorCredentialStore in connectors-api~~ — SUPERSEDED. This duplicated platform concerns.
+- StaticCredentialStore only — doesn't cover config-based credentials
+- MicroProfile Config only — doesn't cover stored credentials or OAuth
+**Rationale:** Platform already owns all three credential mechanisms. A facade that bridges them is a platform concern, not a connector concern. Agents and users need a single interface to discover what's configured, what's missing, and how to set up missing credentials — regardless of the underlying mechanism. This serves agents, CLI, and future Mosaic UI equally.
+**Trade-offs:** Cross-repo work (platform + connectors). Platform must expose enough for connectors to declare needs and receive resolved credentials without knowing which backend provided them.
+**Depends on:** D1 (replace and unify), D8 (synthetic beans consume the platform facade)
+**Sources:** StaticCredentialStore API, CredentialResolver API, ServiceConnectionProvider API — all in platform-api authn/credentials packages
+**Exploration:** quick
+**Status:** revised
+
+## D10: Platform/connectors boundary — what lives where
+
+**Choice:** Platform owns generic credential resolution, auth patterns, health check primitives, and the agent-facing discovery/setup API surface. Connectors owns manifest schema and discovery, synthetic bean production, family groupings (Google 4-connector, Microsoft 3+), and setup playbooks for connector-specific init steps (webhook registration, phone verification flows).
+**Alternatives:**
+- Everything in connectors — duplicates platform credential infrastructure
+- Everything in platform — platform doesn't know about connector families, manifest semantics, or which beans to produce
+**Rationale:** The credential facade and agent-facing status/setup tools are needed by any SPI provider (voice, calendar, commerce), not just connectors. The connector-specific knowledge (families, what beans a manifest produces, how Telegram webhooks work) is domain knowledge that belongs in connectors.
+**Trade-offs:** Phase 1 requires coordinated work across two repos. Platform delivers the facade; connectors delivers the manifest and lifecycle manager that consumes it.
+**Depends on:** D9 (credential facade in platform)
+**Sources:** Platform authn package survey, connectors *Beans.java patterns
 **Exploration:** quick
 **Status:** captured
 
