@@ -56,3 +56,20 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#340 — telegram-commands-capability
 - [x] casehubio/connectors#208 — numbrrs-mobile-provider
 - [ ] casehubio/connectors#356 — issue 356 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: ConnectorManifest records
+    - [ ] Task 2: ManifestLoader
+    - [ ] Task 3: CredentialFacade stub
+  - [ ] Batch 2: BuildExtension
+    - [ ] Task 4: Discovery build step
+    - [ ] Task 5: Synthetic bean step
+    - [ ] Task 6: Registry
+  - [ ] Batch 3: Migration
+    - [ ] Task 7: Numbrrs manifest
+    - [ ] Task 8: Telegram manifest
+    - [ ] Task 9: Signal manifest
+  - [ ] Batch 4: MCPTools
+    - [ ] Task 10: Lifecycle operations
+  - [ ] Batch 5: Playbooks
+    - [ ] Task 11: Step types
+    - [ ] Task 12: Setup playbooks
