@@ -73,3 +73,5 @@ tick: casehubio/connectors#337
   - [ ] Batch 5: Playbooks
     - [ ] Task 11: Step types
     - [ ] Task 12: Setup playbooks
+- [ ] casehubio/connectors#362 — connectorbean-qualifier-move
+- [ ] casehubio/connectors#363 — manifest-wiring-integration-test
