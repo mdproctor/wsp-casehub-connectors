@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-356-connector-lifecycle
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#356
+covers: casehubio/connectors#363
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -55,23 +55,8 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#339 — telegram-presence-capability
 - [x] casehubio/connectors#340 — telegram-commands-capability
 - [x] casehubio/connectors#208 — numbrrs-mobile-provider
-- [ ] casehubio/connectors#356 — issue 356 ← active
-  - [x] Batch 1: Foundation
-    - [x] Task 1: ConnectorManifest records
-    - [x] Task 2: ManifestLoader
-    - [x] Task 3: CredentialFacade stub
-  - [ ] Batch 2: BuildExtension
-    - [ ] Task 4: Discovery build step
-    - [ ] Task 5: Synthetic bean step
-    - [ ] Task 6: Registry
-  - [ ] Batch 3: Migration
-    - [ ] Task 7: Numbrrs manifest
-    - [ ] Task 8: Telegram manifest
-    - [ ] Task 9: Signal manifest
-  - [ ] Batch 4: MCPTools
-    - [ ] Task 10: Lifecycle operations
-  - [ ] Batch 5: Playbooks
-    - [ ] Task 11: Step types
-    - [ ] Task 12: Setup playbooks
-- [ ] casehubio/connectors#362 — connectorbean-qualifier-move
-- [ ] casehubio/connectors#363 — manifest-wiring-integration-test
+- [ ] casehubio/connectors#356 — issue 356 ← done on issue-356-connector-lifecycle
+  - [ ] Batch 1: MCPTools
+    - [ ] Task 1: Task 10: Lifecycle operations
+- [ ] casehubio/connectors#362 — connectorbean-qualifier-move ← done on issue-362-connectorbean-qualifier-move
+- [ ] casehubio/connectors#363 — manifest-wiring-integration-test ← active
