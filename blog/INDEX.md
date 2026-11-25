@@ -34,3 +34,4 @@
 | [2026-11-20-mdp01-seed-data-your-data.md](2026-11-20-mdp01-seed-data-your-data.md) | 2026-11-20 | Externalising ref provider seed data with configurable corpus directories for standalone MCP server users |
 | [2026-11-22-mdp01-telegram-joins-the-chat.md](2026-11-22-mdp01-telegram-joins-the-chat.md) | 2026-11-22 | Telegram ChatPlatform provider — two-module pattern, 5 native capabilities, webhook inbound, live-validated against Bot API |
 | [2026-11-24-mdp01-real-sims-for-real-testing.md](2026-11-24-mdp01-real-sims-for-real-testing.md) | 2026-11-24 | Numbrrs MobilePlatform provider — real UK SIM numbers for Signal/Telegram/WhatsApp testing, inbound-only SMS + NumberInfo, HMAC-SHA256 webhooks |
+| [2026-11-25-mdp01-the-manifest-that-replaced-the-beans.md](2026-11-25-mdp01-the-manifest-that-replaced-the-beans.md) | 2026-11-25 | Manifest-driven synthetic bean registration replaces bespoke CDI producers for Numbrrs, Telegram, and Signal connectors |
