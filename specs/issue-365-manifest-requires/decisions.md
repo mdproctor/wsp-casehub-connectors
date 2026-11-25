@@ -45,3 +45,16 @@
 **Sources:** ConnectorManifestLoader.java, ConnectorLifecycleProcessor.java, signal-registration.yaml
 **Exploration:** quick
 **Status:** captured
+
+## D5: Capability granularity
+
+**Choice:** Capabilities are a category with optional sub-capabilities — `sms` is the category, `[receive]` narrows it
+**Alternatives:**
+- Directional suffixes (sms-receive, sms-send) — privileges one dimension, vocabulary explosion risk
+- Flat specific names (inbound-sms, outbound-sms) — loses grouping, no structure
+**Rationale:** Send/receive is just one dimension of capability. Sub-capabilities allow narrowing along any dimension without baking a taxonomy into the naming convention. Unqualified `sms` means full capability; `sms[receive]` narrows to a subset.
+**Trade-offs:** Matching logic is slightly more complex (must check sub-capability inclusion); unqualified providers match all qualified requirements
+**Depends on:** D1 (capability-level abstraction), D2 (provider self-declaration)
+**Sources:** Numbrrs (receives but can't send SMS), user direction
+**Exploration:** quick
+**Status:** captured
