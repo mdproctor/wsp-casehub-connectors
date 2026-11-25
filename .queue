@@ -43,7 +43,7 @@
 - [x] casehubio/connectors#356 — issue 356
   - [ ] Batch 1: MCPTools
     - [ ] Task 1: Task 10: Lifecycle operations
-- [ ] casehubio/connectors#362 — connectorbean-qualifier-move ← done on issue-362-connectorbean-qualifier-move
+- [x] casehubio/connectors#362 — connectorbean-qualifier-move
 - [ ] casehubio/connectors#363 — manifest-wiring-integration-test        ← active
 
 ## State
