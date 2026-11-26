@@ -32,3 +32,4 @@
 | [2026-11-19-mdp01-teams-hardening-sweep.md](2026-11-19-mdp01-teams-hardening-sweep.md) | 2026-11-19 | Teams hardening batch — BotFrameworkClient signature change for rich content, null guards, test coverage, messaging extension docs |
 | [2026-11-19-mdp02-mcp-server-packaging.md](2026-11-19-mdp02-mcp-server-packaging.md) | 2026-11-19 | Packaging connectors' 133 MCP tools as a standalone server — design pivot from two-process to single Quarkus app, CDI wiring challenges, composable tool catalogs |
 | [2026-11-20-mdp01-seed-data-your-data.md](2026-11-20-mdp01-seed-data-your-data.md) | 2026-11-20 | Externalising ref provider seed data with configurable corpus directories for standalone MCP server users |
+| [2026-11-26-mdp02-spring-discovers-your-agents.md](2026-11-26-mdp02-spring-discovers-your-agents.md) | 2026-11-26 | Spring Boot auto-discovery for @AgentService proxies via BeanDefinitionRegistryPostProcessor and classpath scanning |
