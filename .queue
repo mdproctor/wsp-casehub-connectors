@@ -43,7 +43,7 @@
 - [x] casehubio/connectors#356 — issue 356
 - [x] casehubio/connectors#362 — connectorbean-qualifier-move
 - [x] casehubio/connectors#363 — manifest-wiring-integration-test
-- [ ] casehubio/connectors#365 — manifest-requires-backward-chaining ← done on issue-365-manifest-requires
+- [x] casehubio/connectors#365 — manifest-requires-backward-chaining
   - [x] Batch 1: Schema
     - [x] Task 1: CapabilityDeclaration records + manifest parsing
   - [x] Batch 2: Resolver
@@ -55,7 +55,7 @@
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: active
+status: drained
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
