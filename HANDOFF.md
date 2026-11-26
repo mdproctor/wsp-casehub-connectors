@@ -7,7 +7,7 @@
 **#363 — Integration test for manifest-driven synthetic bean wiring**
 - `@QuarkusTest` in `integration-tests` with real Quarkus app boot
 - Verifies `ConnectorRegistry`, `NumbrrsMobilePlatform` injection, `ProviderCredentialFacade` resolution
-- Added `quarkus-junit`, `connector-lifecycle`, `mobile-numbrrs` dependencies
+- Added `quarkus-junit`, `connector-lifecycle`, `mobile-numbrrs`, `chat-signal` dependencies
 - `TestProfile` excludes unrelated CDI beans for clean container boot
 
 **#365 — Manifest requires/provides with backward-chaining dependency resolution**
@@ -16,22 +16,21 @@
 - Signal manifest: `requires: sms[receive]`, Numbrrs manifest: `provides: sms[receive], number-info`
 - Signal registration playbook: `connector-status: numbrrs` → `require-capability: sms[receive]`
 
+**#366 — require-capability playbook step runner**
+- `RequireCapabilityPlugin` `@Plugin` step type — resolves capabilities via `DependencyResolver`
+- Returns success with provider ID when satisfied, failure with resolution options when not
+- `DependencyResolver` registered as synthetic CDI bean by `ConnectorLifecycleProcessor`
+- `DependencyResolverCreator` builds resolver from classpath manifests at runtime
+
 ### Queue
 
-Empty after #365. Both items done, waiting to land.
+Empty. All three items landed.
 
 ### Next session must know
 
-- `require-capability` playbook step type has no runner yet — the playbook processor is in platform, not connectors. Future work under #356.
 - Backward-chaining setup dependencies are a universal pattern: SMS + email as bootstrap primitives. A human captcha pass-through may exist in neocortex corpus — worth investigating for `ManualOption` flows.
 - Sub-capabilities use convention-based strings, no enum. Unqualified provider (empty sub) means full capability — satisfies any qualified requirement.
-
-### Branch state
-
-- Branch: `issue-365-manifest-requires` (stacked on `issue-363-manifest-wiring-integ-test`)
-- 4 commits total (1 for #363, 3 for #365 after squash)
-- Squash review recorded for both branches
-- Ready to land
+- The `require-capability` step returns `Result.failed()` with `category: "unmet-requirement"` and resolution options in `detail.options` — the playbook runner needs to handle this category specially (present options to user, trigger recursive setup).
 
 ## References
 
