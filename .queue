@@ -3,7 +3,8 @@
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: drained
+status: active
+covers: 
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -59,5 +60,5 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#363 — manifest-wiring-integration-test
 - [x] casehubio/connectors#365 — manifest-requires-backward-chaining
 - [x] casehubio/connectors#366 — issue 366
-- [ ] casehubio/connectors#367 — provides-declarations-twilio-discord-email
-- [ ] casehubio/connectors#368 — email-bootstrap-primitive
+- [ ] casehubio/connectors#367 — provides-declarations-twilio-discord-email ← done on issue-367-provides-declarations
+- [ ] casehubio/connectors#368 — email-bootstrap-primitive ← done on issue-368-email-bootstrap
