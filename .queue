@@ -47,12 +47,12 @@
 - [x] casehubio/connectors#369 — secure-credential-input
 - [x] casehubio/connectors#370 — end-to-end-setup-chain-test
 - [x] casehubio/connectors#367 — issue 367
-- [ ] casehubio/connectors#368 — email-bootstrap-primitive ← done on issue-367-provides-requires-declarations
+- [x] casehubio/connectors#368 — email-bootstrap-primitive
 
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: active
+status: drained
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
