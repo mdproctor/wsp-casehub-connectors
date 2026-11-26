@@ -1,90 +1,71 @@
 # Handoff — slot 225 connectors
 
-## Session summary (2026-11-24)
+## Session summary (2026-11-26)
 
-**Slot 225 closed.** All 40 queue items landed. Rebased both repos onto canonical, published, issues closed.
+**#984 (epic) implementation complete.** Delivered @AgentService declarative invocation (#983), guardrails (#985), and prompt caching parity (#988). 12 commits in platform repo. Item marked done, ready for work-end to land.
 
-### Landing session (2026-11-24)
-- Rebased connectors slot main (8 commits) onto canonical — clean, no conflicts
-- Rebased platform slot main (7 commits) onto canonical — 4 skipped (superseded), 3 landed
-- Published connectors (8 commits) and platform (3 commits) to casehubio
-- Closed #349 (connectors) and #937 (platform)
+### What was built (platform repo, 12 commits)
 
-## Previous session (2026-11-23)
+**Batch 1 — Agent API foundation:**
+- `@AgentService`, `@Query`, `@Param` annotations in `agent-api`
+- `GuardrailResult` sealed type, `InputGuardrail`/`OutputGuardrail` SPIs
+- `List<ToolSpecification> tools` field on `AgentSessionConfig` and `AgentSessionInit`
+- Added `langchain4j-core` dependency to `agent-api`
 
-**#349 — LangChain4j integration examples**: Implementation complete.
+**Batch 2 — Guardrail module:**
+- `GuardrailStreamOperator` buffer-then-validate utility in `agent-api`
+- `guardrail` Quarkus module: `InputGuardrailDecorator` at @Priority(1400), `OutputGuardrailDecorator` at @Priority(1600)
+- Built-in: `MaxTokenInputGuardrail`, `JsonSchemaOutputGuardrail`
 
-### What was built
+**Batch 3 — APT processor:**
+- `agent-service-generator` module: APT processor generating framework-neutral proxy classes
+- Supports String, Multi<AgentEvent>, AgentSession return types
 
-**Connectors (8 commits on slot main):**
-- `langchain4j-it` module: 23 tests (8 direct + 15 LLM-driven) covering 11 of 13 platform domains
-- Ollama with llama3.1:8b as default LLM provider (configurable via system properties)
-- Voice-sherpa wired into MCP server: real Kokoro TTS + Whisper STT
-- Voice registry populated via shared CDI instance and voice-config.yaml
-- Multi-step LLM examples: search+cart, restaurant+directions, contact+calendar cross-domain
+**Batch 4 — Framework wiring:**
+- `agent-service` Quarkus CDI module with `AgentServiceBeans.createProxy()`
+- `guardrail-spring` module with `GuardrailBeanPostProcessor`
 
-**Platform (3 commits on slot main):**
-- `GraphQLModelScanner.isRequired()`: `@QueryParam`/`@DefaultValue` params now optional in MCP schema (handles both JAX-RS and custom QueryParam via simple name check)
-- `ReflectiveOperationDispatcher.primitiveDefault()`: primitive Java defaults for omitted params (prevents NPE on boolean/int)
-- InlineSchemaBuilder cherry-picked from canonical (ef2cdcc7) for LangChain4j-compatible schemas
+**Batch 5 — Prompt caching:**
+- Anthropic: configurable `cacheAutomatically` property
+- OpenAI: `promptCacheRetention` wired (store(true) removed after review — prompt caching is automatic)
 
-### Test results with Ollama
-- 8 direct tool tests: 100% pass rate
-- 15 LLM tests: 11-12/15 per run (3-4 rotating flaky, inherent to 8B model vs 136 tools)
+### Code review fixes (1 commit)
+- Added `withUserPrompt()` to `AgentSessionConfig` — reprompt now preserves all config fields
+- APT processor handles `AgentSession` return without requiring `@Query`
+- `JsonSchemaOutputGuardrail` uses static `ObjectMapper`
+- Removed incorrect `store(true)` from OpenAI backend
 
-## Work-end ceremony
+### Issues filed this session
+- casehubio/platform#994 — POJO and List<T> return type support for APT processor
+- casehubio/platform#995 — Compile-time validation of unsupported return types
+- casehubio/platform#996 — agent-service-spring auto-configuration
 
-| Step | Status |
-|------|--------|
-| Review | Done (2 items filed) |
-| File issues | Done (#350, #351, #352, #353, #355) |
-| Item finished | Yes (#349 marked done) |
-| Land | Done (rebased + published 2026-11-24) |
-| Promote | No promotable artifacts |
-| Publish | Done |
-| Blog | See 2026-11-24 entry |
-
-## Issues filed this session
-
-- #350 — VoiceConfigProducer: add `@DefaultBean` to prevent CDI ambiguity
-- #351 — MCP server voice-config: add ref fallback voices
-- #352 — LangChain4j integration: Podman clean-install test
-- #353 — MCP server: move downstream to consume mosaic connection UI
-- #355 — Epic: casehubio/distributions — leaf apps and packaged deployables (MCP server, Electron app, CLI)
-
-## Prior session issues (still open)
-
-- platform#939 — InlineSchemaBuilder: unwrap `Optional<X>`
-- platform#940 — InlineSchemaBuilder: add required array for nested records
-- platform#941 — InlineSchemaBuilder: circular reference protection
-
-## Cross-repo state
-
-| Repo | Branch | Status |
-|------|--------|--------|
-| connectors (slot 225) | main | 8 commits ahead of canonical, diverged |
-| platform (slot 225) | main | 3 commits ahead of canonical, diverged |
-| wsp-casehub-connectors | main/issue-347 | HANDOFF.md conflict |
-| wsp-casehub-platform | main | 1 commit diverged |
+### Deferred
+- `agent-service-spring` — generated by spring-generator tooling, not hand-written
 
 ## Queue
 
 | # | Title | Scale | Status |
 |---|-------|-------|--------|
-| #349 | langchain4j-integration-examples | M | Done (not landed) |
+| casehubio/platform#984 | epic-declarative-agent-invocation | M | Done (not landed) |
+| casehubio/platform#983 | AgentService-declarative-invocation | M | Covered by #984 |
+| casehubio/platform#985 | guardrails-cdi-decorator | M | Covered by #984 |
+| casehubio/platform#994 | pojo-list-return-types | S | Queued |
+| casehubio/platform#995 | return-type-validation | XS | Queued |
+| casehubio/platform#996 | agent-service-spring | S | Queued |
 
-## Key files changed
+## Cross-repo state
 
-**Connectors:**
-- `langchain4j-it/src/test/java/io/casehub/mcp/it/McpConnectorsIT.java`
-- `langchain4j-it/pom.xml`
-- `mcp-server-connectors/pom.xml`
-- `mcp-server-connectors/src/main/java/io/casehub/connectors/mcp/McpServerBeans.java`
-- `mcp-server-connectors/src/main/resources/voices/voice-config.yaml`
-- `mcp-server-connectors/src/main/resources/application.properties`
-- `voice-spi/src/main/java/io/casehub/connectors/voice/config/VoiceConfigProducer.java`
+| Repo | Branch | Status |
+|------|--------|--------|
+| connectors (slot 225) | issue-984-agent-service-guardrails | At main, no unique commits |
+| platform (slot 225) | main | 12 commits ahead of canonical |
+| wsp-casehub-connectors | issue-984-agent-service-guardrails | Queue + handoff updated |
+| wsp-casehub-platform | main | Specs, plans, blog entries |
 
-**Platform:**
-- `mcp/src/main/java/io/casehub/platform/mcp/GraphQLModelScanner.java`
-- `mcp/src/main/java/io/casehub/platform/mcp/ReflectiveOperationDispatcher.java`
-- `mcp/src/main/java/io/casehub/platform/mcp/DynamicToolRegistrar.java` (cherry-pick)
+## Notes for next session
+
+- Run `work end` to land the 12 platform commits, close #984/#983/#985, and publish
+- #983 and #985 are child issues of #984 — the work is in the same 12 commits. Close them together
+- The queue has 3 follow-up items (#994, #995, #996) — all S/XS from the code review
+- `agent-api` now depends on `langchain4j-core` for `ToolSpecification` — documented constraint deviation
