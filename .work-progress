@@ -1,4 +1,4 @@
-_run=start:369
+_run=start:370
 _exec_ok:process_archive_requests=yes
 process_archive_requests=done
 _exec_ok:sync_main=yes
@@ -8,6 +8,7 @@ stacked_pr_detect=done
 branch_name_attempt=1
 last_yielded=branch_name
 branch_name=done
+branch_name_produced=0
 _exec_ok:create_branches=yes
 create_branches=done
 _exec_ok:recover_plan=yes
