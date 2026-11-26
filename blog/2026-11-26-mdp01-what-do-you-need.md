@@ -5,7 +5,7 @@ date: 2026-11-26
 entry_type: note
 subtype: diary
 projects: [casehubio/connectors]
-tags: [architecture, connectors, lifecycle, dependency-resolution]
+tags: [architecture, connectors, lifecycle, dependency-resolution, security]
 series: issue-365-manifest-requires
 ---
 
@@ -47,8 +47,42 @@ Every resolution includes a `ManualOption` — the user can always satisfy a req
 
 The matching logic has one subtlety worth calling out. When a provider declares `sms` with no sub-qualifiers, that means "full SMS capability" — it satisfies `sms[receive]`, `sms[send]`, or any other qualified requirement. When a provider declares `sms[receive]`, it only satisfies requirements that ask for `receive` or a subset of it. A requirement for `sms[receive, send]` won't match a provider that only offers `sms[receive]`.
 
+## From Declaration to Execution
+
+The resolver on its own just answers questions. The `require-capability` playbook step makes it actionable — a `@Plugin` step type that calls the resolver at runtime:
+
+```yaml
+# Signal's registration playbook — before
+- connector-status:
+    connector-id: numbrrs
+    require: READY
+
+# After — capability-based, provider-agnostic
+- require-capability:
+    capability: sms
+    sub: [receive]
+```
+
+When the step runs, it checks the resolver. If a provider is READY, the step succeeds and the playbook continues. If not, it returns structured resolution options — which providers exist, their status, their setup playbooks — so the runner can offer the user a choice: set up Numbrrs automatically, or provide your own number.
+
 ## The Bootstrap Primitive
 
 This points toward a larger pattern. With nothing but SMS and email, you should be able to bootstrap every other service. Signal needs SMS. Some future service might need email verification. Each is a capability that can be provided by a dedicated connector or by the user directly. The dependency chains are short — typically one or two links — but they're real, and they need to be declarative and discoverable.
 
-The playbook for Signal registration now reads `require-capability: sms[receive]` instead of naming Numbrrs. The lifecycle system resolves which provider satisfies that at runtime. If Numbrrs isn't configured, it offers to set it up — or asks the user for their own number. The connector that needs the capability and the connector that provides it never reference each other.
+The resolver handles both primitives identically. A service that requires `sms[receive]` and `email[receive]` gets independent resolution for each — multiple providers can satisfy each capability, and the manual fallback is always available.
+
+## Credentials Without the Chat Window
+
+One problem remained: when the setup chain triggers "set up Numbrrs", the user needs to provide an API key. If they type it in the chat, it's in the conversation history — visible to the model, potentially cached and logged. Credentials should never flow through the LLM context.
+
+The manifest now carries the guidance a user needs to find each credential:
+
+```yaml
+fields:
+  - name: api-key
+    description: "Numbrrs API key"
+    help: "Find this in your Numbrrs dashboard at Settings → API Keys"
+    example: "nmbr_sk_1a2b3c4d5e6f"
+```
+
+Two new optional fields: `help` (where to find the value) and `example` (what format to expect). The next step is an MCP tool that opens a browser form — rendered from these fields — where the user enters credentials directly. The values go straight to the credential store. The LLM sees `{configured: true, connector: "numbrrs"}` and nothing else.
