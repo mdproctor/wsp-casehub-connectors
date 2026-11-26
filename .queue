@@ -46,12 +46,12 @@
 - [x] casehubio/connectors#365 — manifest-requires-backward-chaining
 - [x] casehubio/connectors#366 — issue 366
 - [x] casehubio/connectors#367 — provides-declarations-twilio-discord-email
-- [ ] casehubio/connectors#368 — email-bootstrap-primitive ← done on issue-368-email-bootstrap
+- [x] casehubio/connectors#368 — email-bootstrap-primitive
 
 ## State
 branch: 
 issue-repo: casehubio/connectors
-status: active
+status: drained
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
