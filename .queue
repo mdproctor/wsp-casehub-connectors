@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-365-manifest-requires
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#365
+covers: 
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -58,7 +58,7 @@ tick: casehubio/connectors#337
 - [x] casehubio/connectors#356 — issue 356
 - [x] casehubio/connectors#362 — connectorbean-qualifier-move
 - [ ] casehubio/connectors#363 — manifest-wiring-integration-test ← done on issue-363-manifest-wiring-integ-test
-- [ ] casehubio/connectors#365 — manifest-requires-backward-chaining ← active
+- [ ] casehubio/connectors#365 — manifest-requires-backward-chaining ← done on issue-365-manifest-requires
   - [x] Batch 1: Schema
     - [x] Task 1: CapabilityDeclaration records + manifest parsing
   - [x] Batch 2: Resolver
