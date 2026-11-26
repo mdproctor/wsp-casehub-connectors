@@ -21,13 +21,14 @@ Two production classes:
 - Registers a static `AgentServiceBeanRegistrar` bean (the post-processor)
 
 **`AgentServiceBeanRegistrar`** (`BeanDefinitionRegistryPostProcessor`)
+- Holds a reference to the `BeanFactory` (implements `BeanFactoryAware`)
 - In `postProcessBeanDefinitionRegistry()`:
   1. Retrieves base packages from `AutoConfigurationPackages.get(beanFactory)`
   2. Creates a `ClassPathScanningCandidateComponentProvider(false)` with `AnnotationTypeFilter(AgentService.class)` and `includeFilters` set to include interfaces
   3. Scans each base package for `@AgentService` interfaces
   4. For each discovered interface, registers a `GenericBeanDefinition` with:
      - Bean class set to the interface type
-     - Instance supplier that calls `agentServiceBeans.createProxy(interfaceClass)`
+     - Instance supplier that lazily resolves `AgentServiceBeans` from the `BeanFactory` and calls `createProxy(interfaceClass)` — post-processors run before regular beans are created, so the supplier defers resolution to bean instantiation time
      - Scope: singleton
      - Lazy-init: false (proxies are lightweight — just constructor injection)
 
