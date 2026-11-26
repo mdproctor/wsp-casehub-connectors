@@ -1,9 +1,9 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: main
 issue-repo: casehubio/connectors
-status: drained
+status: active
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
