@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-376-microsoft-oauth-family
+branch: issue-378-truelayer-psd2-consent
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#376
+covers: casehubio/connectors#378
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -68,7 +68,7 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#374 — dynamic-registry-status
 - [x] casehubio/connectors#377 — github-oauth-manifest
 - [x] casehubio/connectors#375 — google-oauth-family
-- [ ] casehubio/connectors#376 — microsoft-oauth-family ← active
+- [ ] casehubio/connectors#376 — microsoft-oauth-family ← done on issue-376-microsoft-oauth-family
   - [x] Batch 1: Family manifest model
     - [x] Task 1: FlowDeclaration and GrantType
     - [x] Task 2: microsoft.yaml flows
@@ -79,7 +79,14 @@ tick: casehubio/connectors#303
   - [x] Batch 3: DependencyResolver and OAuthConsentService
     - [x] Task 6: DependencyResolver multi-flow
     - [x] Task 7: OAuthConsentService flow scopes
-- [ ] casehubio/connectors#378 — truelayer-psd2-consent
+- [ ] casehubio/connectors#378 — truelayer-psd2-consent ← active
+  - [ ] Batch 1: SPI and FlowDeclaration
+    - [ ] Task 1: UserTokenResolver + perUser flag
+  - [ ] Batch 2: FamilyConnectionProvider
+    - [ ] Task 2: actorId-aware routing
+  - [ ] Batch 3: TrueLayer integration
+    - [ ] Task 3: ConsentService implements UserTokenResolver
+    - [ ] Task 4: Manifest update + DependencyResolver
 - [ ] casehubio/connectors#354 — platform-registration-spi
 - [ ] casehubio/connectors#379 — webhook-auto-registration
 - [ ] casehubio/connectors#380 — CAPTCHA pass-through (S/Med)
