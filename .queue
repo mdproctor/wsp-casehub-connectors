@@ -49,7 +49,7 @@
 - [x] casehubio/connectors#367 — issue 367
 - [x] casehubio/connectors#368 — email-bootstrap-primitive
 - [x] casehubio/connectors#371 — epic-lifecycle-phase3-oauth-families
-- [ ] casehubio/connectors#373 — persistent-credential-facade ← done on issue-371-oauth-families-persist-cred
+- [x] casehubio/connectors#373 — persistent-credential-facade
 - [ ] casehubio/connectors#374 — dynamic-registry-status ← done on issue-371-oauth-families-persist-cred
 - [ ] casehubio/connectors#377 — github-oauth-manifest ← done on issue-371-oauth-families-persist-cred
 - [ ] casehubio/connectors#375 — google-oauth-family        ← active
