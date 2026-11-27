@@ -1,18 +1,23 @@
-# HANDOFF — casehub-connectors (#371)
+# HANDOFF — casehub-connectors (#371, #373, #374)
 
 ## Last Session
 
-Designed and started implementing ConnectorLifecycle Phase 3 — OAuth families and persistent credentials. Brainstorm produced 9 decisions (all revised after a light decision review that caught `service-connection:` redundancy and the credential persistence boundary violation). Spec went through a 3-round standard review (24 issues, 21 verified). Implementation plan written (13 tasks, 7 batches). Batches 1-3 landed: FamilyManifest records, FamilyManifestLoader with family resolution, build extension `value:`/`qualifier` support, OAuthConfigRegistry, and ConnectorRegistry.updateStatus().
+Completed Batch 4 of ConnectorLifecycle Phase 3 and two follow-on issues. Three issues marked done on branch `issue-371-oauth-families-persist-cred`:
+
+- **#371** (epic) — OAuth consent flow infrastructure: `OAuthConsentService` (PKCE, CSRF state, auth URL building, code-for-token exchange), `OAuthCallbackEndpoint` at `/oauth/callback/{family}`, `credentialInput()` OAuth branching (returns OAuth URL for OAuth2 connectors, form URL for the rest), CDI wiring with `@ConfigProperty` for callback base URL.
+- **#373** — `PersistentCredentialFacade` with `store()` write side. File-backed at `~/.casehub/credentials.yaml`, `ConcurrentHashMap` for thread-safe runtime access. `DefaultFacadeCreator` updated to create persistent facade instead of `InMemoryCredentialFacade`.
+- **#374** — `CredentialFormService.submitCredentials()` now stores to both `StaticCredentialStore` and `ProviderCredentialFacade`, then calls `ConnectorRegistry.updateStatusByCredentialKey()`. Connectors transition UNCONFIGURED → READY at runtime without restart.
+
+Code review caught and fixed: XSS in `OAuthCallbackEndpoint.esc()` (IntelliJ's reformat unescaped HTML entities), and `OAuthConsentService.storeToken()` missing `credentialFacade.store()` call.
+
+Squash review: 14 → 11 commits (3 absorbed — CDI wiring and review fixes folded into their parent commits).
 
 ## Immediate Next Step
 
-Execute Batch 4 from the plan — OAuth consent flow: `OAuthConsentService` (PKCE, CSRF, URL building), `OAuthCallbackEndpoint`, and `credentialInput()` OAuth branching. This is the most complex batch.
+#377 (github-oauth-manifest) is the next queue item. After that: #375 (google-oauth-family), #376 (microsoft-oauth-family), #378 (truelayer-psd2-consent).
 
 ## References
 
-- Spec: `specs/issue-371-oauth-families-persist-cred/2026-11-26-oauth-families-persist-cred-design.md`
-- Decisions: `specs/issue-371-oauth-families-persist-cred/decisions.md`
-- Plan: `plans/2026-11-27-oauth-families-persist-cred.md`
-- Diary: `blog/2026-11-27-mdp01-one-consent-to-rule-them-all.md`
-- Decision review: `~/reviews/casehub-connectors/issue-371-decision-20261126-220629/`
-- Spec review: `~/reviews/casehub-connectors/issue-371-spec-20261127-000550/`
+- Diary: `blog/2026-11-27-mdp01-one-consent-to-rule-them-all.md` (updated with consent flow + persistent facade sections)
+- Flow diagram: `blog/images/oauth-consent-flow.svg`
+- Family manifests: `connectors-api/src/main/resources/META-INF/families/{google,microsoft}.yaml`
