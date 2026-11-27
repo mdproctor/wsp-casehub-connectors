@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-375-google-oauth-family
+branch: 
 issue-repo: casehubio/connectors
 status: active
-covers: casehubio/connectors#375
+covers: casehubio/connectors#376
 project-sha: 4b3f479371df8960c97559ac61e7853636347561
 date: 2026-11-18
 design-repo: project
@@ -67,7 +67,7 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#373 — persistent-credential-facade
 - [x] casehubio/connectors#374 — dynamic-registry-status
 - [x] casehubio/connectors#377 — github-oauth-manifest
-- [ ] casehubio/connectors#375 — google-oauth-family ← active
+- [ ] casehubio/connectors#375 — google-oauth-family ← done on issue-375-google-oauth-family
   - [x] Batch 1: Manifests+OAuthConsent
     - [x] Task 1: Create Google connector manifests
     - [x] Task 2: OAuthConsentService enhancements
@@ -76,7 +76,7 @@ tick: casehubio/connectors#303
   - [x] Batch 3: DependencyResolver+Integration
     - [x] Task 4: Family-aware DependencyResolver
     - [x] Task 5: Integration test
-- [ ] casehubio/connectors#376 — microsoft-oauth-family
+- [ ] casehubio/connectors#376 — microsoft-oauth-family ← active
 - [ ] casehubio/connectors#378 — truelayer-psd2-consent
 - [ ] casehubio/connectors#354 — platform-registration-spi
 - [ ] casehubio/connectors#379 — webhook-auto-registration
