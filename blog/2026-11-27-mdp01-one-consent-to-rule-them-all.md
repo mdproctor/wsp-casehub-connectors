@@ -57,8 +57,30 @@ Google supports incremental consent natively — request Calendar scopes now, Dr
 
 The family manifest declares its own strategy: `consent: incremental` for Google, `consent: aggregated` for Microsoft. The consent flow reads it and behaves accordingly. The field is there for the future — Phase 3 always requests all declared scopes, because true per-module activation needs a trigger that doesn't exist yet. But the data model is ready.
 
+## The Consent Flow
+
+With family resolution in place, the next question is: how does a user actually authorize?
+
+The existing `CredentialFormService` renders an HTML form in the browser — the user types their API key, the form POSTs it, the credential store saves it. Clean for API keys, but OAuth doesn't work that way. OAuth is a redirect dance: build an authorization URL, send the user to Google or Microsoft, receive a callback with an authorization code, exchange that code for tokens. The credential never passes through the user's hands at all.
+
+![OAuth consent flow](images/oauth-consent-flow.svg)
+
+`OAuthConsentService` drives the entire flow from the family manifest's `OAuthDeclaration`. It generates a PKCE `code_verifier` (32 random bytes, base64url), computes the SHA-256 `code_challenge`, creates a CSRF `state` parameter with a 10-minute TTL, and builds the authorization URL with all of it. The URL templates in the manifest — `{callback-base-url}` and `{tenant-id}` — get resolved at build time from config and the credential facade respectively.
+
+The callback endpoint at `/oauth/callback/{family}` receives the redirect, validates the state parameter (single-use, TTL-checked), and exchanges the authorization code for tokens. The exchange POST includes the `code_verifier` — the IdP verifies it against the challenge from the original authorization request, completing PKCE. Tokens go to both `StaticCredentialStore` and `PersistentCredentialFacade`, then the registry re-evaluates every connector that shares the credential key.
+
+The branching in `credentialInput()` is minimal. If the manifest has `auth.oauth` populated (which it does after family resolution), return the OAuth authorization URL. If not, fall through to the existing credential form. The MCP tool's caller — typically an LLM — just sees a URL to present to the user. It doesn't know or care whether that URL opens a form or starts an OAuth dance.
+
+## Persistent Credentials
+
+The `InMemoryCredentialFacade` was a read-only snapshot — created once at startup from whatever the build extension could find. Store a token at runtime and the facade didn't see it. The registry couldn't see it either, so `connectorStatus` queries lied about configuration state until the next restart.
+
+`PersistentCredentialFacade` fixes this by reading and writing `~/.casehub/credentials.yaml`. On construction it loads the YAML into a `ConcurrentHashMap`. On `store()` it updates the map and persists the whole file. The registry checks the same facade for `isConfigured()`, so storing a token now immediately flips the connector from UNCONFIGURED to READY — no restart needed.
+
+The same bridge applies to the credential form. `CredentialFormService.submitCredentials()` now stores to both `StaticCredentialStore` and the facade, then calls `ConnectorRegistry.updateStatusByCredentialKey()`. Whether credentials arrive via API key form or OAuth consent, the status update path is the same.
+
 ## What's Built
 
-Three batches landed: the `FamilyManifest` record and loader, the build extension changes (the `value:` constructor-arg kind, `@Named` qualifier support, `OAuthConfigRegistry`), and `ConnectorRegistry.updateStatus()` for runtime re-evaluation when credentials change. The consent flow, module migrations, and end-to-end tests are next.
+Six batches landed across two sessions. The first three: `FamilyManifest` record and loader, build extension changes (`value:` constructor-arg kind, `@Named` qualifier support, `OAuthConfigRegistry`), and `ConnectorRegistry.updateStatus()`. The next three: `OAuthConsentService` with PKCE and CSRF, `OAuthCallbackEndpoint`, `credentialInput()` OAuth branching, `PersistentCredentialFacade`, and dynamic registry status updates.
 
-The Microsoft migration has one interesting wrinkle. `DocumentMicrosoftBeans` produces two `MicrosoftDrivePlatform` instances — one for OneDrive (`/me/drive`), one for SharePoint (`/sites/{siteId}/drive`). The `qualifier` field on `BeanDeclaration` and the `value:` constructor-arg exist specifically for this case: same class, different configuration, disambiguated by `@Named`.
+The Microsoft migration has one interesting wrinkle ahead. `DocumentMicrosoftBeans` produces two `MicrosoftDrivePlatform` instances — one for OneDrive (`/me/drive`), one for SharePoint (`/sites/{siteId}/drive`). The `qualifier` field on `BeanDeclaration` and the `value:` constructor-arg exist specifically for this case: same class, different configuration, disambiguated by `@Named`. The per-provider migrations (#375, #376, #377) are queued and ready — the infrastructure they need is now in place.

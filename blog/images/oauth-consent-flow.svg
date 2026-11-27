@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" font-family="system-ui,-apple-system,sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="420" rx="8" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="360" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#0f172a">OAuth Consent Flow</text>
+
+  <!-- MCP Tool -->
+  <rect x="30" y="60" width="130" height="44" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="95" y="78" text-anchor="middle" font-size="11" fill="#1e40af">credentialInput()</text>
+  <text x="95" y="93" text-anchor="middle" font-size="10" fill="#3b82f6">MCP tool</text>
+
+  <!-- OAuthConsentService -->
+  <rect x="200" y="60" width="160" height="44" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="280" y="78" text-anchor="middle" font-size="11" fill="#92400e">OAuthConsentService</text>
+  <text x="280" y="93" text-anchor="middle" font-size="10" fill="#b45309">PKCE + state</text>
+
+  <!-- Identity Provider -->
+  <rect x="540" y="60" width="150" height="44" rx="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="615" y="78" text-anchor="middle" font-size="11" fill="#3730a3">Identity Provider</text>
+  <text x="615" y="93" text-anchor="middle" font-size="10" fill="#4f46e5">Google / Microsoft</text>
+
+  <!-- Browser -->
+  <rect x="400" y="60" width="110" height="44" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="455" y="86" text-anchor="middle" font-size="11" fill="#334155">Browser</text>
+
+  <!-- Step 1: credentialInput → OAuthConsentService -->
+  <line x1="160" y1="82" x2="198" y2="82" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="179" y="74" text-anchor="middle" font-size="9" fill="#64748b">1</text>
+
+  <!-- Step 2: OAuthConsentService → Browser (auth URL) -->
+  <line x1="360" y1="82" x2="398" y2="82" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="379" y="74" text-anchor="middle" font-size="9" fill="#64748b">2</text>
+
+  <!-- Step 3: Browser → IdP (redirect) -->
+  <line x1="510" y1="82" x2="538" y2="82" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="524" y="74" text-anchor="middle" font-size="9" fill="#64748b">3</text>
+
+  <!-- Step 4: IdP → OAuthCallbackEndpoint (code + state) -->
+  <path d="M 615 104 L 615 155 L 455 155" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="540" y="145" text-anchor="middle" font-size="9" fill="#64748b">4 code + state</text>
+
+  <!-- OAuthCallbackEndpoint -->
+  <rect x="280" y="135" width="170" height="44" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="365" y="153" text-anchor="middle" font-size="11" fill="#92400e">OAuthCallbackEndpoint</text>
+  <text x="365" y="168" text-anchor="middle" font-size="10" fill="#b45309">/oauth/callback/{family}</text>
+
+  <!-- Step 5: Callback → ConsentService (exchange) -->
+  <path d="M 280 157 L 280 157 L 200 115" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="225" y="128" text-anchor="middle" font-size="9" fill="#64748b">5 exchange</text>
+
+  <!-- Step 6: ConsentService → IdP (token request) -->
+  <path d="M 280 104 L 280 220 L 615 220 L 615 104" stroke="#475569" stroke-width="1.5" fill="none" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
+  <text x="450" y="213" text-anchor="middle" font-size="9" fill="#64748b">6 POST code_verifier → access_token + refresh_token</text>
+
+  <!-- Credential Store -->
+  <rect x="80" y="275" width="180" height="44" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="170" y="293" text-anchor="middle" font-size="11" fill="#14532d">PersistentCredentialFacade</text>
+  <text x="170" y="308" text-anchor="middle" font-size="10" fill="#16a34a">~/.casehub/credentials.yaml</text>
+
+  <!-- ConnectorRegistry -->
+  <rect x="320" y="275" width="160" height="44" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="400" y="293" text-anchor="middle" font-size="11" fill="#14532d">ConnectorRegistry</text>
+  <text x="400" y="308" text-anchor="middle" font-size="10" fill="#16a34a">UNCONFIGURED → READY</text>
+
+  <!-- Step 7: ConsentService → CredentialStore -->
+  <path d="M 240 104 L 170 273" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arrow-green)"/>
+  <text x="185" y="195" text-anchor="middle" font-size="9" fill="#16a34a">7 store tokens</text>
+
+  <!-- Step 8: ConsentService → Registry -->
+  <path d="M 310 104 L 400 273" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arrow-green)"/>
+  <text x="380" y="195" text-anchor="middle" font-size="9" fill="#16a34a">8 updateStatus</text>
+
+  <!-- OAuthConfigRegistry -->
+  <rect x="30" y="135" width="145" height="44" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="102" y="153" text-anchor="middle" font-size="11" fill="#334155">OAuthConfigRegistry</text>
+  <text x="102" y="168" text-anchor="middle" font-size="10" fill="#64748b">family → endpoints</text>
+
+  <!-- ConfigRegistry → ConsentService (lookup) -->
+  <path d="M 102 135 L 240 104" stroke="#94a3b8" stroke-width="1" fill="none" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <rect x="30" y="350" width="660" height="55" rx="6" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="50" y="370" font-size="10" fill="#475569">① credentialInput detects auth.oauth</text>
+  <text x="50" y="385" font-size="10" fill="#475569">② Returns authorization URL with PKCE challenge + CSRF state</text>
+  <text x="50" y="400" font-size="10" fill="#475569">③④ Browser redirects to IdP, user consents, IdP redirects back with code</text>
+  <text x="380" y="370" font-size="10" fill="#475569">⑤⑥ Callback validates state, exchanges code with code_verifier</text>
+  <text x="380" y="385" font-size="10" fill="#16a34a">⑦ Tokens persisted to ~/.casehub/credentials.yaml</text>
+  <text x="380" y="400" font-size="10" fill="#16a34a">⑧ Registry re-evaluates: UNCONFIGURED → READY</text>
+</svg>
