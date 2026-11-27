@@ -1,23 +1,39 @@
-# HANDOFF — casehub-connectors (#371, #373, #374)
+# HANDOFF — casehub-connectors (#375)
 
 ## Last Session
 
-Completed Batch 4 of ConnectorLifecycle Phase 3 and two follow-on issues. Three issues marked done on branch `issue-371-oauth-families-persist-cred`:
+Completed #375 (google-oauth-family) on branch `issue-375-google-oauth-family`. Single Google OAuth consent now activates all 4 Google connectors (Calendar, Drive, Contacts, Gmail).
 
-- **#371** (epic) — OAuth consent flow infrastructure: `OAuthConsentService` (PKCE, CSRF state, auth URL building, code-for-token exchange), `OAuthCallbackEndpoint` at `/oauth/callback/{family}`, `credentialInput()` OAuth branching (returns OAuth URL for OAuth2 connectors, form URL for the rest), CDI wiring with `@ConfigProperty` for callback base URL.
-- **#373** — `PersistentCredentialFacade` with `store()` write side. File-backed at `~/.casehub/credentials.yaml`, `ConcurrentHashMap` for thread-safe runtime access. `DefaultFacadeCreator` updated to create persistent facade instead of `InMemoryCredentialFacade`.
-- **#374** — `CredentialFormService.submitCredentials()` now stores to both `StaticCredentialStore` and `ProviderCredentialFacade`, then calls `ConnectorRegistry.updateStatusByCredentialKey()`. Connectors transition UNCONFIGURED → READY at runtime without restart.
+**What was built:**
 
-Code review caught and fixed: XSS in `OAuthCallbackEndpoint.esc()` (IntelliJ's reformat unescaped HTML entities), and `OAuthConsentService.storeToken()` missing `credentialFacade.store()` call.
+- **Connector manifests** — created for calendar-google, document-google, contacts-google; simplified email-google. All reference `auth.family: google`; `enrichWithFamily()` fills in OAuth config from the family manifest.
+- **OAuthConsentService enhancements** — stores `expires-at` and `granted-scopes` in `ProviderCredentialFacade`; adds `include_granted_scopes=true` for incremental consent families; adds `buildAuthorizationUrl` overload for per-connector scope subsets. `OAuthConfigRegistry` now carries `ConsentStrategy` alongside `OAuthDeclaration`.
+- **FamilyConnectionProvider** — `ServiceConnectionProvider` implementation in the graphql module. Reads tokens from `ProviderCredentialFacade`, handles refresh via family manifest's token URL with per-provider synchronization. Registered as `@ApplicationScoped @DefaultBean` — platform's `ServiceConnectionProviderCore` takes priority in full-platform deployments.
+- **Family-aware DependencyResolver** — auto-infers OAuth requirements from `auth.family` during construction. `FamilyOAuthOption` added to sealed `ResolutionOption`. `DependencyResolverCreator` resolves `ProviderCredentialFacade` via `Arc.container().select()` for optional injection.
+- **Integration test** — verifies family resolution, unmet→satisfied dependency transition, and credential store propagation.
 
-Squash review: 14 → 11 commits (3 absorbed — CDI wiring and review fixes folded into their parent commits).
+**Design decisions shaped by adversarial review:** Originally planned to bridge tokens into platform's `OAuthTokenStore`, but review surfaced per-actor data model mismatch and dependency direction violation. Revised to connector-side `FamilyConnectionProvider` approach.
+
+Squash review: 14 → 6 commits.
+
+## Follow-Up Issues Filed
+
+- **#380** — CAPTCHA pass-through migration from Neocortex to connectors (S/Med)
+- **#381** — Composite `ServiceConnectionProvider` for full-platform deployments (S/Low)
+- **#382** — Fix MCP server test CDI unsatisfied dependency (pre-existing) (XS/Low)
 
 ## Immediate Next Step
 
-#377 (github-oauth-manifest) is the next queue item. After that: #375 (google-oauth-family), #376 (microsoft-oauth-family), #378 (truelayer-psd2-consent).
+Next queue items: #380, #381, #382 (follow-ups from this session), then whatever was already queued.
+
+## Known Issues
+
+- **MCP server test failure** (pre-existing, #382) — `McpServerStartupTest` fails because `CredentialFormService` requires `StaticCredentialStore` which isn't available in the MCP test CDI context. Predates this branch — confirmed by testing on main.
+- **`FamilyManifestLoader.discover()` only handles `file:` protocol** — family manifests in JAR dependencies aren't found. Integration tests construct families programmatically as a workaround. Not a runtime issue (Quarkus classpath resources are file-based during dev mode).
 
 ## References
 
-- Diary: `blog/2026-11-27-mdp01-one-consent-to-rule-them-all.md` (updated with consent flow + persistent facade sections)
-- Flow diagram: `blog/images/oauth-consent-flow.svg`
-- Family manifests: `connectors-api/src/main/resources/META-INF/families/{google,microsoft}.yaml`
+- Design spec: `docs/specs/issue-375-google-oauth-family/2026-11-27-google-oauth-family-design.md`
+- Decisions: `work/specs/issue-375-google-oauth-family/decisions.md`
+- Decision review: `/Users/mdproctor/reviews/casehub-connectors/issue-375-decision-20261127-150122/`
+- Diary: `docs/blog/2026-11-27-mdp02-one-consent-to-rule-them-all.md`
