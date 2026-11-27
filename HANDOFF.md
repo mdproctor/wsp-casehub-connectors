@@ -1,39 +1,48 @@
-# HANDOFF — casehub-connectors (#375)
+# HANDOFF — casehub-connectors (#376, #378)
 
 ## Last Session
 
-Completed #375 (google-oauth-family) on branch `issue-375-google-oauth-family`. Single Google OAuth consent now activates all 4 Google connectors (Calendar, Drive, Contacts, Gmail).
+Completed #376 (microsoft-oauth-family) implementation on branch `issue-376-microsoft-oauth-family`. Designed and planned #378 (truelayer-psd2-consent) — spec and plan written, ready for implementation.
 
-**What was built:**
+**#376 — What was built:**
 
-- **Connector manifests** — created for calendar-google, document-google, contacts-google; simplified email-google. All reference `auth.family: google`; `enrichWithFamily()` fills in OAuth config from the family manifest.
-- **OAuthConsentService enhancements** — stores `expires-at` and `granted-scopes` in `ProviderCredentialFacade`; adds `include_granted_scopes=true` for incremental consent families; adds `buildAuthorizationUrl` overload for per-connector scope subsets. `OAuthConfigRegistry` now carries `ConsentStrategy` alongside `OAuthDeclaration`.
-- **FamilyConnectionProvider** — `ServiceConnectionProvider` implementation in the graphql module. Reads tokens from `ProviderCredentialFacade`, handles refresh via family manifest's token URL with per-provider synchronization. Registered as `@ApplicationScoped @DefaultBean` — platform's `ServiceConnectionProviderCore` takes priority in full-platform deployments.
-- **Family-aware DependencyResolver** — auto-infers OAuth requirements from `auth.family` during construction. `FamilyOAuthOption` added to sealed `ResolutionOption`. `DependencyResolverCreator` resolves `ProviderCredentialFacade` via `Arc.container().select()` for optional injection.
-- **Integration test** — verifies family resolution, unmet→satisfied dependency transition, and credential store propagation.
+- **Multi-flow `FamilyManifest`** — `FlowDeclaration` record with `GrantType` enum (`AUTHORIZATION_CODE`, `CLIENT_CREDENTIALS`), optional `token-url` override, and `perUser` flag. Families can now declare named flows.
+- **`microsoft.yaml` updated** — three flows: `delegated` (authorization_code, 6 Graph scopes), `app` (client_credentials, graph.microsoft.com), `bot` (client_credentials, botframework.com with custom token-url).
+- **Connector manifests created** — calendar-microsoft, document-microsoft, chat-teams (new); email-microsoft cleaned up. Each declares which flows it uses.
+- **Convention-based provider string resolution** — `resolveFamily()` maps `"microsoft"` → delegated, `"microsoft-app"` → app, `"microsoft-bot"` → bot. Existing Teams code unchanged.
+- **`client_credentials` grant support** — `acquireApplicationToken()` in `FamilyConnectionProvider` POSTs to token endpoint with shared client-id/client-secret. Auto-acquires when missing or expired.
+- **`DependencyResolver` multi-flow** — checks each declared flow independently. `FamilyClientCredentialsOption` added to sealed `ResolutionOption`. Authorization_code flows check for access-token; client_credentials flows check for client-id + client-secret.
+- **`OAuthConsentService` flow scopes** — reads scopes from the delegated flow when present, falls back to top-level `oauth.scopes`.
+- **Review fixes** — `resolveTokenUrl()` for `{tenant-id}` template resolution (was missing in both `acquireApplicationToken` and `doRefresh`); `delegatedScopes()` null safety.
 
-**Design decisions shaped by adversarial review:** Originally planned to bridge tokens into platform's `OAuthTokenStore`, but review surfaced per-actor data model mismatch and dependency direction violation. Revised to connector-side `FamilyConnectionProvider` approach.
+**#378 — Design and plan complete, not implemented:**
 
-Squash review: 14 → 6 commits.
-
-## Follow-Up Issues Filed
-
-- **#380** — CAPTCHA pass-through migration from Neocortex to connectors (S/Med)
-- **#381** — Composite `ServiceConnectionProvider` for full-platform deployments (S/Low)
-- **#382** — Fix MCP server test CDI unsatisfied dependency (pre-existing) (XS/Low)
+- **UserTokenResolver CDI SPI** — new interface for per-user token resolution. `TrueLayerConsentService` implements it.
+- **`per-user: true` on `FlowDeclaration`** — signals `FamilyConnectionProvider` to delegate to `UserTokenResolver` instead of tenant facade.
+- **actorId-aware `FamilyConnectionProvider`** — when `actorId` is non-null and flow is per-user, delegates to discovered `UserTokenResolver` beans.
+- **Plan:** 4 tasks, 3 batches at `/Users/mdproctor/claude/public/casehub/connectors/plans/2026-11-27-truelayer-psd2-consent.md`
 
 ## Immediate Next Step
 
-Next queue items: #380, #381, #382 (follow-ups from this session), then whatever was already queued.
+Execute the #378 plan — 4 tasks across 3 batches. The plan is detailed with TDD steps and code. Start with `work continue`.
+
+## Branch State
+
+- Project repo: on `issue-376-microsoft-oauth-family` (needs alignment — workspace is on `issue-378-truelayer-psd2-consent`)
+- Both branches have clean working trees
+- #376 implementation committed but not landed (awaiting work-end)
+- #378 branch has spec and plan committed, no implementation yet
 
 ## Known Issues
 
-- **MCP server test failure** (pre-existing, #382) — `McpServerStartupTest` fails because `CredentialFormService` requires `StaticCredentialStore` which isn't available in the MCP test CDI context. Predates this branch — confirmed by testing on main.
-- **`FamilyManifestLoader.discover()` only handles `file:` protocol** — family manifests in JAR dependencies aren't found. Integration tests construct families programmatically as a workaround. Not a runtime issue (Quarkus classpath resources are file-based during dev mode).
+- **MCP server test failure** (pre-existing, #382) — `McpServerStartupTest` class discovery failure. Unrelated to #376/#378. Build succeeds with `-pl '!mcp-server-connectors'`.
+- **Spec naming drift** (#376) — design spec says "application" for the flow name, implementation uses "app" (to match provider string convention `microsoft-app`). Spec not updated. Code is correct.
 
 ## References
 
-- Design spec: `docs/specs/issue-375-google-oauth-family/2026-11-27-google-oauth-family-design.md`
-- Decisions: `work/specs/issue-375-google-oauth-family/decisions.md`
-- Decision review: `/Users/mdproctor/reviews/casehub-connectors/issue-375-decision-20261127-150122/`
-- Diary: `docs/blog/2026-11-27-mdp02-one-consent-to-rule-them-all.md`
+- #376 design spec: `docs/specs/issue-376-microsoft-oauth-family/2026-11-27-microsoft-oauth-family-design.md`
+- #376 decisions: `work/specs/issue-376-microsoft-oauth-family/decisions.md`
+- #378 design spec: `docs/specs/issue-378-truelayer-psd2-consent/2026-11-27-truelayer-psd2-consent-design.md`
+- #378 decisions: `work/specs/issue-378-truelayer-psd2-consent/decisions.md`
+- #378 plan: `plans/2026-11-27-truelayer-psd2-consent.md`
+- Diary: `docs/blog/2026-11-27-mdp03-three-flows-one-family.md`
