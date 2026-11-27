@@ -69,16 +69,16 @@ tick: casehubio/connectors#303
 - [x] casehubio/connectors#377 — github-oauth-manifest
 - [x] casehubio/connectors#375 — google-oauth-family
 - [ ] casehubio/connectors#376 — microsoft-oauth-family ← active
-  - [ ] Batch 1: Family manifest model
-    - [ ] Task 1: FlowDeclaration and GrantType
-    - [ ] Task 2: microsoft.yaml flows
-    - [ ] Task 3: AuthDeclaration flows + module manifests
-  - [ ] Batch 2: FamilyConnectionProvider
-    - [ ] Task 4: Provider string resolution
-    - [ ] Task 5: client_credentials grant
-  - [ ] Batch 3: DependencyResolver and OAuthConsentService
-    - [ ] Task 6: DependencyResolver multi-flow
-    - [ ] Task 7: OAuthConsentService flow scopes
+  - [x] Batch 1: Family manifest model
+    - [x] Task 1: FlowDeclaration and GrantType
+    - [x] Task 2: microsoft.yaml flows
+    - [x] Task 3: AuthDeclaration flows + module manifests
+  - [x] Batch 2: FamilyConnectionProvider
+    - [x] Task 4: Provider string resolution
+    - [x] Task 5: client_credentials grant
+  - [x] Batch 3: DependencyResolver and OAuthConsentService
+    - [x] Task 6: DependencyResolver multi-flow
+    - [x] Task 7: OAuthConsentService flow scopes
 - [ ] casehubio/connectors#378 — truelayer-psd2-consent
 - [ ] casehubio/connectors#354 — platform-registration-spi
 - [ ] casehubio/connectors#379 — webhook-auto-registration
